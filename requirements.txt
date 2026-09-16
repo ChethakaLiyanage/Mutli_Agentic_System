@@ -3,13 +3,10 @@ joblib==1.6.0
 scikit-learn==1.9.1
 # Install the English model separately: python -m spacy download en_core_web_sm
 spacy==3.8.16
-
-
-fastapi
-uvicorn[standard]
+fastapi>=0.115,<1.0
+uvicorn>=0.34,<1.0
 
 supabase
-pydantic
 pydantic-settings
 
 python-dotenv
