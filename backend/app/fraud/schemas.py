@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class ClaimData(BaseModel):
@@ -41,7 +41,13 @@ class DocumentFacts(BaseModel):
     ]
 
     incident_date: date | None = None
-    claim_amount: Decimal | None = None
+    claim_amount: Decimal | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "claim_amount",
+            "claimed_amount",
+        ),
+    )
     incident_type: str | None = None
     police_report_number: str | None = None
     extracted_text: str | None = None

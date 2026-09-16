@@ -94,14 +94,14 @@ def flag_amount_conflicts(
     for document in documents:
         if (
             document.document_type != "repair_estimate"
-            or document.claimed_amount is None
-            or document.claimed_amount <= 0
+            or document.claim_amount is None
+            or document.claim_amount <= 0
         ):
             continue
 
         difference_ratio = abs(
-            claim.claimed_amount - document.claimed_amount
-        ) / document.claimed_amount
+            claim.claimed_amount - document.claim_amount
+        ) / document.claim_amount
 
         if difference_ratio > tolerance:
             indicators.append(
@@ -119,7 +119,7 @@ def flag_amount_conflicts(
                             claim.claimed_amount
                         ),
                         "repair_estimate_amount": float(
-                            document.claimed_amount
+                            document.claim_amount
                         ),
                         "difference_ratio": round(
                             float(difference_ratio),
