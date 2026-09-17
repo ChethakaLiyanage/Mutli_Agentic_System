@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,10 +14,21 @@ from backend.app.orchestrator.agent_clients import LocalClaimIntakeClient
 from backend.app.orchestrator.constants import WorkflowStatus, WorkflowType
 from backend.app.orchestrator.service import OrchestratorService
 from backend.app.schemas.intake import IntakeData, IntakeResponse, IntentResult
+from backend.app.schemas.auth import AuthenticatedUser
 from backend.app.schemas.orchestrator import (
     ClarificationResponse,
     OrchestratorRequest,
     OrchestratorResponse,
+)
+from backend.app.security.dependencies import get_current_customer
+from backend.app.security.roles import UserRole
+
+
+TEST_USER = AuthenticatedUser(
+    user_id="USR-TEST",
+    email="test@example.com",
+    role=UserRole.CUSTOMER,
+    created_at=datetime.now(timezone.utc),
 )
 
 
@@ -47,6 +59,7 @@ class FakeOrchestratorService:
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
+    app.dependency_overrides[get_current_customer] = lambda: TEST_USER
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -156,7 +169,7 @@ def test_incomplete_claim_returns_clarification(client: TestClient) -> None:
         "When did the incident happen?",
         "Where did the incident happen?",
     ]
-    assert service.calls[0][1:] == (None, None)
+    assert service.calls[0][1:] == (TEST_USER.user_id, TEST_USER.role.value)
 
 
 @pytest.mark.parametrize(

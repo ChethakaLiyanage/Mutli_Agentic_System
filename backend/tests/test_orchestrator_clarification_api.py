@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,7 +19,18 @@ from backend.app.schemas.intake import (
     IntakeResponse,
     IntentResult,
 )
+from backend.app.schemas.auth import AuthenticatedUser
 from backend.app.schemas.orchestrator import ClarificationRequest, OrchestratorRequest
+from backend.app.security.dependencies import get_current_customer
+from backend.app.security.roles import UserRole
+
+
+TEST_USER = AuthenticatedUser(
+    user_id="USR-TEST",
+    email="test@example.com",
+    role=UserRole.CUSTOMER,
+    created_at=datetime.now(timezone.utc),
+)
 
 
 class TwoTurnIntakeClient:
@@ -51,6 +63,7 @@ class FailingResumeService:
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
+    app.dependency_overrides[get_current_customer] = lambda: TEST_USER
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -138,7 +151,9 @@ def test_completed_workflow_returns_409(client: TestClient) -> None:
 
     async def create_completed_workflow() -> str:
         first = await service.process_request(
-            OrchestratorRequest(request_id="REQ301", text="An incomplete claim")
+            OrchestratorRequest(request_id="REQ301", text="An incomplete claim"),
+            authenticated_user_id=TEST_USER.user_id,
+            authenticated_user_role=TEST_USER.role.value,
         )
         second = await service.resume_clarification(
             first.workflow_id,
@@ -146,6 +161,8 @@ def test_completed_workflow_returns_409(client: TestClient) -> None:
                 request_id="REQ302",
                 text="Complete clarification information",
             ),
+            authenticated_user_id=TEST_USER.user_id,
+            authenticated_user_role=TEST_USER.role.value,
         )
         return second.workflow_id
 

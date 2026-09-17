@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -10,15 +11,18 @@ from backend.app.orchestrator.agent_clients import LocalClaimIntakeClient
 from backend.app.orchestrator.repository import InMemoryWorkflowRepository
 from backend.app.orchestrator.service import (
     OrchestratorService,
+    WorkflowAccessDeniedError,
     WorkflowNotFoundError,
     WorkflowNotResumableError,
 )
+from backend.app.schemas.auth import AuthenticatedUser
 from backend.app.schemas.orchestrator import (
     ClarificationRequest,
     ClarificationResponse,
     OrchestratorRequest,
     OrchestratorResponse,
 )
+from backend.app.security.dependencies import get_current_customer
 
 
 logger = logging.getLogger(__name__)
@@ -49,17 +53,17 @@ def get_orchestrator_service() -> OrchestratorService:
 )
 async def process_orchestrator_request(
     request: OrchestratorRequest,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_customer)],
     service: OrchestratorService = Depends(get_orchestrator_service),
 ) -> OrchestratorResponse | ClarificationResponse:
     """Validate and process one independent workflow request."""
 
     logger.info("%s orchestrator request received", request.request_id)
     try:
-        # TODO: Supply trusted identity through a FastAPI security dependency.
         response = await service.process_request(
             request,
-            authenticated_user_id=None,
-            authenticated_user_role=None,
+            authenticated_user_id=current_user.user_id,
+            authenticated_user_role=current_user.role.value,
         )
     except Exception as error:
         logger.exception(
@@ -92,6 +96,7 @@ async def process_orchestrator_request(
 async def clarify_orchestrator_workflow(
     workflow_id: str,
     request: ClarificationRequest,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_customer)],
     service: OrchestratorService = Depends(get_orchestrator_service),
 ) -> OrchestratorResponse | ClarificationResponse:
     """Resume one persisted workflow without trusting body-supplied identity."""
@@ -102,12 +107,11 @@ async def clarify_orchestrator_workflow(
         workflow_id,
     )
     try:
-        # TODO: Supply trusted identity through a FastAPI security dependency.
         response = await service.resume_clarification(
             workflow_id,
             request,
-            authenticated_user_id=None,
-            authenticated_user_role=None,
+            authenticated_user_id=current_user.user_id,
+            authenticated_user_role=current_user.role.value,
         )
     except WorkflowNotFoundError as error:
         raise HTTPException(
@@ -118,6 +122,11 @@ async def clarify_orchestrator_workflow(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Workflow is not awaiting clarification",
+        ) from error
+    except WorkflowAccessDeniedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this workflow",
         ) from error
     except Exception as error:
         logger.exception(

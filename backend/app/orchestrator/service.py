@@ -53,6 +53,10 @@ class WorkflowNotResumableError(ValueError):
     """Raised when clarification is submitted to a non-waiting workflow."""
 
 
+class WorkflowAccessDeniedError(PermissionError):
+    """Raised when a caller does not own the requested workflow."""
+
+
 class OrchestratorService:
     """Run Agent 1 and determine which future workflow should handle a request."""
 
@@ -361,14 +365,26 @@ class OrchestratorService:
         state = await self.workflow_repository.get(workflow_id)
         if state is None:
             raise WorkflowNotFoundError("Workflow not found")
+        if (
+            authenticated_user_id is None
+            or state.authenticated_user_id != authenticated_user_id
+        ):
+            logger.warning(
+                "Workflow access denied: workflow %s requesting user %s",
+                workflow_id,
+                authenticated_user_id or "unauthenticated",
+            )
+            raise WorkflowAccessDeniedError(
+                "You are not authorized to access this workflow"
+            )
         if state.current_status is not WorkflowStatus.AWAITING_CLARIFICATION:
             raise WorkflowNotResumableError(
                 "Workflow is not awaiting clarification"
             )
 
-        # Stored ownership context is intentionally preserved. A future security
-        # dependency can compare it with these trusted caller values.
-        _ = authenticated_user_id, authenticated_user_role
+        # The stored role remains authoritative for this workflow. Role-specific
+        # reviewer behavior is intentionally outside this step.
+        _ = authenticated_user_role
         state.last_request_id = request.request_id
         state.clarification_count += 1
         state.accumulated_text = (

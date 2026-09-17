@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 
+from backend.app.api.auth import router as auth_router
 from backend.app.api.intake import router as intake_router
 from backend.app.api.orchestrator import router as orchestrator_router
 
@@ -11,6 +12,7 @@ app = FastAPI(
     version="1.0.0",
 )
 app.include_router(intake_router)
+app.include_router(auth_router)
 app.include_router(orchestrator_router)
 
 

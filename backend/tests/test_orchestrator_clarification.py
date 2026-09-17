@@ -33,6 +33,10 @@ from backend.app.schemas.orchestrator import (
 )
 
 
+OWNER_ID = "USR-OWNER"
+OWNER_ROLE = "customer"
+
+
 @dataclass
 class IntakeOutcome:
     missing_fields: list[str]
@@ -82,8 +86,8 @@ def test_one_clarification_completes_the_same_workflow() -> None:
                 request_id="REQ001",
                 text="My car was damaged and I want to claim.",
             ),
-            authenticated_user_id="trusted-user",
-            authenticated_user_role="claimant",
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(initial, ClarificationResponse)
 
@@ -93,8 +97,8 @@ def test_one_clarification_completes_the_same_workflow() -> None:
                 request_id="REQ002",
                 text="A bus hit it yesterday in Kandy.",
             ),
-            authenticated_user_id="different-caller-not-yet-enforced",
-            authenticated_user_role="reviewer",
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
 
         assert isinstance(resumed, OrchestratorResponse)
@@ -116,8 +120,8 @@ def test_one_clarification_completes_the_same_workflow() -> None:
         assert saved.clarification_count == 1
         assert saved.last_request_id == "REQ002"
         assert saved.audit_trail[0] == initial.audit_trail[0]
-        assert saved.authenticated_user_id == "trusted-user"
-        assert saved.authenticated_user_role == "claimant"
+        assert saved.authenticated_user_id == OWNER_ID
+        assert saved.authenticated_user_role == OWNER_ROLE
 
     asyncio.run(scenario())
 
@@ -134,13 +138,17 @@ def test_multiple_clarifications_preserve_remaining_fields_and_audit() -> None:
         )
         service = OrchestratorService(client, repository)
         initial = await service.process_request(
-            OrchestratorRequest(request_id="REQ001", text="I want to claim damage.")
+            OrchestratorRequest(request_id="REQ001", text="I want to claim damage."),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(initial, ClarificationResponse)
 
         first_reply = await service.resume_clarification(
             initial.workflow_id,
             ClarificationRequest(request_id="REQ002", text="It happened yesterday."),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(first_reply, ClarificationResponse)
         assert first_reply.workflow_id == initial.workflow_id
@@ -149,6 +157,8 @@ def test_multiple_clarifications_preserve_remaining_fields_and_audit() -> None:
         second_reply = await service.resume_clarification(
             initial.workflow_id,
             ClarificationRequest(request_id="REQ003", text="A bus hit it in Kandy."),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(second_reply, OrchestratorResponse)
         assert second_reply.status is WorkflowStatus.INTAKE_COMPLETE
@@ -174,15 +184,21 @@ def test_unknown_and_non_resumable_workflows_are_rejected() -> None:
             await service.resume_clarification(
                 "WF-DOES-NOT-EXIST",
                 ClarificationRequest(request_id="REQ002", text="More detail"),
+                authenticated_user_id=OWNER_ID,
+                authenticated_user_role=OWNER_ROLE,
             )
 
         completed = await service.process_request(
-            OrchestratorRequest(request_id="REQ001", text="A complete claim message")
+            OrchestratorRequest(request_id="REQ001", text="A complete claim message"),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
         with pytest.raises(WorkflowNotResumableError):
             await service.resume_clarification(
                 completed.workflow_id,
                 ClarificationRequest(request_id="REQ002", text="More detail"),
+                authenticated_user_id=OWNER_ID,
+                authenticated_user_role=OWNER_ROLE,
             )
 
     asyncio.run(scenario())
@@ -197,7 +213,9 @@ def test_clarification_limit_requires_manual_assistance_and_stops_calls() -> Non
         )
         service = OrchestratorService(client, repository)
         result = await service.process_request(
-            OrchestratorRequest(request_id="REQ001", text="I want to claim.")
+            OrchestratorRequest(request_id="REQ001", text="I want to claim."),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
 
         for attempt in range(1, MAX_CLARIFICATION_ATTEMPTS + 1):
@@ -207,6 +225,8 @@ def test_clarification_limit_requires_manual_assistance_and_stops_calls() -> Non
                     request_id=f"REQ00{attempt + 1}",
                     text=f"Additional information {attempt}",
                 ),
+                authenticated_user_id=OWNER_ID,
+                authenticated_user_role=OWNER_ROLE,
             )
 
         assert isinstance(result, OrchestratorResponse)
@@ -217,6 +237,8 @@ def test_clarification_limit_requires_manual_assistance_and_stops_calls() -> Non
             await service.resume_clarification(
                 result.workflow_id,
                 ClarificationRequest(request_id="REQ999", text="Another reply"),
+                authenticated_user_id=OWNER_ID,
+                authenticated_user_role=OWNER_ROLE,
             )
         assert len(client.requests) == MAX_CLARIFICATION_ATTEMPTS + 1
 
@@ -232,11 +254,15 @@ def test_agent_failure_during_clarification_is_persisted_safely() -> None:
         )
         service = OrchestratorService(client, repository)
         initial = await service.process_request(
-            OrchestratorRequest(request_id="REQ001", text="I want to claim.")
+            OrchestratorRequest(request_id="REQ001", text="I want to claim."),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
         result = await service.resume_clarification(
             initial.workflow_id,
             ClarificationRequest(request_id="REQ002", text="More information"),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
 
         assert isinstance(result, OrchestratorResponse)
@@ -259,7 +285,9 @@ def test_real_agent_one_completes_after_clarification() -> None:
             OrchestratorRequest(
                 request_id="REAL001",
                 text="My car was damaged and I want to claim.",
-            )
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(initial, ClarificationResponse)
 
@@ -269,6 +297,8 @@ def test_real_agent_one_completes_after_clarification() -> None:
                 request_id="REAL002",
                 text="A bus hit my car yesterday near Kandy.",
             ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(resumed, OrchestratorResponse)
         assert resumed.workflow_id == initial.workflow_id
