@@ -88,6 +88,10 @@ def test_creates_initial_serializable_workflow_state() -> None:
     restored = WorkflowState.model_validate_json(state.model_dump_json())
 
     assert state.request_id == "REQ001"
+    assert state.workflow_id.startswith("WF-")
+    assert state.last_request_id == "REQ001"
+    assert state.original_text == request.text
+    assert state.accumulated_text == request.text
     assert state.raw_text == request.text
     assert state.current_status is WorkflowStatus.RECEIVED
     assert state.workflow_type is WorkflowType.UNKNOWN
@@ -98,6 +102,18 @@ def test_creates_initial_serializable_workflow_state() -> None:
     assert service.to_response(state).fraud_result is None
     assert service.to_response(state).guidance_result is None
     assert restored == state
+
+
+def test_new_workflows_receive_distinct_server_generated_ids() -> None:
+    service = OrchestratorService()
+    first = service.create_initial_state(
+        OrchestratorRequest(request_id="REQ001", text="First valid request")
+    )
+    second = service.create_initial_state(
+        OrchestratorRequest(request_id="REQ002", text="Second valid request")
+    )
+
+    assert first.workflow_id != second.workflow_id
 
 
 def test_authenticated_context_is_supplied_outside_request_body() -> None:
@@ -164,6 +180,7 @@ def test_clarification_state_and_response_representation() -> None:
     snapshot = service.to_response(state)
     clarification = ClarificationResponse(
         request_id=state.request_id,
+        workflow_id=state.workflow_id,
         missing_fields=state.missing_fields,
     )
 

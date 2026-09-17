@@ -7,8 +7,14 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.orchestrator.agent_clients import LocalClaimIntakeClient
-from backend.app.orchestrator.service import OrchestratorService
+from backend.app.orchestrator.repository import InMemoryWorkflowRepository
+from backend.app.orchestrator.service import (
+    OrchestratorService,
+    WorkflowNotFoundError,
+    WorkflowNotResumableError,
+)
 from backend.app.schemas.orchestrator import (
+    ClarificationRequest,
     ClarificationResponse,
     OrchestratorRequest,
     OrchestratorResponse,
@@ -18,7 +24,11 @@ from backend.app.schemas.orchestrator import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
-_orchestrator_service = OrchestratorService(LocalClaimIntakeClient())
+_workflow_repository = InMemoryWorkflowRepository()
+_orchestrator_service = OrchestratorService(
+    claim_intake_client=LocalClaimIntakeClient(),
+    workflow_repository=_workflow_repository,
+)
 
 
 def get_orchestrator_service() -> OrchestratorService:
@@ -64,6 +74,66 @@ async def process_orchestrator_request(
     logger.info(
         "%s orchestrator completed: %s",
         request.request_id,
+        response.status.value,
+    )
+    return response
+
+
+@router.post(
+    "/workflows/{workflow_id}/clarify",
+    response_model=OrchestratorResponse | ClarificationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Continue a workflow with clarification",
+    description=(
+        "Append a clarification message to an awaiting workflow and rerun "
+        "Claim Intake Agent analysis using the accumulated context."
+    ),
+)
+async def clarify_orchestrator_workflow(
+    workflow_id: str,
+    request: ClarificationRequest,
+    service: OrchestratorService = Depends(get_orchestrator_service),
+) -> OrchestratorResponse | ClarificationResponse:
+    """Resume one persisted workflow without trusting body-supplied identity."""
+
+    logger.info(
+        "%s workflow %s clarification received",
+        request.request_id,
+        workflow_id,
+    )
+    try:
+        # TODO: Supply trusted identity through a FastAPI security dependency.
+        response = await service.resume_clarification(
+            workflow_id,
+            request,
+            authenticated_user_id=None,
+            authenticated_user_role=None,
+        )
+    except WorkflowNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        ) from error
+    except WorkflowNotResumableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Workflow is not awaiting clarification",
+        ) from error
+    except Exception as error:
+        logger.exception(
+            "%s workflow %s clarification failed",
+            request.request_id,
+            workflow_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Orchestrator service failed",
+        ) from error
+
+    logger.info(
+        "%s workflow %s clarification completed: %s",
+        request.request_id,
+        workflow_id,
         response.status.value,
     )
     return response

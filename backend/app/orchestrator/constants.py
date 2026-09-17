@@ -10,6 +10,7 @@ class WorkflowStatus(str, Enum):
     INTAKE_PROCESSING = "intake_processing"
     INTAKE_COMPLETE = "intake_complete"
     AWAITING_CLARIFICATION = "awaiting_clarification"
+    MANUAL_ASSISTANCE_REQUIRED = "manual_assistance_required"
     INFORMATION_RETRIEVAL = "information_retrieval"
     FRAUD_TRIAGE = "fraud_triage"
     AWAITING_HUMAN_REVIEW = "awaiting_human_review"
@@ -54,6 +55,12 @@ LOW_CONFIDENCE_CLARIFICATION_MESSAGE = (
     "a claim status."
 )
 
+MAX_CLARIFICATION_ATTEMPTS = 3
+CLARIFICATION_LIMIT_MESSAGE = (
+    "We still need additional information to continue. Please contact a claims "
+    "officer or restart the request with more detail."
+)
+
 
 ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.RECEIVED: frozenset(
@@ -63,6 +70,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
         {
             WorkflowStatus.INTAKE_COMPLETE,
             WorkflowStatus.AWAITING_CLARIFICATION,
+            WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
             WorkflowStatus.INFORMATION_RETRIEVAL,
             WorkflowStatus.FRAUD_TRIAGE,
             WorkflowStatus.GUIDANCE_PROCESSING,
@@ -82,6 +90,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.AWAITING_CLARIFICATION: frozenset(
         {WorkflowStatus.INTAKE_PROCESSING, WorkflowStatus.FAILED}
     ),
+    WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED: frozenset(),
     WorkflowStatus.INFORMATION_RETRIEVAL: frozenset(
         {
             WorkflowStatus.FRAUD_TRIAGE,

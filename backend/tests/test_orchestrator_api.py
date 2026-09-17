@@ -73,6 +73,7 @@ def successful_response(
     )
     return OrchestratorResponse(
         request_id=request_id,
+        workflow_id="WF-TEST",
         status=WorkflowStatus.INTAKE_COMPLETE,
         workflow_type=workflow_type,
         intake_result=intake_result,
@@ -112,6 +113,7 @@ def test_incomplete_claim_returns_clarification(client: TestClient) -> None:
     service = FakeOrchestratorService(
         ClarificationResponse(
             request_id="REQ102",
+            workflow_id="WF-TEST",
             intake_result=IntakeResponse(
                 request_id="REQ102",
                 status="success",

@@ -37,6 +37,7 @@ class OrchestratorRequest(_OrchestratorContract):
             raise ValueError("request_id cannot be empty")
         return value
 
+
     @field_validator("text")
     @classmethod
     def validate_text(cls, value: str) -> str:
@@ -46,6 +47,10 @@ class OrchestratorRequest(_OrchestratorContract):
         if len(value) > 3000:
             raise ValueError("text must contain at most 3000 characters")
         return value
+
+
+class ClarificationRequest(OrchestratorRequest):
+    """A follow-up message for an existing clarification workflow."""
 
 
 class OrchestratorError(_OrchestratorContract):
@@ -69,6 +74,7 @@ class ClarificationResponse(_OrchestratorContract):
     """A structured pause indicating that additional user input is required."""
 
     request_id: str
+    workflow_id: str
     status: WorkflowStatus = WorkflowStatus.AWAITING_CLARIFICATION
     workflow_type: WorkflowType = WorkflowType.CLARIFICATION
     intake_result: IntakeResponse | None = None
@@ -83,6 +89,7 @@ class OrchestratorResponse(_OrchestratorContract):
     """Current structured result returned by the central workflow controller."""
 
     request_id: str
+    workflow_id: str
     status: WorkflowStatus
     workflow_type: WorkflowType
     intake_result: IntakeResponse | None = None

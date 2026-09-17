@@ -21,8 +21,13 @@ class WorkflowState(BaseModel):
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
+    workflow_id: str = Field(min_length=1, max_length=100)
     request_id: str = Field(max_length=200)
+    last_request_id: str = Field(max_length=200)
     raw_text: str = Field(max_length=3000)
+    original_text: str = Field(max_length=3000)
+    accumulated_text: str = Field(max_length=12000)
+    clarification_count: int = Field(default=0, ge=0)
 
     authenticated_user_id: str | None = None
     authenticated_user_role: str | None = None
@@ -45,7 +50,14 @@ class WorkflowState(BaseModel):
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
 
-    @field_validator("request_id", "raw_text")
+    @field_validator(
+        "workflow_id",
+        "request_id",
+        "last_request_id",
+        "raw_text",
+        "original_text",
+        "accumulated_text",
+    )
     @classmethod
     def reject_blank_values(cls, value: str) -> str:
         value = value.strip()
