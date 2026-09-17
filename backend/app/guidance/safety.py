@@ -8,7 +8,12 @@ from __future__ import annotations
 
 import re
 from typing import NamedTuple
-from .schemas import Audience, GuidanceRequest, GuidanceResponseData, HumanDecisionContext
+from backend.app.guidance.schemas import (
+    Audience,
+    GuidanceRequest,
+    GuidanceResponseData,
+    HumanDecisionContext,
+)
 
 
 # Forbidden phrases when no verified human decision is present

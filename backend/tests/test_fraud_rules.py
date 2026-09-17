@@ -1,13 +1,13 @@
 from datetime import date
 from decimal import Decimal
 
-from app.fraud.document_checks import (
+from backend.app.fraud.document_checks import (
     flag_amount_conflicts,
     flag_date_conflicts,
     get_missing_documents,
 )
-from app.fraud.rules import flag_policy_inactive
-from app.fraud.schemas import (
+from backend.app.fraud.rules import flag_policy_inactive
+from backend.app.fraud.schemas import (
     ClaimData,
     DocumentFacts,
     PolicyData,

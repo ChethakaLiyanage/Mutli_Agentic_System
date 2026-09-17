@@ -7,14 +7,9 @@ from typing import Any, List, Optional, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-try:
-    from backend.app.orchestrator.constants import WorkflowStatus, WorkflowType
-    from backend.app.schemas.intake import IntakeResponse
-    from backend.app.schemas.orchestrator import AuditEvent, OrchestratorError
-except ImportError:
-    from app.orchestrator.constants import WorkflowStatus, WorkflowType
-    from app.schemas.intake import IntakeResponse
-    from app.schemas.orchestrator import AuditEvent, OrchestratorError
+from backend.app.orchestrator.constants import WorkflowStatus, WorkflowType
+from backend.app.schemas.intake import IntakeResponse
+from backend.app.schemas.orchestrator import AuditEvent, OrchestratorError
 
 
 def _utc_now() -> datetime:

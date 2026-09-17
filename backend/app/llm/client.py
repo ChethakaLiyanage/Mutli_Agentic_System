@@ -13,7 +13,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 import httpx
-from .config import LLMSettings
+from backend.app.llm.config import LLMSettings
 
 logger = logging.getLogger(__name__)
 

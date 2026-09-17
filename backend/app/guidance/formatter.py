@@ -6,7 +6,7 @@ Implements Sections 4, 8, and Mode A/B formatting of the design guide.
 from __future__ import annotations
 
 from typing import Any
-from .schemas import GuidanceResponse, ReviewerSummarySection
+from backend.app.guidance.schemas import GuidanceResponse, ReviewerSummarySection
 
 
 def format_markdown_customer_response(response: GuidanceResponse) -> str:

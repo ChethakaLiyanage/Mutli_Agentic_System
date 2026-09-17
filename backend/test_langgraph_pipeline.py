@@ -8,7 +8,7 @@ for path in (repo_root, backend_dir):
         sys.path.insert(0, path)
 
 import json
-from app.graph.workflow import create_claims_workflow
+from backend.app.graph.workflow import create_claims_workflow
 
 print('=== 1. Compiling Claims Workflow ===')
 workflow = create_claims_workflow()

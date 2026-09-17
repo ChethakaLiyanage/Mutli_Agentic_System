@@ -8,18 +8,18 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from .evidence_validator import validate_evidence
-from .prompt_builder import build_prompt
-from .response_validator import validate_guidance_response
-from .safety import build_insufficient_evidence_fallback
-from .schemas import (
+from backend.app.guidance.evidence_validator import validate_evidence
+from backend.app.guidance.prompt_builder import build_prompt
+from backend.app.guidance.response_validator import validate_guidance_response
+from backend.app.guidance.safety import build_insufficient_evidence_fallback
+from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
     GuidanceResponseData,
     ResponseStatus,
 )
-from ..llm import BaseLLMClient, get_llm_client
-from ..services.audit_service import get_audit_service
+from backend.app.llm import BaseLLMClient, get_llm_client
+from backend.app.services.audit_service import get_audit_service
 
 logger = logging.getLogger(__name__)
 

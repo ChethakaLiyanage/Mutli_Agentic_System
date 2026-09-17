@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from app.fraud.engine import FraudDetectionEngine
+from backend.app.fraud.engine import FraudDetectionEngine
 
 
 def test_engine_returns_high_risk_for_multiple_red_flags():
@@ -88,7 +88,7 @@ def test_engine_returns_high_risk_for_multiple_red_flags():
 
 from decimal import Decimal
 
-from app.fraud.engine import FraudDetectionEngine
+from backend.app.fraud.engine import FraudDetectionEngine
 
 
 def test_engine_uses_ml_model_when_available():

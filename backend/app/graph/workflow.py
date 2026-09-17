@@ -1,10 +1,17 @@
-from langgraph.graph import StateGraph, END
+from __future__ import annotations
+
 from typing import Literal
 
-from app.graph.state import ClaimsState
-from app.agents.retrieval_agent import retrieval_agent
-from app.agents.fraud_detection_agent import fraud_detection_agent
-from app.agents.guidance_agent import guidance_agent, reviewer_support_agent
+try:
+    from langgraph.graph import END, StateGraph
+except ModuleNotFoundError:  # Optional until the graph is connected to the live app.
+    END = None
+    StateGraph = None
+
+from backend.app.graph.state import ClaimsState
+from backend.app.agents.retrieval_agent import retrieval_agent
+from backend.app.agents.fraud_detection_agent import fraud_detection_agent
+from backend.app.agents.guidance_agent import guidance_agent, reviewer_support_agent
 
 
 def route_after_retrieval(state: ClaimsState) -> Literal["fraud_detection_agent", "reviewer_support_agent", "end"]:
@@ -35,6 +42,12 @@ def route_after_retrieval(state: ClaimsState) -> Literal["fraud_detection_agent"
 
 def create_claims_workflow():
     """Create and compile the multi-agent insurance claims workflow."""
+
+    if StateGraph is None or END is None:
+        raise RuntimeError(
+            "LangGraph is required to build the optional claims graph. "
+            "Install backend/requirements.txt before using this module."
+        )
 
     # Initialize the graph with our shared state
     graph = StateGraph(ClaimsState)

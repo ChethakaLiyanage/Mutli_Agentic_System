@@ -1,4 +1,4 @@
-from app.retrieval.schemas import (
+from backend.app.retrieval.schemas import (
     RetrievalRequest,
     UserContext,
     IntentContext,
@@ -8,9 +8,9 @@ from app.retrieval.schemas import (
     DocumentReference,
 )
 
-from app.retrieval.service import RetrievalService
-from app.retrieval.repository import RetrievalRepository
-from app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.retrieval.service import RetrievalService
+from backend.app.retrieval.repository import RetrievalRepository
+from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
 
 
 class FakeRetrievalRepository:

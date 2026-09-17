@@ -1,28 +1,28 @@
 from datetime import date
 
-from app.fraud.anomaly_model import AnomalyModel
-from app.fraud.document_checks import (
+from backend.app.fraud.anomaly_model import AnomalyModel
+from backend.app.fraud.document_checks import (
     flag_amount_conflicts,
     flag_date_conflicts,
     get_missing_documents,
 )
-from app.fraud.feature_engineering import build_feature_row
-from app.fraud.history_checks import (
+from backend.app.fraud.feature_engineering import build_feature_row
+from backend.app.fraud.history_checks import (
     flag_duplicate_claim,
     flag_duplicate_police_report,
     flag_repeated_claims,
 )
-from app.fraud.rules import (
+from backend.app.fraud.rules import (
     flag_late_reporting,
     flag_policy_inactive,
 )
-from app.fraud.schemas import (
+from backend.app.fraud.schemas import (
     ClaimData,
     DocumentFacts,
     FraudAssessment,
     PolicyData,
 )
-from app.fraud.scoring import (
+from backend.app.fraud.scoring import (
     apply_ml_override,
     calculate_rule_score,
     combine_hybrid_scores,

@@ -11,3 +11,17 @@ venv/
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+# Frontend dependencies
+frontend/node_modules/
+
+# Frontend build output
+frontend/dist/
+
+# Vite cache
+frontend/.vite/
+
+# Frontend local environment
+frontend/.env
+
+# Optional test/build caches
+frontend/coverage/

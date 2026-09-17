@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from .audit_service import mask_pii
+from backend.app.services.audit_service import mask_pii
 
 
 class PIIMaskingFilter(logging.Filter):

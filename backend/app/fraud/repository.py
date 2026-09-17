@@ -2,8 +2,8 @@ import uuid
 from typing import Optional
 from supabase import Client
 
-from app.fraud.schemas import FraudAssessment
-from app.services.supabase_service import get_supabase_client
+from backend.app.fraud.schemas import FraudAssessment
+from backend.app.services.supabase_service import get_supabase_client
 
 
 def _is_valid_uuid(val: str) -> bool:

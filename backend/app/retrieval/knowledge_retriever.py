@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from supabase import Client
 
-from app.retrieval.schemas import KnowledgeEvidence
+from backend.app.retrieval.schemas import KnowledgeEvidence
 
 
 class KnowledgeRetriever:

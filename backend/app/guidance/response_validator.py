@@ -6,8 +6,8 @@ Implements Sections 4, 5.2, 8, and 12 of the Agent 4 Design Guide.
 from __future__ import annotations
 
 from typing import NamedTuple
-from .safety import enforce_safety
-from .schemas import GuidanceRequest, GuidanceResponseData
+from backend.app.guidance.safety import enforce_safety
+from backend.app.guidance.schemas import GuidanceRequest, GuidanceResponseData
 
 
 class ValidationResult(NamedTuple):

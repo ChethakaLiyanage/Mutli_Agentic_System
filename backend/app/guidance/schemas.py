@@ -39,7 +39,7 @@ class EvidenceItem(_GuidanceContract):
 
     document_id: str
     document_name: str
-    section: str
+    section: str | None = None
     content: str
     relevance_score: float | None = Field(default=None, ge=0.0, le=1.0)
 
@@ -58,7 +58,7 @@ class HumanDecisionContext(_GuidanceContract):
     decision: Literal["approved", "rejected", "info_requested", "escalated"]
     officer_id: str
     officer_notes: str | None = None
-    decision_date: date = Field(default_factory=date.today)
+    decision_date: date | None = None
     settlement_amount: Decimal | None = None
 
 
@@ -89,7 +89,7 @@ class FraudAssessmentContext(_GuidanceContract):
         "escalate",
     ] = "manual_review"
     automated_decision: bool = False
-    rules_version: str = "1.0.0"
+    rules_version: str | None = None
     model_version: str | None = None
 
 

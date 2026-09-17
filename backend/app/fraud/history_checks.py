@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from app.fraud.schemas import ClaimData, RiskIndicator
+from backend.app.fraud.schemas import ClaimData, RiskIndicator
 
 
 def flag_duplicate_claim(

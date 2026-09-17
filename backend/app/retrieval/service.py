@@ -1,7 +1,7 @@
 from typing import Optional
 
-from app.retrieval.repository import RetrievalRepository
-from app.retrieval.schemas import (
+from backend.app.retrieval.repository import RetrievalRepository
+from backend.app.retrieval.schemas import (
     RetrievalRequest,
     RetrievalResponse,
     RetrievalResult,
@@ -11,7 +11,7 @@ from app.retrieval.schemas import (
     DocumentEvidence,
     KnowledgeEvidence,
 )
-from app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
 
 
 class RetrievalService:

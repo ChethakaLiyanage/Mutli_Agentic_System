@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from ..guidance.schemas import (
+from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
 )
-from ..guidance.service import GuidanceService
+from backend.app.guidance.service import GuidanceService
 
 logger = logging.getLogger(__name__)
 

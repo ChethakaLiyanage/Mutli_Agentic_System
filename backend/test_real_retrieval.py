@@ -1,16 +1,16 @@
 import json
-from app.services.supabase_service import get_supabase_client
-from app.retrieval.repository import RetrievalRepository
-from app.retrieval.schemas import (
+from backend.app.services.supabase_service import get_supabase_client
+from backend.app.retrieval.repository import RetrievalRepository
+from backend.app.retrieval.schemas import (
     RetrievalRequest,
     UserContext,
     IntentContext,
     PolicyLookupContext,
     ClaimLookupContext,
 )
-from app.retrieval.service import RetrievalService
-from app.retrieval.knowledge_retriever import KnowledgeRetriever
-from app.agents.retrieval_agent import retrieval_agent
+from backend.app.retrieval.service import RetrievalService
+from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.agents.retrieval_agent import retrieval_agent
 
 REAL_POLICY_NUMBER = "MTR-DEMO-1001"
 REAL_POLICY_ID = "0023b1f0-ed1e-4c2a-995b-e4070bbef5b1"

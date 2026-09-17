@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import json
 from typing import NamedTuple
-from .prompts import (
+from backend.app.guidance.prompts import (
     BASE_SYSTEM_INSTRUCTION,
     CUSTOMER_MODE_INSTRUCTION,
     REVIEWER_MODE_INSTRUCTION,
     TASK_PROMPTS,
 )
-from .schemas import GuidanceRequest
+from backend.app.guidance.schemas import GuidanceRequest
 
 
 class BuiltPrompt(NamedTuple):

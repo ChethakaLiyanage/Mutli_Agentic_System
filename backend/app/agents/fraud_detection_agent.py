@@ -1,29 +1,29 @@
 from datetime import date
 
-from app.fraud.schemas import (
+from backend.app.fraud.schemas import (
     ClaimData,
     DocumentFacts,
     FraudAssessment,
     PolicyData,
 )
-from app.fraud.rules import (
+from backend.app.fraud.rules import (
     flag_policy_inactive,
     flag_late_reporting,
     flag_date_conflict,
     flag_amount_conflict,
 )
-from app.fraud.history_checks import (
+from backend.app.fraud.history_checks import (
     flag_duplicate_claim,
     flag_duplicate_police_report,
 )
-from app.fraud.scoring import (
+from backend.app.fraud.scoring import (
     calculate_rule_score,
     get_recommended_action,
     get_risk_level,
 )
-from app.fraud.document_checks import get_missing_documents
-from app.fraud.repository import FraudRepository
-from app.services.supabase_service import get_supabase_client
+from backend.app.fraud.document_checks import get_missing_documents
+from backend.app.fraud.repository import FraudRepository
+from backend.app.services.supabase_service import get_supabase_client
 
 
 def fraud_detection_agent(state: dict) -> dict:

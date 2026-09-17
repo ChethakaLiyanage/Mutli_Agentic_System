@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from typing import NamedTuple
-from .schemas import EvidenceItem, GuidanceRequest, GuidanceTaskType
+from backend.app.guidance.schemas import EvidenceItem, GuidanceRequest, GuidanceTaskType
 
 
 # Tasks that strictly require authoritative evidence from retrieval
