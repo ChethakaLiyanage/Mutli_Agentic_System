@@ -91,6 +91,9 @@ def flag_amount_conflicts(
 ) -> list[RiskIndicator]:
     indicators = []
 
+    if claim.claimed_amount is None:
+        return indicators
+
     for document in documents:
         if (
             document.document_type != "repair_estimate"

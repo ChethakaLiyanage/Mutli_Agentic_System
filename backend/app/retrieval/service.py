@@ -93,11 +93,23 @@ class RetrievalService:
 
         result.policy_data = self._coerce_policy(policy)
 
-        claim_history = (
-            self.repository.get_policy_claim_history(
-                policy_id=result.policy_data.policy_id,
+        claim_id = (
+            request.claim_lookup.claim_id
+            if request.claim_lookup is not None
+            else None
+        )
+        if claim_id:
+            claim_record = self.repository.get_claim_by_id(
+                claim_id=claim_id,
                 user_id=user_id,
             )
+            if claim_record is not None:
+                result.claim_record = self._coerce_claim(claim_record)
+
+        claim_history = self.repository.get_policy_claim_history(
+            policy_id=result.policy_data.policy_id,
+            user_id=user_id,
+            exclude_claim_id=claim_id,
         )
 
         result.historical_claims = [
@@ -108,13 +120,12 @@ class RetrievalService:
                 incident_date=str(row["incident_date"]),
                 claimed_amount=row.get("claimed_amount"),
                 status=row.get("claim_status", row.get("status")),
+                police_report_number=row.get("police_report_number"),
             )
             for row in claim_history
         ]
 
         if request.claim_lookup:
-            claim_id = request.claim_lookup.claim_id
-
             if claim_id:
                 documents = (
                     self.repository.get_claim_documents(

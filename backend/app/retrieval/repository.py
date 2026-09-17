@@ -46,6 +46,7 @@ class RetrievalRepository:
             claim_id=row["claim_id"], claim_reference=row["claim_reference"],
             claim_type=row["incident_type"], incident_date=str(row["incident_date"]),
             claimed_amount=row.get("claimed_amount"), status=row.get("claim_status"),
+            police_report_number=row.get("police_report_number"),
         )
 
     @staticmethod
@@ -91,7 +92,7 @@ class RetrievalRepository:
         self, policy_id: str, user_id: str, exclude_claim_id: str | None = None,
     ) -> list[HistoricalClaim]:
         query = (self.client.table("claims")
-                 .select("claim_id,claim_reference,incident_type,incident_date,claimed_amount,claim_status")
+                 .select("claim_id,claim_reference,incident_type,incident_date,claimed_amount,claim_status,police_report_number")
                  .eq("policy_id", policy_id).eq("customer_id", user_id))
         if exclude_claim_id:
             query = query.neq("claim_id", exclude_claim_id)

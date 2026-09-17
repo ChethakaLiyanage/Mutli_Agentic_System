@@ -6,10 +6,22 @@ import asyncio
 from typing import Protocol, runtime_checkable
 
 from backend.app.agents.claim_intake_agent import ClaimIntakeAgent
+from backend.app.fraud.engine import FraudDetectionEngine
+from backend.app.orchestrator.adapters import (
+    canonical_to_fraud_inputs,
+    fraud_to_canonical,
+)
+from backend.app.schemas.domain import (
+    ClaimContext,
+    DocumentFact,
+    FraudAssessmentContext,
+    PolicyContext,
+)
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
 from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
 from backend.app.retrieval.repository import RetrievalRepository
 from backend.app.retrieval.schemas import RetrievalRequest, RetrievalResponse
+from backend.app.retrieval.schemas import HistoricalClaim
 from backend.app.retrieval.service import RetrievalService
 from backend.app.services.supabase_service import get_supabase_client
 
@@ -65,3 +77,86 @@ class LocalRetrievalClient:
 
     async def retrieve(self, request: RetrievalRequest) -> RetrievalResponse:
         return await asyncio.to_thread(self._service.retrieve, request)
+
+
+@runtime_checkable
+class FraudClient(Protocol):
+    """Async replaceable boundary for Agent 3 risk triage."""
+
+    async def assess(
+        self,
+        *,
+        claim: ClaimContext,
+        policy: PolicyContext,
+        document_facts: list[DocumentFact],
+        historical_claims: list[HistoricalClaim],
+    ) -> FraudAssessmentContext:
+        ...
+
+
+class _LocalFraudEngine(Protocol):
+    def evaluate(
+        self,
+        claim_data: dict,
+        policy_data: dict,
+        document_facts: list[dict],
+        historical_claims: list[dict],
+        duplicate_police_report_claims: list[dict],
+    ): ...
+
+
+class LocalFraudClient:
+    """Run the production fraud engine without coupling it to orchestration."""
+
+    def __init__(self, engine: _LocalFraudEngine | None = None) -> None:
+        self._engine = engine or FraudDetectionEngine()
+
+    async def assess(
+        self,
+        *,
+        claim: ClaimContext,
+        policy: PolicyContext,
+        document_facts: list[DocumentFact],
+        historical_claims: list[HistoricalClaim],
+    ) -> FraudAssessmentContext:
+        claim_data, policy_data = canonical_to_fraud_inputs(claim, policy)
+        document_rows = [
+            {
+                "document_id": item.document_id,
+                "document_type": item.document_type.value,
+                "incident_date": item.incident_date,
+                "claimed_amount": item.claim_amount,
+                "incident_type": (
+                    item.incident_type.value if item.incident_type else None
+                ),
+                "police_report_number": item.police_report_number,
+                "extracted_text": item.extracted_text,
+            }
+            for item in document_facts
+        ]
+        history_rows = [
+            {
+                "id": item.claim_id,
+                "claim_reference": item.claim_reference,
+                "claim_type": item.claim_type,
+                "incident_date": item.incident_date,
+                "claimed_amount": item.claimed_amount,
+                "status": item.status,
+                "police_report_number": item.police_report_number,
+            }
+            for item in historical_claims
+        ]
+        duplicate_reports = [
+            row for row in history_rows
+            if claim.police_report_number
+            and row.get("police_report_number") == claim.police_report_number
+        ]
+        assessment = await asyncio.to_thread(
+            self._engine.evaluate,
+            claim_data=claim_data,
+            policy_data=policy_data,
+            document_facts=document_rows,
+            historical_claims=history_rows,
+            duplicate_police_report_claims=duplicate_reports,
+        )
+        return fraud_to_canonical(assessment, claim_id=claim.claim_id)

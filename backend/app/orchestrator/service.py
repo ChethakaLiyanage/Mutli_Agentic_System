@@ -2,18 +2,27 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 import logging
 from typing import Iterable
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
+from backend.app.fraud.repository import FraudAssessmentRepository
 from backend.app.graph.state import WorkflowState
 from backend.app.orchestrator.agent_clients import (
     ClaimIntakeClient,
+    FraudClient,
     LocalClaimIntakeClient,
     RetrievalClient,
 )
-from backend.app.orchestrator.adapters import build_retrieval_request
+from backend.app.orchestrator.adapters import (
+    build_retrieval_request,
+    intake_to_claim_context,
+    retrieval_to_document_facts,
+    retrieval_to_policy_context,
+)
+from backend.app.orchestrator.claim_repository import ClaimRepository
 from backend.app.orchestrator.constants import (
     ALLOWED_STATUS_TRANSITIONS,
     AuditEventStatus,
@@ -31,6 +40,7 @@ from backend.app.orchestrator.repository import (
 )
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
 from backend.app.retrieval.schemas import RetrievalResponse
+from backend.app.schemas.domain import FraudAssessmentContext
 from backend.app.schemas.orchestrator import (
     AuditEvent,
     ClarificationRequest,
@@ -68,9 +78,15 @@ class OrchestratorService:
         claim_intake_client: ClaimIntakeClient | None = None,
         workflow_repository: WorkflowRepository | None = None,
         retrieval_client: RetrievalClient | None = None,
+        fraud_client: FraudClient | None = None,
+        claim_repository: ClaimRepository | None = None,
+        fraud_repository: FraudAssessmentRepository | None = None,
     ) -> None:
         self.claim_intake_client = claim_intake_client or LocalClaimIntakeClient()
         self.retrieval_client = retrieval_client
+        self.fraud_client = fraud_client
+        self.claim_repository = claim_repository
+        self.fraud_repository = fraud_repository
         self.workflow_repository = (
             workflow_repository or InMemoryWorkflowRepository()
         )
@@ -192,14 +208,20 @@ class OrchestratorService:
     def to_response(self, state: WorkflowState) -> OrchestratorResponse:
         """Create a public response snapshot from current workflow state."""
 
-        retrieval_result = self._public_retrieval_result(state.retrieval_result)
+        retrieval_result = self._public_retrieval_result(
+            state.retrieval_result,
+            include_structured=(
+                state.workflow_type is WorkflowType.INFORMATION_REQUEST
+            ),
+        )
         retrieval_status = (
             str(retrieval_result.get("status")) if retrieval_result else None
         )
         retrieval_body = retrieval_result.get("result", {}) if retrieval_result else {}
         warnings = list(retrieval_body.get("warnings", []))
         evidence_summary = list(retrieval_body.get("knowledge_evidence", []))
-        message = self._retrieval_message(retrieval_status)
+        public_fraud = self._public_fraud_result(state.fraud_result)
+        message = self._public_message(state, retrieval_status)
 
         return OrchestratorResponse(
             request_id=state.last_request_id,
@@ -212,7 +234,19 @@ class OrchestratorService:
             warnings=warnings,
             evidence_summary=evidence_summary,
             message=message,
-            fraud_result=state.fraud_result,
+            fraud_result=public_fraud,
+            fraud_risk_level=(
+                str(public_fraud.get("risk_level")) if public_fraud else None
+            ),
+            recommended_next_action=(
+                str(public_fraud.get("recommended_action"))
+                if public_fraud else None
+            ),
+            risk_indicator_count=len(public_fraud.get("indicators", [])) if public_fraud else 0,
+            missing_document_summary=(
+                list(public_fraud.get("missing_documents", []))
+                if public_fraud else []
+            ),
             human_review_result=state.human_review_result,
             guidance_result=state.guidance_result,
             missing_fields=list(state.missing_fields),
@@ -224,6 +258,8 @@ class OrchestratorService:
     @staticmethod
     def _public_retrieval_result(
         retrieval_result: dict | None,
+        *,
+        include_structured: bool = True,
     ) -> dict | None:
         """Remove ingestion-only metadata while preserving grounded evidence."""
         if retrieval_result is None:
@@ -232,6 +268,11 @@ class OrchestratorService:
             key: value for key, value in retrieval_result.items()
         }
         result = dict(public.get("result") or {})
+        if not include_structured:
+            result["policy_data"] = None
+            result["claim_record"] = None
+            result["historical_claims"] = []
+            result["document_facts"] = []
         safe_evidence = []
         allowed_metadata = {
             "source_document_id", "chunk_id", "document_type",
@@ -263,6 +304,30 @@ class OrchestratorService:
             "no_results": "No relevant controlled evidence was found.",
             "failed": "Policy information retrieval failed.",
         }.get(status)
+
+    @staticmethod
+    def _public_fraud_result(fraud_result: dict | None) -> dict | None:
+        if fraud_result is None:
+            return None
+        allowed = {
+            "assessment_id", "claim_id", "risk_score", "risk_level",
+            "indicators", "recommended_action", "missing_documents",
+            "rule_score", "anomaly_score", "automated_decision",
+            "rules_version", "model_version", "warnings",
+        }
+        return {key: value for key, value in fraud_result.items() if key in allowed}
+
+    def _public_message(
+        self, state: WorkflowState, retrieval_status: str | None
+    ) -> str | None:
+        if state.current_status is WorkflowStatus.AWAITING_HUMAN_REVIEW:
+            if state.fraud_result and state.fraud_result.get("indicators"):
+                return (
+                    "Your claim has been submitted for human review. "
+                    "Automated risk triage identified information that requires review."
+                )
+            return "Your claim has been submitted for human review."
+        return self._retrieval_message(retrieval_status)
 
     def determine_workflow_type(self, state: WorkflowState) -> WorkflowType:
         """Map Agent 1's intent to one controlled Orchestrator workflow type."""
@@ -578,17 +643,32 @@ class OrchestratorService:
         completion_message: str,
         completion_step: str,
     ) -> None:
-        """Run Agent 2 only for information requests, then stop before guidance."""
+        """Advance one grounded workflow through its configured agent clients."""
+        self.update_status(
+            state,
+            WorkflowStatus.INTAKE_COMPLETE,
+            message=completion_message,
+            step=completion_step,
+        )
+        await self.workflow_repository.save(state)
+
+        if state.workflow_type is WorkflowType.CLAIM_SUBMISSION:
+            if all(
+                component is not None
+                for component in (
+                    self.retrieval_client,
+                    self.fraud_client,
+                    self.claim_repository,
+                    self.fraud_repository,
+                )
+            ):
+                await self._run_claim_submission(state)
+            return
+
         if (
             state.workflow_type is not WorkflowType.INFORMATION_REQUEST
             or self.retrieval_client is None
         ):
-            self.update_status(
-                state,
-                WorkflowStatus.INTAKE_COMPLETE,
-                message=completion_message,
-                step=completion_step,
-            )
             return
 
         if state.intake_result is None or state.authenticated_user_id is None:
@@ -655,6 +735,187 @@ class OrchestratorService:
             message=messages[retrieval_response.status],
             step="information_retrieval",
         )
+
+    async def _run_claim_submission(self, state: WorkflowState) -> None:
+        """Persist, retrieve, and risk-triage a claim without deciding it."""
+        if state.intake_result is None or state.authenticated_user_id is None:
+            self.mark_failed(
+                state,
+                code="CLAIM_CONTEXT_INVALID",
+                message="The claim could not be prepared safely",
+                step="claim_persistence",
+            )
+            return
+
+        assert self.claim_repository is not None
+        assert self.retrieval_client is not None
+        assert self.fraud_client is not None
+        assert self.fraud_repository is not None
+
+        claim = intake_to_claim_context(
+            state.intake_result,
+            customer_id=state.authenticated_user_id,
+        )
+        if claim.incident_description is None:
+            claim = claim.model_copy(
+                update={"incident_description": state.accumulated_text}
+            )
+
+        self.append_audit_event(
+            state,
+            step="claim_persistence",
+            status=AuditEventStatus.STARTED,
+            message="Claim persistence started",
+        )
+        await self.workflow_repository.save(state)
+        try:
+            claim = await asyncio.to_thread(
+                self.claim_repository.save_for_workflow,
+                workflow_id=state.workflow_id,
+                claim=claim,
+            )
+            if claim.customer_id != state.authenticated_user_id or not claim.claim_id:
+                raise ValueError("Persisted claim identity is invalid")
+            state.claim_context = claim
+        except Exception:
+            logger.exception("Claim persistence failed for workflow %s", state.workflow_id)
+            self.mark_failed(
+                state,
+                code="CLAIM_PERSISTENCE_FAILED",
+                message="The claim could not be stored safely",
+                step="claim_persistence",
+            )
+            return
+        self.append_audit_event(
+            state,
+            step="claim_persistence",
+            status=AuditEventStatus.SUCCESS,
+            message="Claim persistence completed",
+        )
+        await self.workflow_repository.save(state)
+
+        self.update_status(
+            state,
+            WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL,
+            message="Structured claim retrieval started",
+            step="claim_information_retrieval",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self.workflow_repository.save(state)
+        try:
+            retrieval_request = build_retrieval_request(
+                request_id=state.last_request_id,
+                authenticated_user_id=state.authenticated_user_id,
+                original_query=state.accumulated_text,
+                intake=state.intake_result,
+                claim=claim,
+            )
+            retrieval_response = await self.retrieval_client.retrieve(retrieval_request)
+            if not isinstance(retrieval_response, RetrievalResponse):
+                raise TypeError("Retrieval client returned an invalid response")
+            state.retrieval_result = retrieval_response.model_dump(mode="json")
+            if retrieval_response.status == "failed":
+                raise RuntimeError("Structured retrieval failed")
+        except Exception:
+            logger.exception("Structured claim retrieval failed for %s", state.workflow_id)
+            self.mark_failed(
+                state,
+                code="CLAIM_RETRIEVAL_FAILED",
+                message="Claim information retrieval could not be completed",
+                step="claim_information_retrieval",
+            )
+            return
+        self.append_audit_event(
+            state,
+            step="claim_information_retrieval",
+            status=AuditEventStatus.SUCCESS,
+            message="Structured claim retrieval completed",
+        )
+        await self.workflow_repository.save(state)
+
+        policy = retrieval_to_policy_context(retrieval_response)
+        if policy is None:
+            self.mark_failed(
+                state,
+                code="POLICY_CONTEXT_UNAVAILABLE",
+                message="An owned policy could not be retrieved for risk triage",
+                step="claim_information_retrieval",
+            )
+            return
+
+        self.update_status(
+            state,
+            WorkflowStatus.FRAUD_TRIAGE,
+            message="Fraud risk triage started",
+            step="fraud_triage",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self.workflow_repository.save(state)
+        try:
+            assessment = await self.fraud_client.assess(
+                claim=claim,
+                policy=policy,
+                document_facts=retrieval_to_document_facts(retrieval_response),
+                historical_claims=list(retrieval_response.result.historical_claims),
+            )
+            if not isinstance(assessment, FraudAssessmentContext):
+                raise TypeError("Fraud client returned an invalid assessment")
+            if assessment.automated_decision is not False:
+                raise ValueError("Automated claim decisions are prohibited")
+            assessment = assessment.model_copy(
+                update={
+                    "assessment_id": assessment.assessment_id
+                    or f"FRA-{uuid5(NAMESPACE_URL, state.workflow_id).hex.upper()}",
+                    "claim_id": claim.claim_id,
+                    "automated_decision": False,
+                }
+            )
+            state.fraud_result = assessment.model_dump(mode="json")
+        except Exception:
+            logger.exception("Fraud triage failed for workflow %s", state.workflow_id)
+            self.mark_failed(
+                state,
+                code="FRAUD_TRIAGE_FAILED",
+                message="Fraud risk triage could not be completed",
+                step="fraud_triage",
+            )
+            return
+        self.append_audit_event(
+            state,
+            step="fraud_triage",
+            status=AuditEventStatus.SUCCESS,
+            message="Fraud risk triage completed",
+        )
+        await self.workflow_repository.save(state)
+
+        try:
+            await asyncio.to_thread(
+                self.fraud_repository.save_canonical_assessment,
+                assessment,
+            )
+        except Exception:
+            logger.exception("Fraud assessment persistence failed for %s", state.workflow_id)
+            self.mark_failed(
+                state,
+                code="FRAUD_PERSISTENCE_FAILED",
+                message="The risk assessment could not be stored safely",
+                step="fraud_persistence",
+            )
+            return
+        self.append_audit_event(
+            state,
+            step="fraud_persistence",
+            status=AuditEventStatus.SUCCESS,
+            message="Fraud assessment persisted",
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.AWAITING_HUMAN_REVIEW,
+            message="Claim awaiting human review",
+            step="human_review",
+            audit_status=AuditEventStatus.AWAITING_INPUT,
+        )
+        await self.workflow_repository.save(state)
 
     async def route_next_step(self, _state: WorkflowState) -> None:
         """Placeholder for future agent routing and human-review coordination."""

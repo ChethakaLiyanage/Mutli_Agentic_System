@@ -204,8 +204,13 @@ def retrieval_missing_evidence(response: RetrievalResponse) -> list[str]:
 
 def fraud_to_canonical(
     assessment: FraudAssessment,
+    *,
+    assessment_id: str | None = None,
+    claim_id: str | None = None,
 ) -> FraudAssessmentContext:
     return FraudAssessmentContext(
+        assessment_id=assessment_id,
+        claim_id=claim_id,
         risk_score=assessment.risk_score,
         risk_level=assessment.risk_level,
         indicators=[
@@ -226,6 +231,7 @@ def fraud_to_canonical(
         automated_decision=assessment.automated_decision,
         rules_version=assessment.rules_version,
         model_version=assessment.model_version,
+        warnings=list(assessment.warnings),
     )
 
 
@@ -249,8 +255,6 @@ def canonical_to_fraud_inputs(
         "policy_number": policy_number,
         "incident_type": claim.incident_type,
         "incident_date": claim.incident_date,
-        "claimed_amount": claim.claimed_amount,
-        "incident_description": claim.incident_description,
     }
     required_policy_values = {
         "policy_id": policy.policy_id,

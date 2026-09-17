@@ -239,7 +239,7 @@ def test_missing_fraud_inputs_are_reported_instead_of_defaulted() -> None:
             PolicyContext(customer_id="USR-001"),
         )
     assert "claim.incident_date" in str(error.value)
-    assert "claim.claimed_amount" in str(error.value)
+    assert "claim.claimed_amount" not in str(error.value)
     assert "policy.start_date" in str(error.value)
 
 

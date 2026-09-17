@@ -99,6 +99,10 @@ class OrchestratorResponse(_OrchestratorContract):
     evidence_summary: list[dict[str, Any]] = Field(default_factory=list)
     message: str | None = None
     fraud_result: dict[str, Any] | None = None
+    fraud_risk_level: str | None = None
+    recommended_next_action: str | None = None
+    risk_indicator_count: int = 0
+    missing_document_summary: list[str] = Field(default_factory=list)
     human_review_result: dict[str, Any] | None = None
     guidance_result: dict[str, Any] | None = None
     missing_fields: list[str] = Field(default_factory=list)

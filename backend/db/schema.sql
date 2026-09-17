@@ -23,6 +23,7 @@ create table if not exists public.workflows (
     authenticated_user_id text not null references public.users(user_id),
     authenticated_user_role text not null check (authenticated_user_role in ('customer', 'claims_officer', 'admin')),
     intake_result jsonb,
+    claim_context jsonb,
     retrieval_result jsonb,
     fraud_result jsonb,
     human_review_result jsonb,
@@ -32,7 +33,8 @@ create table if not exists public.workflows (
     )),
     current_status text not null check (current_status in (
         'received', 'intake_processing', 'intake_complete', 'awaiting_clarification',
-        'manual_assistance_required', 'information_retrieval', 'fraud_triage',
+        'manual_assistance_required', 'information_retrieval',
+        'claim_information_retrieval', 'fraud_triage',
         'retrieval_complete', 'awaiting_human_review', 'guidance_processing',
         'completed', 'failed'
     )),
@@ -62,6 +64,7 @@ create table if not exists public.policies (
 
 create table if not exists public.claims (
     claim_id text primary key,
+    workflow_id text unique references public.workflows(workflow_id),
     claim_reference text unique,
     customer_id text references public.users(user_id),
     policy_id text references public.policies(policy_id),
@@ -161,6 +164,7 @@ create index if not exists idx_workflows_created_at on public.workflows(created_
 create index if not exists idx_policies_customer_id on public.policies(customer_id);
 create index if not exists idx_policies_status on public.policies(status);
 create index if not exists idx_claims_customer_id on public.claims(customer_id);
+create index if not exists idx_claims_workflow_id on public.claims(workflow_id);
 create index if not exists idx_claims_policy_id on public.claims(policy_id);
 create index if not exists idx_claims_claim_status on public.claims(claim_status);
 create index if not exists idx_claims_incident_type on public.claims(incident_type);

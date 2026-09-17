@@ -96,6 +96,7 @@ class HistoricalClaim(BaseModel):
 
     claimed_amount: float | None = None
     status: str | None = None
+    police_report_number: str | None = None
 
 
 class DocumentEvidence(BaseModel):

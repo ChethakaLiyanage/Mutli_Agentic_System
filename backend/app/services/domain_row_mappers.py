@@ -36,7 +36,8 @@ def claim_from_row(
     row: dict[str, Any],
     document_references: list[DocumentReference] | None = None,
 ) -> ClaimContext:
-    data = dict(row)
+    allowed = set(ClaimContext.model_fields)
+    data = {key: value for key, value in row.items() if key in allowed}
     data["document_references"] = document_references or []
     return ClaimContext.model_validate(data)
 

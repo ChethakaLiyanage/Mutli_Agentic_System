@@ -84,6 +84,7 @@ class SupabaseWorkflowRepository:
             "authenticated_user_id": data["authenticated_user_id"],
             "authenticated_user_role": data["authenticated_user_role"],
             "intake_result": data["intake_result"],
+            "claim_context": data["claim_context"],
             "retrieval_result": data["retrieval_result"],
             "fraud_result": data["fraud_result"],
             "human_review_result": data["human_review_result"],

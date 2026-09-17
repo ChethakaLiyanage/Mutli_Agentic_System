@@ -15,11 +15,13 @@ MODEL_PATH = (
 class AnomalyModel:
     def __init__(self):
         self.model = None
-
-        print(f"Looking for model at: {MODEL_PATH}")
+        self.load_error: str | None = None
 
         if MODEL_PATH.exists():
-            self.model = joblib.load(MODEL_PATH)
+            try:
+                self.model = joblib.load(MODEL_PATH)
+            except Exception:
+                self.load_error = "model_load_failed"
 
     def is_available(self) -> bool:
         return self.model is not None

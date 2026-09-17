@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from backend.app.orchestrator.constants import WorkflowStatus, WorkflowType
 from backend.app.schemas.intake import IntakeResponse
 from backend.app.schemas.orchestrator import AuditEvent, OrchestratorError
+from backend.app.schemas.domain import ClaimContext
 
 
 def _utc_now() -> datetime:
@@ -33,6 +34,7 @@ class WorkflowState(BaseModel):
     authenticated_user_role: str | None = None
 
     intake_result: IntakeResponse | None = None
+    claim_context: ClaimContext | None = None
     retrieval_result: dict[str, Any] | None = None
     fraud_result: dict[str, Any] | None = None
     human_review_result: dict[str, Any] | None = None

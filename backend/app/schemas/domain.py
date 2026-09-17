@@ -184,6 +184,8 @@ class RiskIndicator(_DomainContract):
 class FraudAssessmentContext(_DomainContract):
     """Risk-triage output; this model never represents proven fraud."""
 
+    assessment_id: str | None = None
+    claim_id: str | None = None
     risk_score: float = Field(ge=0.0, le=1.0)
     risk_level: RiskLevel
     indicators: list[RiskIndicator] = Field(default_factory=list)
@@ -194,6 +196,7 @@ class FraudAssessmentContext(_DomainContract):
     automated_decision: Literal[False] = False
     rules_version: str | None = None
     model_version: str | None = None
+    warnings: list[str] = Field(default_factory=list)
 
 
 class HumanDecisionContext(_DomainContract):

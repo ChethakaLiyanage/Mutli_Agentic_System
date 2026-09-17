@@ -13,6 +13,11 @@ objects without dropping tables or deleting rows.
 
 The application does not apply database schema changes at startup.
 
+For databases created before Combined Integration Step 5, run
+`backend/db/migrations/step5_add_claim_fraud_workflow.sql` manually. It adds
+the nullable canonical claim snapshot, a stable workflow-to-claim link, and
+the `claim_information_retrieval` status without deleting existing rows.
+
 For a database created before Orchestrator Integration Step 4, apply
 `backend/db/migrations/step4_add_retrieval_complete.sql` once through the SQL
 editor. It only replaces the workflow-status check constraint and does not

@@ -8,9 +8,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.orchestrator.agent_clients import (
+    LocalFraudClient,
     LocalClaimIntakeClient,
     LocalRetrievalClient,
 )
+from backend.app.orchestrator.claim_repository import SupabaseClaimRepository
+from backend.app.fraud.repository import FraudRepository
 from backend.app.orchestrator.service import (
     OrchestratorService,
     WorkflowAccessDeniedError,
@@ -26,15 +29,20 @@ from backend.app.schemas.orchestrator import (
 )
 from backend.app.security.dependencies import get_current_customer
 from backend.app.services.persistence import get_application_repositories
+from backend.app.services.supabase_service import get_supabase_client
 
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
 _workflow_repository = get_application_repositories().workflows
+_supabase_client = get_supabase_client()
 _orchestrator_service = OrchestratorService(
     claim_intake_client=LocalClaimIntakeClient(),
     retrieval_client=LocalRetrievalClient(),
+    fraud_client=LocalFraudClient(),
+    claim_repository=SupabaseClaimRepository(_supabase_client),
+    fraud_repository=FraudRepository(_supabase_client),
     workflow_repository=_workflow_repository,
 )
 
@@ -51,8 +59,8 @@ def get_orchestrator_service() -> OrchestratorService:
     status_code=status.HTTP_200_OK,
     summary="Process a motor-insurance request",
     description=(
-        "Run Claim Intake analysis and, for information requests, controlled "
-        "Agent 2 retrieval before returning the current workflow state."
+        "Run Claim Intake analysis, controlled retrieval, and claim risk triage "
+        "for the applicable workflow without making a claim decision."
     ),
 )
 async def process_orchestrator_request(
