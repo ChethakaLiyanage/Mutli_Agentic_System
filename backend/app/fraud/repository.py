@@ -1,28 +1,40 @@
+import uuid
+from typing import Optional
 from supabase import Client
 
 from app.fraud.schemas import FraudAssessment
+from app.services.supabase_service import get_supabase_client
+
+
+def _is_valid_uuid(val: str) -> bool:
+    try:
+        uuid.UUID(str(val))
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
 
 
 class FraudRepository:
-    def __init__(self, supabase: Client):
-        self.supabase = supabase
+    def __init__(self, supabase: Optional[Client] = None):
+        self.supabase = supabase or get_supabase_client()
 
     def get_policy_claim_history(
         self,
         policy_id: str,
         exclude_claim_id: str,
     ) -> list[dict]:
-        response = (
+        query = (
             self.supabase.table("claims")
             .select(
                 "id, claim_reference, claim_type, "
                 "incident_date, claimed_amount, status"
             )
             .eq("policy_id", policy_id)
-            .neq("id", exclude_claim_id)
-            .execute()
         )
+        if exclude_claim_id and _is_valid_uuid(exclude_claim_id):
+            query = query.neq("id", exclude_claim_id)
 
+        response = query.execute()
         return response.data or []
 
     def get_claims_by_police_report_number(
@@ -33,7 +45,7 @@ class FraudRepository:
         if not police_report_number:
             return []
 
-        response = (
+        query = (
             self.supabase.table("claims")
             .select(
                 "id, claim_reference, policy_id, customer_id"
@@ -42,10 +54,11 @@ class FraudRepository:
                 "police_report_number",
                 police_report_number,
             )
-            .neq("id", exclude_claim_id)
-            .execute()
         )
+        if exclude_claim_id and _is_valid_uuid(exclude_claim_id):
+            query = query.neq("id", exclude_claim_id)
 
+        response = query.execute()
         return response.data or []
 
     def save_fraud_assessment(
@@ -69,6 +82,9 @@ class FraudRepository:
             "rules_version": assessment.rules_version,
             "model_version": assessment.model_version,
         }
+
+        if not _is_valid_uuid(claim_id):
+            return payload
 
         response = (
             self.supabase.table("fraud_assessments")
