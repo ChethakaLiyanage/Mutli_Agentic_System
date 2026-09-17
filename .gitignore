@@ -8,3 +8,7 @@ pytest-cache-files-*/
 .venv/
 venv/
 .env
+
+
+backend/models/
+*.joblib
