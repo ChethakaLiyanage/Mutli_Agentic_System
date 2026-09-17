@@ -9,6 +9,13 @@ from .intake import (
     IntakeResponse,
     IntentResult,
 )
+from .orchestrator import (
+    AuditEvent,
+    ClarificationResponse,
+    OrchestratorError,
+    OrchestratorRequest,
+    OrchestratorResponse,
+)
 
 __all__ = [
     "DamageInformation",
@@ -18,4 +25,9 @@ __all__ = [
     "IntakeRequest",
     "IntakeResponse",
     "IntentResult",
+    "AuditEvent",
+    "ClarificationResponse",
+    "OrchestratorError",
+    "OrchestratorRequest",
+    "OrchestratorResponse",
 ]
