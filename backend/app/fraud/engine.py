@@ -1,10 +1,12 @@
 from datetime import date
 
+from app.fraud.anomaly_model import AnomalyModel
 from app.fraud.document_checks import (
     flag_amount_conflicts,
     flag_date_conflicts,
     get_missing_documents,
 )
+from app.fraud.feature_engineering import build_feature_row
 from app.fraud.history_checks import (
     flag_duplicate_claim,
     flag_duplicate_police_report,
@@ -21,13 +23,18 @@ from app.fraud.schemas import (
     PolicyData,
 )
 from app.fraud.scoring import (
+    apply_ml_override,
     calculate_rule_score,
+    combine_hybrid_scores,
     get_recommended_action,
     get_risk_level,
 )
 
 
 class FraudDetectionEngine:
+    def __init__(self) -> None:
+        self.anomaly_model = AnomalyModel()
+
     def evaluate(
         self,
         claim_data: dict,
@@ -47,7 +54,10 @@ class FraudDetectionEngine:
         indicators = []
 
         single_result_checks = [
-            flag_policy_inactive(claim, policy),
+            flag_policy_inactive(
+                claim=claim,
+                policy=policy,
+            ),
             flag_late_reporting(
                 claim=claim,
                 submitted_date=date.today(),
@@ -91,7 +101,36 @@ class FraudDetectionEngine:
         )
 
         rule_score = calculate_rule_score(indicators)
-        risk_level = get_risk_level(rule_score)
+
+        features = build_feature_row(
+            claim_data=claim_data,
+            policy_data=policy_data,
+            document_facts=document_facts,
+            historical_claims=historical_claims,
+            missing_documents=missing_documents,
+            risk_indicators=indicators,
+        )
+
+        ml_anomaly_score = None
+
+        if self.anomaly_model.is_available():
+            ml_anomaly_score = (
+                self.anomaly_model.get_anomaly_score(
+                    features=features,
+                )
+            )
+
+        risk_score = combine_hybrid_scores(
+            rule_score=rule_score,
+            ml_anomaly_score=ml_anomaly_score,
+        )
+
+        risk_level = get_risk_level(risk_score)
+
+        risk_level = apply_ml_override(
+            risk_level=risk_level,
+            ml_anomaly_score=ml_anomaly_score,
+        )
 
         recommended_action = get_recommended_action(
             risk_level=risk_level,
@@ -100,13 +139,17 @@ class FraudDetectionEngine:
 
         return FraudAssessment(
             risk_level=risk_level,
-            risk_score=rule_score,
+            risk_score=risk_score,
             rule_score=rule_score,
-            ml_anomaly_score=None,
+            ml_anomaly_score=ml_anomaly_score,
             risk_indicators=indicators,
             missing_documents=missing_documents,
             recommended_action=recommended_action,
             automated_decision=False,
             rules_version="1.0.0",
-            model_version=None,
+            model_version=(
+                "isolation_forest_v1"
+                if ml_anomaly_score is not None
+                else None
+            ),
         )
