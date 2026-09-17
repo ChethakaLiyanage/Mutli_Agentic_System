@@ -8,6 +8,7 @@ from enum import Enum
 class WorkflowStatus(str, Enum):
     RECEIVED = "received"
     INTAKE_PROCESSING = "intake_processing"
+    INTAKE_COMPLETE = "intake_complete"
     AWAITING_CLARIFICATION = "awaiting_clarification"
     INFORMATION_RETRIEVAL = "information_retrieval"
     FRAUD_TRIAGE = "fraud_triage"
@@ -32,13 +33,45 @@ class AuditEventStatus(str, Enum):
     FAILED = "failed"
 
 
+INTENT_TO_WORKFLOW_TYPE: dict[str, WorkflowType] = {
+    "claim_submission": WorkflowType.CLAIM_SUBMISSION,
+    "policy_question": WorkflowType.INFORMATION_REQUEST,
+    "coverage_question": WorkflowType.INFORMATION_REQUEST,
+    "required_documents_question": WorkflowType.INFORMATION_REQUEST,
+    "general_information": WorkflowType.INFORMATION_REQUEST,
+    "claim_status": WorkflowType.CLAIM_STATUS,
+}
+
+CLARIFICATION_QUESTIONS: dict[str, str] = {
+    "incident_type": "What happened to your vehicle?",
+    "incident_date": "When did the incident happen?",
+    "location": "Where did the incident happen?",
+}
+
+LOW_CONFIDENCE_CLARIFICATION_MESSAGE = (
+    "I'm not fully certain what you want to do. Please clarify whether you want "
+    "to submit a claim, ask about coverage, check required documents, or check "
+    "a claim status."
+)
+
+
 ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.RECEIVED: frozenset(
         {WorkflowStatus.INTAKE_PROCESSING, WorkflowStatus.FAILED}
     ),
     WorkflowStatus.INTAKE_PROCESSING: frozenset(
         {
+            WorkflowStatus.INTAKE_COMPLETE,
             WorkflowStatus.AWAITING_CLARIFICATION,
+            WorkflowStatus.INFORMATION_RETRIEVAL,
+            WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.GUIDANCE_PROCESSING,
+            WorkflowStatus.COMPLETED,
+            WorkflowStatus.FAILED,
+        }
+    ),
+    WorkflowStatus.INTAKE_COMPLETE: frozenset(
+        {
             WorkflowStatus.INFORMATION_RETRIEVAL,
             WorkflowStatus.FRAUD_TRIAGE,
             WorkflowStatus.GUIDANCE_PROCESSING,

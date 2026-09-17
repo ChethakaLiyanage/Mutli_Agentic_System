@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -71,8 +71,12 @@ class ClarificationResponse(_OrchestratorContract):
     request_id: str
     status: WorkflowStatus = WorkflowStatus.AWAITING_CLARIFICATION
     workflow_type: WorkflowType = WorkflowType.CLARIFICATION
+    intake_result: IntakeResponse | None = None
     missing_fields: list[str] = Field(default_factory=list)
+    questions: list[str] = Field(default_factory=list)
     reason: str | None = None
+    requires_clarification: Literal[True] = True
+    audit_trail: list[AuditEvent] = Field(default_factory=list)
 
 
 class OrchestratorResponse(_OrchestratorContract):
