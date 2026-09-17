@@ -1,8 +1,9 @@
 # Multi-Agentic Motor Insurance Claims and Policy Support
 
 This university project is building a multi-agent backend for motor-insurance
-claims and policy support. The currently implemented component is **Agent 1:
-Claim Intake & Query Understanding**, exposed through a small FastAPI service.
+claims and policy support. The backend currently includes **Agent 1: Claim
+Intake & Query Understanding**, an authenticated Orchestrator with multi-turn
+clarification, and interchangeable in-memory or Supabase persistence.
 
 ## Claim Intake Agent
 
@@ -156,12 +157,49 @@ Clarification-question text is not generated yet.
 Run these commands from the repository root:
 
 ```powershell
-python -m pip install -r requirements.txt
+python -m pip install -r backend/requirements.txt
 python -m spacy download en_core_web_sm
 ```
 
-No environment variables, API keys, or external service credentials are needed
-for Agent 1, so an `.env.example` is intentionally not included.
+Copy `.env.example` to `.env` and replace development placeholders when using
+authentication or durable persistence. The `.env` file is ignored by Git.
+
+## Persistence backends
+
+The authentication and Orchestrator services use repository interfaces, with
+two interchangeable implementations:
+
+- `memory` is the default and requires no external database. Users and workflows
+  disappear when the process stops.
+- `supabase` stores application-managed users and workflow state in Supabase
+  Postgres. Supabase is used only as a database; authentication remains the
+  project's Argon2id and JWT implementation.
+
+To prepare Supabase, run `backend/db/schema.sql` in the Supabase SQL editor and
+configure:
+
+```env
+PERSISTENCE_BACKEND=supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=replace-with-your-service-role-key
+```
+
+For local memory mode:
+
+```env
+PERSISTENCE_BACKEND=memory
+```
+
+The service-role key is server-side only and must never be exposed to a browser
+or committed. The application creates one shared Supabase client and maps rows
+back into the same domain models used by the in-memory repositories. If
+Supabase mode is selected without its required configuration, application
+initialization fails instead of silently falling back to memory.
+
+The schema keeps ownership, workflow status, type, and timestamps as ordinary
+columns while storing nested agent results and audit history as JSONB. Complex
+Row Level Security policies are deferred; application ownership checks remain
+mandatory and server-side service-role access is used by this prototype.
 
 ## Run the API
 
@@ -284,35 +322,17 @@ python -m pytest backend/tests/test_preprocessing.py backend/tests/test_intent_c
 
 ## Orchestrator integration
 
-The future Orchestrator only needs to call:
+Authenticated customers create and resume workflows through:
 
 ```http
-POST /intake/analyze
+POST /orchestrator/process
+POST /orchestrator/workflows/{workflow_id}/clarify
 ```
 
-Its routing decisions can use:
-
-- `status`
-- `data.intent.label`
-- `data.intent.confidence`
-- `data.incident.type`
-- `data.missing_fields`
-- `data.requires_clarification`
-
-Conceptual routing example:
-
-```python
-if response["data"]["requires_clarification"]:
-    route_to_clarification()
-elif response["data"]["intent"]["label"] == "claim_submission":
-    route_to_claim_flow()
-else:
-    route_to_information_flow()
-```
-
-The Orchestrator should check `status` before reading `data` as a successful
-analysis. Agent 1 does not call any other agent and does not perform retrieval,
-fraud checks, persistence, or workflow routing.
+The Orchestrator stores the complete Agent 1 response, maps intent to a future
+workflow type, and either returns `intake_complete` or pauses at
+`awaiting_clarification`. It preserves ownership and audit history across
+clarification turns. Agents 2–4 are not executed yet.
 
 ## Portability and model handling
 
@@ -339,5 +359,9 @@ fraud checks, persistence, or workflow routing.
   fields.
 - Clarification-question generation is not implemented.
 - Location and general-entity quality depend on `en_core_web_sm`.
-- There is no authentication, persistence, Orchestrator, LangGraph workflow,
-  retrieval call, fraud call, LLM integration, or frontend yet.
+- In-memory persistence is process-local; Supabase mode requires the supplied
+  SQL schema and server-side credentials.
+- JWT refresh, revocation, password reset, and advanced account administration
+  are not implemented.
+- Agents 2–4, LangGraph orchestration, LLM integration, and frontend work are
+  not implemented yet.
