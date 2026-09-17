@@ -219,8 +219,11 @@ http://127.0.0.1:8000/docs
 
 The React, Vite, and TypeScript frontend in `frontend/` currently provides
 registration, login, authenticated-session restoration, logout, protected
-routing, and a basic dashboard shell. Claim-assistant and downstream agent
-interfaces are intentionally deferred to the next frontend step.
+routing, a dashboard, and a Claim Assistant at `/claim-assistant`. The Claim
+Assistant starts authenticated Orchestrator workflows, displays Agent 1 intake
+results, and supports repeated clarification using the same workflow ID.
+Downstream retrieval, fraud, reviewer, and final-guidance interfaces remain
+intentionally unavailable until those backend agents are connected.
 
 Create `frontend/.env` from `frontend/.env.example`, then run:
 

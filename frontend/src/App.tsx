@@ -4,6 +4,7 @@ import { AppLayout } from "./components/AppLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { useAuth } from "./context/auth-context";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ClaimAssistantPage } from "./pages/ClaimAssistantPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 
@@ -34,6 +35,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/claim-assistant" element={<ClaimAssistantPage />} />
         </Route>
       </Route>
 

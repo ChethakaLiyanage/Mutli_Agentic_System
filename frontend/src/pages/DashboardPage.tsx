@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import { useAuth } from "../context/auth-context";
 
 const modules = [
@@ -5,21 +7,25 @@ const modules = [
     name: "Claim Assistant",
     description: "Start and continue guided motor claim conversations.",
     accent: "blue",
+    href: "/claim-assistant",
   },
   {
     name: "My Claims",
     description: "Review submitted claims and their current progress.",
     accent: "indigo",
+    href: null,
   },
   {
     name: "Policy Support",
     description: "Ask questions about motor policy information and coverage.",
     accent: "cyan",
+    href: null,
   },
   {
     name: "Profile",
     description: "View and manage your customer account information.",
     accent: "slate",
+    href: null,
   },
 ] as const;
 
@@ -53,16 +59,28 @@ export const DashboardPage = () => {
         </div>
 
         <div className="module-grid">
-          {modules.map((module, index) => (
-            <article className="module-card" key={module.name}>
+          {modules.map((module, index) => {
+            const content = (
+              <>
               <span className={`module-number module-number-${module.accent}`}>
                 {String(index + 1).padStart(2, "0")}
               </span>
               <h3>{module.name}</h3>
               <p>{module.description}</p>
-              <span className="coming-soon">Coming soon</span>
-            </article>
-          ))}
+              <span className={module.href ? "module-action" : "coming-soon"}>
+                {module.href ? "Open assistant" : "Coming soon"}
+              </span>
+              </>
+            );
+
+            return module.href ? (
+              <Link className="module-card module-card-link" to={module.href} key={module.name}>
+                {content}
+              </Link>
+            ) : (
+              <article className="module-card" key={module.name}>{content}</article>
+            );
+          })}
         </div>
       </section>
     </div>

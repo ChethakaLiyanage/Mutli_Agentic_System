@@ -18,6 +18,7 @@ export const AppLayout = () => {
 
         <nav className="header-nav" aria-label="Primary navigation">
           <NavLink to="/dashboard">Dashboard</NavLink>
+          <NavLink to="/claim-assistant">Claim Assistant</NavLink>
         </nav>
 
         <div className="user-menu">
