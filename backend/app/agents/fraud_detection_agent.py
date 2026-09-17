@@ -23,6 +23,7 @@ from app.fraud.scoring import (
 )
 from app.fraud.document_checks import get_missing_documents
 from app.fraud.repository import FraudRepository
+from app.services.supabase_service import get_supabase_client
 
 
 def fraud_detection_agent(state: dict) -> dict:
@@ -56,7 +57,7 @@ def fraud_detection_agent(state: dict) -> dict:
         for document in docs_list
     ]
 
-    repository = FraudRepository()
+    repository = FraudRepository(get_supabase_client())
 
     historical_claims = repository.get_policy_claim_history(
         policy_id=claim.policy_id,

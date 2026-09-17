@@ -30,3 +30,11 @@ def reviewer_support_agent(state: dict) -> dict:
         "reviewer_notes": summary,
         "final_decision": "under_review",
     }
+"""Reviewer support agent wrapper.
+
+Aliases the implementation in guidance_agent.py for compatibility.
+"""
+
+from .guidance_agent import GuidanceAgent, guidance_agent, reviewer_support_agent
+
+__all__ = ["GuidanceAgent", "guidance_agent", "reviewer_support_agent"]
