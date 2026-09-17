@@ -5,7 +5,7 @@ Follows the specifications from Section 5 of the Agent 4 Design & Implementation
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -144,5 +144,5 @@ class GuidanceResponse(_GuidanceContract):
     response_type: GuidanceTaskType
     agent: Literal["guidance_agent"] = "guidance_agent"
     data: GuidanceResponseData
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     warnings: list[str] = Field(default_factory=list)

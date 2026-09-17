@@ -31,13 +31,11 @@ def test_guidance_generate_endpoint():
             {
                 "document_id": "DOC-101",
                 "document_name": "Motor Policy",
-                "section=" : "Windscreen",
+                "section": "Section 3 - Windscreen",
                 "content": "Accidental damage to windscreen is covered.",
             }
         ],
     }
-    # Clean section key
-    payload["retrieved_evidence"][0]["section"] = "Section 3"
 
     response = client.post("/guidance/generate", json=payload)
     assert response.status_code == 200

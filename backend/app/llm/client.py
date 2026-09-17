@@ -57,7 +57,7 @@ class MockLLMClient(BaseLLMClient):
 
         # Scenario: final_decision_explanation
         if "TASK: Explain the final decision" in user_prompt:
-            if "DECISION: APPROVED" in user_prompt:
+            if "APPROVED" in user_prompt:
                 return {
                     "message": (
                         "We are pleased to inform you that your claim has been approved by the claims officer. "
@@ -72,7 +72,7 @@ class MockLLMClient(BaseLLMClient):
                     "insufficient_evidence": False,
                     "automated_decision": False,
                 }
-            elif "DECISION: REJECTED" in user_prompt:
+            elif "REJECTED" in user_prompt:
                 return {
                     "message": (
                         "The claims officer has completed the review of your claim and determined that it cannot be approved. "

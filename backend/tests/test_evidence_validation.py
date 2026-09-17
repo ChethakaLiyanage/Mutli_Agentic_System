@@ -37,23 +37,17 @@ def test_empty_evidence_triggers_insufficient_result_for_required_documents():
 
 
 def test_whitespace_only_evidence_rejected():
-    """Evidence with only whitespace or empty text must be treated as insufficient."""
-    request = GuidanceRequest(
-        request_id="REQ-TEST-003",
-        audience="customer",
-        task_type="coverage_explanation",
-        retrieved_evidence=[
-            EvidenceItem(
-                document_id="DOC-01",
-                document_name="Policy.pdf",
-                section="Section 1",
-                content="    ",  # whitespace
-            )
-        ],
-    )
-    result = validate_evidence(request)
-    assert not result.is_sufficient
-    assert "no usable text" in (result.reason or "")
+    """Evidence with only whitespace or empty text must be rejected at schema validation."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError) as excinfo:
+        EvidenceItem(
+            document_id="DOC-01",
+            document_name="Policy.pdf",
+            section="Section 1",
+            content="    ",  # whitespace
+        )
+    assert "Evidence content cannot be empty" in str(excinfo.value)
 
 
 def test_valid_evidence_passes_validation():

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from pydantic import BaseModel, Field
 
@@ -49,7 +49,7 @@ class AuditRecord(BaseModel):
     automated_decision: bool = False
     human_decision_recorded: str | None = None
     sanitized_response_summary: str
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class AuditService:
