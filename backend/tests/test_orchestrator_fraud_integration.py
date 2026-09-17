@@ -136,9 +136,12 @@ def test_every_risk_level_ends_at_human_review(level, action) -> None:
     ))
     assert response.status is WorkflowStatus.AWAITING_HUMAN_REVIEW
     assert response.workflow_type is WorkflowType.CLAIM_SUBMISSION
-    assert response.fraud_risk_level == level
-    assert response.recommended_next_action == action
-    assert response.fraud_result["automated_decision"] is False
+    assert response.fraud_risk_level is None
+    assert response.fraud_result is None
+    saved = asyncio.run(orchestrator.workflow_repository.get(response.workflow_id))
+    assert saved.fraud_result["risk_level"] == level
+    assert saved.fraud_result["recommended_action"] == action
+    assert saved.fraud_result["automated_decision"] is False
     assert "approved" not in response.message.lower()
     assert "rejected" not in response.message.lower()
 
@@ -155,7 +158,8 @@ def test_claim_flow_uses_trusted_identity_and_persists_once() -> None:
     assert len(claims.claims_by_workflow) == 1
     assert len(assessments.assessments) == 1
     assert retrieval.requests[0].user_context.user_id == USER_ID
-    assert retrieval.requests[0].claim_lookup.claim_id == response.fraud_result["claim_id"]
+    saved = asyncio.run(orchestrator.workflow_repository.get(response.workflow_id))
+    assert retrieval.requests[0].claim_lookup.claim_id == saved.fraud_result["claim_id"]
     assert retrieval.requests[0].policy_context.policy_id == POLICY["policy_id"]
 
 
@@ -211,9 +215,10 @@ def test_real_fraud_engine_handles_missing_amount_without_fabrication() -> None:
         authenticated_user_id=USER_ID, authenticated_user_role="customer",
     ))
     assert response.status is WorkflowStatus.AWAITING_HUMAN_REVIEW
-    assert response.fraud_result["anomaly_score"] is None
-    assert response.fraud_result["automated_decision"] is False
-    assert response.missing_document_summary == ["police_report", "repair_estimate"]
+    saved = asyncio.run(orchestrator.workflow_repository.get(response.workflow_id))
+    assert saved.fraud_result["anomaly_score"] is None
+    assert saved.fraud_result["automated_decision"] is False
+    assert response.missing_document_summary == []
 
 
 class SyntheticStructuredRepository:
@@ -266,4 +271,5 @@ def test_real_agent1_agent2_agent3_pipeline_with_synthetic_storage() -> None:
     assert response.status is WorkflowStatus.AWAITING_HUMAN_REVIEW
     assert response.intake_result.data.intent.label == "claim_submission"
     assert response.retrieval_result["result"]["policy_data"] is None
-    assert response.fraud_result["automated_decision"] is False
+    saved = asyncio.run(orchestrator.workflow_repository.get(response.workflow_id))
+    assert saved.fraud_result["automated_decision"] is False

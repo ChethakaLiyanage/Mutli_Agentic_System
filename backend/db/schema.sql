@@ -36,6 +36,7 @@ create table if not exists public.workflows (
         'manual_assistance_required', 'information_retrieval',
         'claim_information_retrieval', 'fraud_triage',
         'retrieval_complete', 'awaiting_human_review', 'guidance_processing',
+        'approved', 'rejected', 'more_information_required', 'escalated',
         'completed', 'failed'
     )),
     missing_fields jsonb not null default '[]'::jsonb check (jsonb_typeof(missing_fields) = 'array'),
@@ -147,10 +148,12 @@ create table if not exists public.human_decisions (
     workflow_id text references public.workflows(workflow_id),
     claim_id text references public.claims(claim_id),
     reviewer_id text not null references public.users(user_id),
+    reviewer_role text check (reviewer_role is null or reviewer_role in ('claims_officer', 'admin')),
     decision text not null check (decision in (
         'approve', 'reject', 'request_more_information', 'escalate'
     )),
     notes text,
+    reason text,
     requested_information jsonb not null default '[]'::jsonb check (jsonb_typeof(requested_information) = 'array'),
     settlement_amount numeric(14, 2) check (settlement_amount is null or settlement_amount >= 0),
     decided_at timestamptz,
@@ -178,6 +181,8 @@ create index if not exists idx_knowledge_chunks_document_type on public.knowledg
 create index if not exists idx_human_decisions_workflow_id on public.human_decisions(workflow_id);
 create index if not exists idx_human_decisions_claim_id on public.human_decisions(claim_id);
 create index if not exists idx_human_decisions_reviewer_id on public.human_decisions(reviewer_id);
+create unique index if not exists uq_human_decisions_workflow_id
+on public.human_decisions(workflow_id) where workflow_id is not null;
 
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
@@ -213,3 +218,61 @@ $$;
 drop trigger if exists protect_workflow_identity_update on public.workflows;
 create trigger protect_workflow_identity_update before update on public.workflows
 for each row execute function public.protect_workflow_identity();
+
+-- Atomic authoritative human decision. Application callers use the service
+-- role and still enforce claims-officer/admin authorization before this RPC.
+create or replace function public.submit_human_review_decision(
+    p_workflow_id text, p_claim_id text, p_expected_status text,
+    p_target_status text, p_claim_status text, p_decision jsonb,
+    p_human_review_result jsonb, p_audit_trail jsonb
+) returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare current_workflow public.workflows%rowtype;
+begin
+    select * into current_workflow from public.workflows
+    where workflow_id = p_workflow_id for update;
+    if not found then raise exception 'workflow_not_found'; end if;
+    if current_workflow.current_status <> p_expected_status then
+        raise exception 'workflow_not_awaiting_review';
+    end if;
+    if exists (select 1 from public.human_decisions where workflow_id = p_workflow_id) then
+        raise exception 'human_decision_already_exists';
+    end if;
+    if current_workflow.claim_context->>'claim_id' is distinct from p_claim_id then
+        raise exception 'claim_workflow_mismatch';
+    end if;
+
+    insert into public.human_decisions (
+        decision_id, workflow_id, claim_id, reviewer_id, reviewer_role,
+        decision, reason, notes, requested_information, settlement_amount,
+        decided_at, created_at
+    ) values (
+        p_decision->>'decision_id', p_workflow_id, p_claim_id,
+        p_decision->>'reviewer_id', p_decision->>'reviewer_role',
+        p_decision->>'decision', p_decision->>'reason', p_decision->>'notes',
+        coalesce(p_decision->'requested_information', '[]'::jsonb),
+        nullif(p_decision->>'settlement_amount', '')::numeric,
+        (p_decision->>'decided_at')::timestamptz, now()
+    );
+    update public.claims set claim_status = p_claim_status, updated_at = now()
+    where claim_id = p_claim_id;
+    if not found then raise exception 'claim_not_found'; end if;
+    update public.workflows
+    set current_status = p_target_status,
+        claim_context = jsonb_set(coalesce(claim_context, '{}'::jsonb),
+            '{claim_status}', to_jsonb(p_claim_status), true),
+        human_review_result = p_human_review_result,
+        audit_trail = p_audit_trail,
+        updated_at = now()
+    where workflow_id = p_workflow_id;
+    return p_decision;
+end;
+$$;
+
+revoke all on function public.submit_human_review_decision(
+    text, text, text, text, text, jsonb, jsonb, jsonb
+) from public, anon, authenticated;
+grant execute on function public.submit_human_review_decision(
+    text, text, text, text, text, jsonb, jsonb, jsonb
+) to service_role;

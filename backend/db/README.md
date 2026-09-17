@@ -18,6 +18,11 @@ For databases created before Combined Integration Step 5, run
 the nullable canonical claim snapshot, a stable workflow-to-claim link, and
 the `claim_information_retrieval` status without deleting existing rows.
 
+For databases created before Combined Integration Step 6, apply
+`backend/db/migrations/step6_add_human_review_lifecycle.sql` after the Step 5
+migration. It adds reviewer attribution/reason fields, final review statuses,
+one-decision-per-workflow enforcement, and an atomic decision transaction.
+
 For a database created before Orchestrator Integration Step 4, apply
 `backend/db/migrations/step4_add_retrieval_complete.sql` once through the SQL
 editor. It only replaces the workflow-status check constraint and does not

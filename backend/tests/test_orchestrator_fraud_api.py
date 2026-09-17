@@ -106,8 +106,8 @@ def test_authenticated_claim_api_ends_at_human_review(client):
     body = response.json()
     assert body["workflow_type"] == "claim_submission"
     assert body["status"] == "awaiting_human_review"
-    assert body["fraud_risk_level"] == "low"
-    assert body["fraud_result"]["automated_decision"] is False
+    assert body["fraud_risk_level"] is None
+    assert body["fraud_result"] is None
 
 
 def test_authenticated_clarification_api_reaches_fraud_pipeline(client):

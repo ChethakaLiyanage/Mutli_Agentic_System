@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.api.auth import router as auth_router
 from backend.app.api.intake import router as intake_router
 from backend.app.api.orchestrator import router as orchestrator_router
+from backend.app.api.reviewer import router as reviewer_router
 
 
 app = FastAPI(
@@ -27,6 +28,7 @@ app.add_middleware(
 app.include_router(intake_router)
 app.include_router(auth_router)
 app.include_router(orchestrator_router)
+app.include_router(reviewer_router)
 
 
 @app.get("/health", tags=["health"])

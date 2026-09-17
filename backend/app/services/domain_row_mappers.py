@@ -90,9 +90,9 @@ def human_decision_to_row(
     row = decision.model_dump(mode="json")
     row.update(
         {
-            "decision_id": decision_id,
-            "workflow_id": workflow_id,
-            "claim_id": claim_id,
+            "decision_id": decision.decision_id or decision_id,
+            "workflow_id": decision.workflow_id or workflow_id,
+            "claim_id": decision.claim_id or claim_id,
             "created_at": timestamp.isoformat(),
         }
     )

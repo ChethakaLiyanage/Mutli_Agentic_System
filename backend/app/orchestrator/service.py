@@ -220,7 +220,11 @@ class OrchestratorService:
         retrieval_body = retrieval_result.get("result", {}) if retrieval_result else {}
         warnings = list(retrieval_body.get("warnings", []))
         evidence_summary = list(retrieval_body.get("knowledge_evidence", []))
-        public_fraud = self._public_fraud_result(state.fraud_result)
+        public_fraud = (
+            None
+            if state.authenticated_user_role == "customer"
+            else self._public_fraud_result(state.fraud_result)
+        )
         message = self._public_message(state, retrieval_status)
 
         return OrchestratorResponse(
@@ -321,12 +325,19 @@ class OrchestratorService:
         self, state: WorkflowState, retrieval_status: str | None
     ) -> str | None:
         if state.current_status is WorkflowStatus.AWAITING_HUMAN_REVIEW:
-            if state.fraud_result and state.fraud_result.get("indicators"):
-                return (
-                    "Your claim has been submitted for human review. "
-                    "Automated risk triage identified information that requires review."
-                )
-            return "Your claim has been submitted for human review."
+            return "Your claim is awaiting review by a claims officer."
+        decision_messages = {
+            WorkflowStatus.APPROVED: "Your claim has been approved by a claims officer.",
+            WorkflowStatus.REJECTED: "A claims officer has completed review of your claim.",
+            WorkflowStatus.MORE_INFORMATION_REQUIRED: (
+                "A claims officer has requested additional information."
+            ),
+            WorkflowStatus.ESCALATED: (
+                "Your claim requires additional specialist review."
+            ),
+        }
+        if state.current_status in decision_messages:
+            return decision_messages[state.current_status]
         return self._retrieval_message(retrieval_status)
 
     def determine_workflow_type(self, state: WorkflowState) -> WorkflowType:

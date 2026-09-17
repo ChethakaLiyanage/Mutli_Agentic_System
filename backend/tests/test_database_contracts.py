@@ -187,7 +187,11 @@ def test_document_human_decision_and_knowledge_row_mapping():
         decision, decision_id="DEC-1", workflow_id="WF-1"
     )
     assert decision_row["workflow_id"] == "WF-1"
-    assert human_decision_from_row(decision_row) == decision
+    restored_decision = human_decision_from_row(decision_row)
+    assert restored_decision.decision == decision.decision
+    assert restored_decision.reviewer_id == decision.reviewer_id
+    assert restored_decision.decision_id == "DEC-1"
+    assert restored_decision.workflow_id == "WF-1"
 
     evidence = evidence_from_knowledge_row({
         "chunk_id": "CHK-1", "source_title": "Claims guide",

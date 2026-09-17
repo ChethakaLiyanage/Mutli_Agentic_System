@@ -86,3 +86,4 @@ def require_roles(
 
 
 get_current_customer = require_roles(UserRole.CUSTOMER)
+get_current_reviewer = require_roles(UserRole.CLAIMS_OFFICER, UserRole.ADMIN)

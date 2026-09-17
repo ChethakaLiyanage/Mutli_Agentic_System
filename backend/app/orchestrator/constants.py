@@ -16,6 +16,10 @@ class WorkflowStatus(str, Enum):
     RETRIEVAL_COMPLETE = "retrieval_complete"
     FRAUD_TRIAGE = "fraud_triage"
     AWAITING_HUMAN_REVIEW = "awaiting_human_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    MORE_INFORMATION_REQUIRED = "more_information_required"
+    ESCALATED = "escalated"
     GUIDANCE_PROCESSING = "guidance_processing"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -124,11 +128,17 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     ),
     WorkflowStatus.AWAITING_HUMAN_REVIEW: frozenset(
         {
-            WorkflowStatus.GUIDANCE_PROCESSING,
-            WorkflowStatus.COMPLETED,
+            WorkflowStatus.APPROVED,
+            WorkflowStatus.REJECTED,
+            WorkflowStatus.MORE_INFORMATION_REQUIRED,
+            WorkflowStatus.ESCALATED,
             WorkflowStatus.FAILED,
         }
     ),
+    WorkflowStatus.APPROVED: frozenset(),
+    WorkflowStatus.REJECTED: frozenset(),
+    WorkflowStatus.MORE_INFORMATION_REQUIRED: frozenset(),
+    WorkflowStatus.ESCALATED: frozenset(),
     WorkflowStatus.GUIDANCE_PROCESSING: frozenset(
         {WorkflowStatus.COMPLETED, WorkflowStatus.FAILED}
     ),

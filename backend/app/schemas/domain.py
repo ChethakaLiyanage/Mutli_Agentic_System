@@ -200,8 +200,13 @@ class FraudAssessmentContext(_DomainContract):
 
 
 class HumanDecisionContext(_DomainContract):
+    decision_id: str | None = None
+    workflow_id: str | None = None
+    claim_id: str | None = None
     decision: HumanDecision
     reviewer_id: str
+    reviewer_role: str | None = None
+    reason: str | None = None
     notes: str | None = None
     decided_at: datetime | None = None
     requested_information: list[str] = Field(default_factory=list)
