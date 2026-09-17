@@ -6,7 +6,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from app.fraud.feature_engineering import FEATURE_COLUMNS
+from backend.app.fraud.feature_engineering import FEATURE_COLUMNS
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]

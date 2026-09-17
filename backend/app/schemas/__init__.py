@@ -1,6 +1,6 @@
 """Pydantic data contracts shared by application components."""
 
-from .intake import (
+from backend.app.schemas.intake import (
     DamageInformation,
     ExtractedEntity,
     IncidentInformation,
@@ -9,7 +9,7 @@ from .intake import (
     IntakeResponse,
     IntentResult,
 )
-from .orchestrator import (
+from backend.app.schemas.orchestrator import (
     AuditEvent,
     ClarificationResponse,
     OrchestratorError,

@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 .pytest_cache/
 pytest-cache-files-*/
+backend/tests/.pytest-tmp/
 .venv/
 venv/
 .env
@@ -14,4 +15,18 @@ backend/models/
 
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
+# Frontend dependencies
+frontend/node_modules/
+
+# Frontend build output
+frontend/dist/
+
+# Vite cache
+frontend/.vite/
+
+# Frontend local environment
+frontend/.env
+
+# Optional test/build caches
 frontend/coverage/

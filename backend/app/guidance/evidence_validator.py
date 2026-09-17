@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from typing import NamedTuple
-from .schemas import EvidenceItem, GuidanceRequest, GuidanceTaskType
+from backend.app.guidance.schemas import EvidenceItem, GuidanceRequest, GuidanceTaskType
 
 
 # Tasks that strictly require authoritative evidence from retrieval
@@ -92,6 +92,7 @@ def validate_evidence(request: GuidanceRequest) -> EvidenceValidationResult:
         clean_content, injection_found = sanitize_text(item.content)
         if injection_found:
             any_injection = True
+            clean_content = "[UNTRUSTED_CONTENT_FILTERED]"
 
         sanitized_items.append(
             EvidenceItem(

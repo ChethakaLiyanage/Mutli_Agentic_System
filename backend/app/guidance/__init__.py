@@ -1,6 +1,6 @@
 """Agent 4 Guidance & Reviewer Support module."""
 
-from .schemas import (
+from backend.app.guidance.schemas import (
     Audience,
     EvidenceItem,
     FraudAssessmentContext,

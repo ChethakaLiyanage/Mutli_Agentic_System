@@ -1,5 +1,5 @@
-from app.fraud.schemas import RiskIndicator
-from app.fraud.scoring import (
+from backend.app.fraud.schemas import RiskIndicator
+from backend.app.fraud.scoring import (
     calculate_rule_score,
     get_recommended_action,
     get_risk_level,

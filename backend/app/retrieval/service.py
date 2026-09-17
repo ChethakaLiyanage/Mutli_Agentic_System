@@ -1,7 +1,8 @@
+import logging
 from typing import Optional
 
-from app.retrieval.repository import RetrievalRepository
-from app.retrieval.schemas import (
+from backend.app.retrieval.repository import RetrievalRepository
+from backend.app.retrieval.schemas import (
     RetrievalRequest,
     RetrievalResponse,
     RetrievalResult,
@@ -10,8 +11,13 @@ from app.retrieval.schemas import (
     HistoricalClaim,
     DocumentEvidence,
     KnowledgeEvidence,
+    RetrievalError,
 )
-from app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.schemas.domain import EvidenceItem
+
+
+logger = logging.getLogger(__name__)
 
 
 class RetrievalService:
@@ -30,52 +36,41 @@ class RetrievalService:
 
         intent = request.intent_context.intent
         user_id = request.user_context.user_id
-
-        result = RetrievalResult()
-
-        if intent == "claim_submission":
-            result = self._handle_claim_submission(
-                request=request,
-                user_id=user_id,
+        try:
+            if intent == "claim_submission":
+                result = self._handle_claim_submission(request, user_id)
+            elif intent == "claim_status":
+                result = self._handle_claim_status(request, user_id)
+            elif intent in {"policy_question", "coverage_question"}:
+                result = self._handle_policy_retrieval(request, user_id)
+            elif intent in {"required_documents_question", "general_information"}:
+                result = self._handle_knowledge_retrieval(request, user_id)
+            else:
+                result = RetrievalResult(
+                    missing_evidence=["unsupported_retrieval_intent"]
+                )
+            status = self._determine_status(
+                result, intent=intent, errors=result.component_errors
             )
-
-        elif intent == "claim_status":
-            result = self._handle_claim_status(
-                request=request,
-                user_id=user_id,
+            return RetrievalResponse(
+                request_id=request.request_id,
+                status=status,
+                result=result,
+                errors=result.component_errors,
             )
-
-        elif intent in {
-            "policy_question",
-            "coverage_question",
-        }:
-            result = self._handle_policy_retrieval(
-                request=request,
-                user_id=user_id,
+        except Exception:
+            logger.exception("Retrieval operation failed")
+            return RetrievalResponse(
+                request_id=request.request_id,
+                status="failed",
+                result=RetrievalResult(),
+                errors=[RetrievalError(
+                    error_code="retrieval_failed",
+                    message="Retrieval could not be completed safely.",
+                    source="retrieval_service",
+                    retryable=True,
+                )],
             )
-
-        elif intent in {
-            "required_documents_question",
-            "general_information",
-        }:
-            result = self._handle_knowledge_retrieval(
-                request=request,
-                user_id=user_id,
-            )
-
-        else:
-            result.warnings.append(
-                f"Unsupported retrieval intent: {intent}"
-            )
-
-        status = self._determine_status(result)
-
-        return RetrievalResponse(
-            request_id=request.request_id,
-            status=status,
-            result=result,
-            errors=[],
-        )
 
     def _handle_claim_submission(
         self,
@@ -96,41 +91,41 @@ class RetrievalService:
             )
             return result
 
-        result.policy_data = PolicyRecord(
-            policy_id=policy["id"],
-            policy_number=policy["policy_number"],
-            customer_id=policy["customer_id"],
-            status=policy["status"],
-            start_date=str(policy["start_date"]),
-            end_date=str(policy["end_date"]),
-            coverage_details=policy.get(
-                "coverage_details",
-                {},
-            ),
-        )
+        result.policy_data = self._coerce_policy(policy)
 
-        claim_history = (
-            self.repository.get_policy_claim_history(
-                policy_id=policy["id"],
+        claim_id = (
+            request.claim_lookup.claim_id
+            if request.claim_lookup is not None
+            else None
+        )
+        if claim_id:
+            claim_record = self.repository.get_claim_by_id(
+                claim_id=claim_id,
                 user_id=user_id,
             )
+            if claim_record is not None:
+                result.claim_record = self._coerce_claim(claim_record)
+
+        claim_history = self.repository.get_policy_claim_history(
+            policy_id=result.policy_data.policy_id,
+            user_id=user_id,
+            exclude_claim_id=claim_id,
         )
 
         result.historical_claims = [
-            HistoricalClaim(
-                claim_id=row["id"],
+            row if isinstance(row, HistoricalClaim) else HistoricalClaim(
+                claim_id=row.get("claim_id", row.get("id")),
                 claim_reference=row["claim_reference"],
-                claim_type=row["claim_type"],
+                claim_type=row.get("incident_type", row.get("claim_type")),
                 incident_date=str(row["incident_date"]),
                 claimed_amount=row.get("claimed_amount"),
-                status=row.get("status"),
+                status=row.get("claim_status", row.get("status")),
+                police_report_number=row.get("police_report_number"),
             )
             for row in claim_history
         ]
 
         if request.claim_lookup:
-            claim_id = request.claim_lookup.claim_id
-
             if claim_id:
                 documents = (
                     self.repository.get_claim_documents(
@@ -140,8 +135,8 @@ class RetrievalService:
                 )
 
                 result.document_facts = [
-                    DocumentEvidence(
-                        document_id=row["id"],
+                    row if isinstance(row, DocumentEvidence) else DocumentEvidence(
+                        document_id=row.get("document_id", row.get("id")),
                         document_type=row["document_type"],
                         file_name=row.get("file_name"),
                         incident_date=row.get("incident_date"),
@@ -162,12 +157,7 @@ class RetrievalService:
         if self.knowledge_retriever:
             knowledge_query = self._build_claim_submission_knowledge_query(request)
             if knowledge_query:
-                knowledge_results = self.knowledge_retriever.retrieve(
-                    query=knowledge_query,
-                    insurance_type="motor",
-                    top_k=3,
-                )
-                result.knowledge_evidence.extend(knowledge_results)
+                self._search_knowledge(result, knowledge_query, top_k=3)
 
         return result
 
@@ -209,21 +199,7 @@ class RetrievalService:
             )
             return result
 
-        result.claim_record = ClaimRecord(
-            claim_id=claim["id"],
-            claim_reference=claim["claim_reference"],
-            customer_id=claim["customer_id"],
-            policy_id=claim["policy_id"],
-            claim_type=claim["claim_type"],
-            incident_date=str(claim["incident_date"]),
-            incident_location=claim.get(
-                "incident_location"
-            ),
-            claimed_amount=claim.get(
-                "claimed_amount"
-            ),
-            status=claim.get("status"),
-        )
+        result.claim_record = self._coerce_claim(claim)
 
         return result
 
@@ -239,36 +215,25 @@ class RetrievalService:
             request=request,
             user_id=user_id,
         )
-
-        if policy is None:
-            result.missing_evidence.append(
-                "policy_not_found"
+        if policy is not None:
+            result.policy_data = self._coerce_policy(policy)
+        elif request.policy_context is not None:
+            result.missing_evidence.append("policy_not_found")
+        elif request.query and "my policy" in request.query.lower():
+            result.missing_evidence.append("specific_policy_not_available")
+            result.warnings.append(
+                "Knowledge evidence is generic and is not confirmation of this customer's policy."
             )
-            return result
-
-        result.policy_data = PolicyRecord(
-            policy_id=policy["id"],
-            policy_number=policy["policy_number"],
-            customer_id=policy["customer_id"],
-            status=policy["status"],
-            start_date=str(policy["start_date"]),
-            end_date=str(policy["end_date"]),
-            coverage_details=policy.get(
-                "coverage_details",
-                {},
-            ),
-        )
 
         # Add policy knowledge for policy_question and coverage_question
         if self.knowledge_retriever:
             knowledge_query = self._build_policy_knowledge_query(request)
             if knowledge_query:
-                knowledge_results = self.knowledge_retriever.retrieve(
-                    query=knowledge_query,
-                    insurance_type="motor",
-                    top_k=3,
-                )
-                result.knowledge_evidence.extend(knowledge_results)
+                self._search_knowledge(result, knowledge_query, top_k=3)
+
+        if not result.policy_data and not result.knowledge_evidence:
+            if "knowledge_evidence_not_found" not in result.missing_evidence:
+                result.missing_evidence.append("knowledge_evidence_not_found")
 
         return result
 
@@ -284,12 +249,7 @@ class RetrievalService:
             # Handle required_documents_question and general_information with knowledge retrieval
             knowledge_query = self._build_general_knowledge_query(request)
             if knowledge_query:
-                knowledge_results = self.knowledge_retriever.retrieve(
-                    query=knowledge_query,
-                    insurance_type="motor",
-                    top_k=5,  # Get more results for general knowledge queries
-                )
-                result.knowledge_evidence.extend(knowledge_results)
+                self._search_knowledge(result, knowledge_query, top_k=5)
 
             # If no specific knowledge query could be built, add a warning
             if not knowledge_query and not result.knowledge_evidence:
@@ -298,8 +258,11 @@ class RetrievalService:
                 )
         else:
             result.warnings.append(
-                "Knowledge retrieval is not implemented yet."
+                "Knowledge retrieval is unavailable for this service instance."
             )
+
+        if not result.knowledge_evidence:
+            result.missing_evidence.append("knowledge_evidence_not_found")
 
         return result
 
@@ -307,7 +270,7 @@ class RetrievalService:
         self,
         request: RetrievalRequest,
         user_id: str,
-    ) -> dict | None:
+    ) -> PolicyRecord | None:
 
         if request.policy_context is None:
             return None
@@ -328,8 +291,41 @@ class RetrievalService:
 
         return None
 
+    @staticmethod
+    def _coerce_policy(policy) -> PolicyRecord:
+        """Keep test doubles compatible while production repositories return models."""
+        if isinstance(policy, PolicyRecord):
+            return policy
+        return PolicyRecord(
+            policy_id=policy.get("policy_id", policy.get("id")),
+            policy_number=policy["policy_number"],
+            customer_id=policy["customer_id"],
+            status=policy["status"],
+            start_date=str(policy["start_date"]),
+            end_date=str(policy["end_date"]),
+            coverage_details=policy.get("coverage_details", {}),
+        )
+
+    @staticmethod
+    def _coerce_claim(claim) -> ClaimRecord:
+        if isinstance(claim, ClaimRecord):
+            return claim
+        return ClaimRecord(
+            claim_id=claim.get("claim_id", claim.get("id")),
+            claim_reference=claim["claim_reference"],
+            customer_id=claim["customer_id"],
+            policy_id=claim["policy_id"],
+            claim_type=claim.get("incident_type", claim.get("claim_type")),
+            incident_date=str(claim["incident_date"]),
+            incident_location=claim.get("incident_location"),
+            claimed_amount=claim.get("claimed_amount"),
+            status=claim.get("claim_status", claim.get("status")),
+        )
+
     def _build_claim_submission_knowledge_query(self, request: RetrievalRequest) -> Optional[str]:
         """Build a knowledge query for claim_submission intent."""
+        if request.query:
+            return request.query
         parts = []
 
         if request.claim_context:
@@ -349,6 +345,8 @@ class RetrievalService:
 
     def _build_policy_knowledge_query(self, request: RetrievalRequest) -> Optional[str]:
         """Build a knowledge query for policy-related intents."""
+        if request.query:
+            return request.query
         parts = []
 
         # Add specific policy details if available
@@ -371,6 +369,8 @@ class RetrievalService:
 
     def _build_general_knowledge_query(self, request: RetrievalRequest) -> Optional[str]:
         """Build a knowledge query for general information intents."""
+        if request.query:
+            return request.query
         parts = []
 
         # Add context from the request
@@ -404,6 +404,9 @@ class RetrievalService:
     def _determine_status(
         self,
         result: RetrievalResult,
+        *,
+        intent: str,
+        errors: list[RetrievalError],
     ) -> str:
 
         has_data = any(
@@ -416,6 +419,8 @@ class RetrievalService:
             ]
         )
 
+        if errors:
+            return "partial_success" if has_data else "failed"
         if has_data and result.missing_evidence:
             return "partial_success"
 
@@ -424,5 +429,60 @@ class RetrievalService:
 
         if result.missing_evidence:
             return "no_results"
+        if intent in {
+            "policy_question",
+            "coverage_question",
+            "required_documents_question",
+            "general_information",
+        }:
+            return "no_results"
+        return "success" if has_data else "no_results"
 
-        return "success"
+    def _search_knowledge(
+        self,
+        result: RetrievalResult,
+        query: str,
+        *,
+        top_k: int,
+    ) -> None:
+        assert self.knowledge_retriever is not None
+        try:
+            evidence = self.knowledge_retriever.retrieve(
+                query=query,
+                insurance_type="motor",
+                top_k=top_k,
+            )
+            self._append_knowledge(result, evidence)
+        except Exception:
+            logger.exception("Knowledge retrieval component failed")
+            result.missing_evidence.append("knowledge_retrieval_failed")
+            result.component_errors.append(
+                RetrievalError(
+                    error_code="knowledge_retrieval_failed",
+                    message="Policy knowledge could not be retrieved safely.",
+                    source="knowledge_retriever",
+                    retryable=True,
+                )
+            )
+
+    @staticmethod
+    def _append_knowledge(
+        result: RetrievalResult,
+        evidence: list[EvidenceItem] | list[KnowledgeEvidence],
+    ) -> None:
+        for item in evidence:
+            if isinstance(item, KnowledgeEvidence):
+                result.knowledge_evidence.append(item)
+                continue
+            result.knowledge_evidence.append(
+                KnowledgeEvidence(
+                    evidence_id=item.evidence_id,
+                    source_id=str(item.metadata.get("source_document_id", "")),
+                    source_title=item.source_title,
+                    section=item.section,
+                    document_type=item.metadata.get("document_type"),
+                    content=item.content,
+                    relevance_score=item.score,
+                    metadata=dict(item.metadata),
+                )
+            )

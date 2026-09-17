@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from app.fraud.schemas import (
+from backend.app.fraud.schemas import (
     ClaimData,
     DocumentFacts,
     PolicyData,

@@ -27,6 +27,10 @@ class WorkflowRepository(Protocol):
 
         ...
 
+    async def list_by_status(
+        self, status: str, *, limit: int = 20, offset: int = 0
+    ) -> list[WorkflowState]: ...
+
 
 class InMemoryWorkflowRepository:
     """Process-local prototype storage that is lost when the process restarts."""
@@ -50,3 +54,17 @@ class InMemoryWorkflowRepository:
     async def delete(self, workflow_id: str) -> None:
         async with self._lock:
             self._serialized_states.pop(workflow_id, None)
+
+    async def list_by_status(
+        self, status: str, *, limit: int = 20, offset: int = 0
+    ) -> list[WorkflowState]:
+        async with self._lock:
+            states = [
+                WorkflowState.model_validate_json(item)
+                for item in self._serialized_states.values()
+            ]
+        matching = sorted(
+            (item for item in states if item.current_status.value == status),
+            key=lambda item: (item.created_at, item.workflow_id),
+        )
+        return matching[offset:offset + limit]

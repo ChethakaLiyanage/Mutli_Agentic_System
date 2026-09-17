@@ -7,7 +7,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.app.orchestrator.agent_clients import LocalClaimIntakeClient
+from backend.app.orchestrator.agent_clients import (
+    LocalFraudClient,
+    LocalGuidanceClient,
+    LocalClaimIntakeClient,
+    LocalRetrievalClient,
+)
+from backend.app.orchestrator.claim_repository import SupabaseClaimRepository
+from backend.app.fraud.repository import FraudRepository
 from backend.app.orchestrator.service import (
     OrchestratorService,
     WorkflowAccessDeniedError,
@@ -23,14 +30,21 @@ from backend.app.schemas.orchestrator import (
 )
 from backend.app.security.dependencies import get_current_customer
 from backend.app.services.persistence import get_application_repositories
+from backend.app.services.supabase_service import get_supabase_client
 
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
 _workflow_repository = get_application_repositories().workflows
+_supabase_client = get_supabase_client()
 _orchestrator_service = OrchestratorService(
     claim_intake_client=LocalClaimIntakeClient(),
+    retrieval_client=LocalRetrievalClient(),
+    fraud_client=LocalFraudClient(),
+    claim_repository=SupabaseClaimRepository(_supabase_client),
+    fraud_repository=FraudRepository(_supabase_client),
+    guidance_client=LocalGuidanceClient(),
     workflow_repository=_workflow_repository,
 )
 
@@ -41,14 +55,44 @@ def get_orchestrator_service() -> OrchestratorService:
     return _orchestrator_service
 
 
+@router.get(
+    "/workflows/{workflow_id}",
+    response_model=OrchestratorResponse,
+    summary="Get an owner-safe workflow result",
+)
+async def get_customer_workflow_result(
+    workflow_id: str,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_customer)],
+    service: OrchestratorService = Depends(get_orchestrator_service),
+) -> OrchestratorResponse:
+    try:
+        return await service.get_customer_workflow_result(
+            workflow_id,
+            authenticated_user_id=current_user.user_id,
+        )
+    except WorkflowNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Workflow not found") from error
+    except WorkflowAccessDeniedError as error:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You are not authorized to access this workflow",
+        ) from error
+    except Exception as error:
+        logger.exception("Customer workflow result failed for %s", workflow_id)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Workflow result is temporarily unavailable",
+        ) from error
+
+
 @router.post(
     "/process",
     response_model=OrchestratorResponse | ClarificationResponse,
     status_code=status.HTTP_200_OK,
     summary="Process a motor-insurance request",
     description=(
-        "Run Claim Intake Agent analysis and return either a downstream-ready "
-        "workflow decision or a deterministic clarification request."
+        "Run Claim Intake analysis, controlled retrieval, and claim risk triage "
+        "for the applicable workflow without making a claim decision."
     ),
 )
 async def process_orchestrator_request(

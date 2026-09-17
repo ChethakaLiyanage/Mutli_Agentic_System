@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from app.fraud.schemas import (
+from backend.app.fraud.schemas import (
     ClaimData,
     DocumentFacts,
     RiskIndicator,
@@ -90,6 +90,9 @@ def flag_amount_conflicts(
     tolerance: Decimal = Decimal("0.20"),
 ) -> list[RiskIndicator]:
     indicators = []
+
+    if claim.claimed_amount is None:
+        return indicators
 
     for document in documents:
         if (

@@ -1,28 +1,28 @@
 from datetime import date
 
-from app.fraud.anomaly_model import AnomalyModel
-from app.fraud.document_checks import (
+from backend.app.fraud.anomaly_model import AnomalyModel
+from backend.app.fraud.document_checks import (
     flag_amount_conflicts,
     flag_date_conflicts,
     get_missing_documents,
 )
-from app.fraud.feature_engineering import build_feature_row
-from app.fraud.history_checks import (
+from backend.app.fraud.feature_engineering import build_feature_row
+from backend.app.fraud.history_checks import (
     flag_duplicate_claim,
     flag_duplicate_police_report,
     flag_repeated_claims,
 )
-from app.fraud.rules import (
+from backend.app.fraud.rules import (
     flag_late_reporting,
     flag_policy_inactive,
 )
-from app.fraud.schemas import (
+from backend.app.fraud.schemas import (
     ClaimData,
     DocumentFacts,
     FraudAssessment,
     PolicyData,
 )
-from app.fraud.scoring import (
+from backend.app.fraud.scoring import (
     apply_ml_override,
     calculate_rule_score,
     combine_hybrid_scores,
@@ -102,23 +102,28 @@ class FraudDetectionEngine:
 
         rule_score = calculate_rule_score(indicators)
 
-        features = build_feature_row(
-            claim_data=claim_data,
-            policy_data=policy_data,
-            document_facts=document_facts,
-            historical_claims=historical_claims,
-            missing_documents=missing_documents,
-            risk_indicators=indicators,
-        )
-
         ml_anomaly_score = None
+        warnings: list[str] = []
 
-        if self.anomaly_model.is_available():
-            ml_anomaly_score = (
-                self.anomaly_model.get_anomaly_score(
+        if claim.claimed_amount is None:
+            warnings.append("ML anomaly scoring unavailable: claimed amount missing")
+        elif self.anomaly_model.is_available():
+            try:
+                features = build_feature_row(
+                    claim_data=claim_data,
+                    policy_data=policy_data,
+                    document_facts=document_facts,
+                    historical_claims=historical_claims,
+                    missing_documents=missing_documents,
+                    risk_indicators=indicators,
+                )
+                ml_anomaly_score = self.anomaly_model.get_anomaly_score(
                     features=features,
                 )
-            )
+            except Exception:
+                warnings.append("ML anomaly scoring unavailable")
+        else:
+            warnings.append("ML anomaly model unavailable")
 
         risk_score = combine_hybrid_scores(
             rule_score=rule_score,
@@ -152,4 +157,5 @@ class FraudDetectionEngine:
                 if ml_anomaly_score is not None
                 else None
             ),
+            warnings=warnings,
         )

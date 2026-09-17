@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -43,6 +44,7 @@ class DocumentReference(BaseModel):
 
 class RetrievalRequest(BaseModel):
     request_id: str
+    query: str | None = None
 
     user_context: UserContext
     intent_context: IntentContext
@@ -94,6 +96,7 @@ class HistoricalClaim(BaseModel):
 
     claimed_amount: float | None = None
     status: str | None = None
+    police_report_number: str | None = None
 
 
 class DocumentEvidence(BaseModel):
@@ -132,6 +135,30 @@ class KnowledgeEvidence(BaseModel):
     )
 
 
+KnowledgeDocumentType = Literal[
+    "policy_document",
+    "policy_manual",
+    "procedure_guide",
+    "guideline",
+    "manual",
+]
+
+
+class KnowledgeChunk(BaseModel):
+    """Typed durable representation of one controlled-corpus chunk."""
+
+    chunk_id: str
+    source_document_id: str
+    source_title: str
+    insurance_type: str = "motor"
+    document_type: KnowledgeDocumentType
+    section: str | None = None
+    content: str
+    normalized_content: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime | None = None
+
+
 class RetrievalError(BaseModel):
     error_code: str
     message: str
@@ -161,6 +188,11 @@ class RetrievalResult(BaseModel):
 
     warnings: list[str] = Field(
         default_factory=list
+    )
+
+    component_errors: list[RetrievalError] = Field(
+        default_factory=list,
+        exclude=True,
     )
 
 

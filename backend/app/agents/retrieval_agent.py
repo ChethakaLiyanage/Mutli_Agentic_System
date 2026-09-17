@@ -1,4 +1,4 @@
-from app.retrieval.schemas import (
+from backend.app.retrieval.schemas import (
     RetrievalRequest,
     UserContext,
     IntentContext,
@@ -8,11 +8,11 @@ from app.retrieval.schemas import (
     DocumentReference,
 )
 
-from app.retrieval.service import RetrievalService
-from app.retrieval.repository import RetrievalRepository
-from app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.retrieval.service import RetrievalService
+from backend.app.retrieval.repository import RetrievalRepository
+from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
 
-from app.services.supabase_service import get_supabase_client
+from backend.app.services.supabase_service import get_supabase_client
 
 
 def retrieval_agent(state: dict) -> dict:
@@ -42,6 +42,11 @@ def retrieval_agent(state: dict) -> dict:
 
     request = RetrievalRequest(
         request_id=state["request_id"],
+        query=(
+            state.get("original_text")
+            or state.get("raw_text")
+            or state.get("query")
+        ),
 
         user_context=UserContext(
             user_id=state["user_id"]

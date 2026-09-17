@@ -8,18 +8,18 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from .evidence_validator import validate_evidence
-from .prompt_builder import build_prompt
-from .response_validator import validate_guidance_response
-from .safety import build_insufficient_evidence_fallback
-from .schemas import (
+from backend.app.guidance.evidence_validator import validate_evidence
+from backend.app.guidance.prompt_builder import build_prompt
+from backend.app.guidance.response_validator import validate_guidance_response
+from backend.app.guidance.safety import build_insufficient_evidence_fallback
+from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
     GuidanceResponseData,
     ResponseStatus,
 )
-from ..llm import BaseLLMClient, get_llm_client
-from ..services.audit_service import get_audit_service
+from backend.app.llm import BaseLLMClient, get_llm_client
+from backend.app.services.audit_service import get_audit_service
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,7 @@ class GuidanceService:
                 response_type=request.task_type,
                 data=fallback_data,
                 warnings=warnings + ([evidence_result.reason] if evidence_result.reason else []),
+                provider=getattr(self.llm_client.settings, "provider", "unknown"),
             )
 
         # Update request with sanitized evidence (injections neutralized)
@@ -86,7 +87,8 @@ class GuidanceService:
                 status="error",
                 response_type=request.task_type,
                 data=fallback_data,
-                warnings=warnings + [f"LLM generation failed: {err}"],
+                warnings=warnings + ["Guidance provider failed"],
+                provider=getattr(self.llm_client.settings, "provider", "unknown"),
             )
 
         # 4. Parse Structured Output
@@ -127,10 +129,16 @@ class GuidanceService:
                 response_type=request.task_type,
                 data=safe_data,
                 warnings=warnings + validation.errors,
+                provider=getattr(self.llm_client.settings, "provider", "unknown"),
             )
 
         # 6. Audit Trail Recording
-        final_data = validation.validated_data or parsed_data
+        final_data = (validation.validated_data or parsed_data).model_copy(
+            update={
+                "grounded": bool(sanitized_request.retrieved_evidence)
+                or sanitized_request.human_decision is not None
+            }
+        )
         self._record_audit(request, final_data)
 
         return GuidanceResponse(
@@ -138,6 +146,7 @@ class GuidanceService:
             response_type=request.task_type,
             data=final_data,
             warnings=warnings,
+            provider=getattr(self.llm_client.settings, "provider", "unknown"),
         )
 
     def _record_audit(self, request: GuidanceRequest, data: GuidanceResponseData) -> None:

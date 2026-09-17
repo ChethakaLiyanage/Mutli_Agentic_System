@@ -39,7 +39,7 @@ class EvidenceItem(_GuidanceContract):
 
     document_id: str
     document_name: str
-    section: str
+    section: str | None = None
     content: str
     relevance_score: float | None = Field(default=None, ge=0.0, le=1.0)
 
@@ -56,9 +56,9 @@ class HumanDecisionContext(_GuidanceContract):
     """Verified decision made by an authorized human claims officer."""
 
     decision: Literal["approved", "rejected", "info_requested", "escalated"]
-    officer_id: str
+    officer_id: str | None = None
     officer_notes: str | None = None
-    decision_date: date = Field(default_factory=date.today)
+    decision_date: date | None = None
     settlement_amount: Decimal | None = None
 
 
@@ -89,7 +89,7 @@ class FraudAssessmentContext(_GuidanceContract):
         "escalate",
     ] = "manual_review"
     automated_decision: bool = False
-    rules_version: str = "1.0.0"
+    rules_version: str | None = None
     model_version: str | None = None
 
 
@@ -108,6 +108,7 @@ class GuidanceRequest(_GuidanceContract):
     claim_status: str | None = None
     human_decision: HumanDecisionContext | None = None
     authorized_metadata: dict[str, Any] = Field(default_factory=dict)
+    retrieval_warnings: list[str] = Field(default_factory=list)
 
     @field_validator("request_id")
     @classmethod
@@ -137,6 +138,7 @@ class GuidanceResponseData(_GuidanceContract):
     requires_human_review: bool = False
     insufficient_evidence: bool = False
     automated_decision: bool = False
+    grounded: bool = False
     reviewer_summary: ReviewerSummarySection | None = None
 
 
@@ -149,3 +151,4 @@ class GuidanceResponse(_GuidanceContract):
     data: GuidanceResponseData
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     warnings: list[str] = Field(default_factory=list)
+    provider: str | None = None

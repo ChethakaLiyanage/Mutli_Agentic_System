@@ -52,6 +52,25 @@ class SupabaseWorkflowRepository:
         except Exception as error:
             raise WorkflowPersistenceError("Workflow delete failed") from error
 
+    async def list_by_status(
+        self, status: str, *, limit: int = 20, offset: int = 0
+    ) -> list[WorkflowState]:
+        try:
+            response = await asyncio.to_thread(
+                lambda: (
+                    self._client.table("workflows")
+                    .select("*")
+                    .eq("current_status", status)
+                    .order("created_at")
+                    .order("workflow_id")
+                    .range(offset, offset + limit - 1)
+                    .execute()
+                )
+            )
+            return [self.row_to_state(row) for row in (response.data or [])]
+        except Exception as error:
+            raise WorkflowPersistenceError("Workflow listing failed") from error
+
     async def _get_row(self, workflow_id: str) -> dict[str, Any] | None:
         try:
             response = await asyncio.to_thread(
@@ -84,6 +103,7 @@ class SupabaseWorkflowRepository:
             "authenticated_user_id": data["authenticated_user_id"],
             "authenticated_user_role": data["authenticated_user_role"],
             "intake_result": data["intake_result"],
+            "claim_context": data["claim_context"],
             "retrieval_result": data["retrieval_result"],
             "fraud_result": data["fraud_result"],
             "human_review_result": data["human_review_result"],

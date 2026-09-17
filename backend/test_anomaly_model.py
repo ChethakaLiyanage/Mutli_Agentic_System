@@ -1,7 +1,7 @@
 import pandas as pd
 
-from app.fraud.anomaly_model import AnomalyModel
-from app.fraud.feature_engineering import FEATURE_COLUMNS
+from backend.app.fraud.anomaly_model import AnomalyModel
+from backend.app.fraud.feature_engineering import FEATURE_COLUMNS
 
 
 model = AnomalyModel()

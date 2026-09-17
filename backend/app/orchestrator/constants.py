@@ -12,9 +12,16 @@ class WorkflowStatus(str, Enum):
     AWAITING_CLARIFICATION = "awaiting_clarification"
     MANUAL_ASSISTANCE_REQUIRED = "manual_assistance_required"
     INFORMATION_RETRIEVAL = "information_retrieval"
+    CLAIM_INFORMATION_RETRIEVAL = "claim_information_retrieval"
+    RETRIEVAL_COMPLETE = "retrieval_complete"
     FRAUD_TRIAGE = "fraud_triage"
     AWAITING_HUMAN_REVIEW = "awaiting_human_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    MORE_INFORMATION_REQUIRED = "more_information_required"
+    ESCALATED = "escalated"
     GUIDANCE_PROCESSING = "guidance_processing"
+    GUIDANCE_GENERATION = "guidance_generation"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -72,6 +79,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
             WorkflowStatus.AWAITING_CLARIFICATION,
             WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
             WorkflowStatus.INFORMATION_RETRIEVAL,
+            WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL,
             WorkflowStatus.FRAUD_TRIAGE,
             WorkflowStatus.GUIDANCE_PROCESSING,
             WorkflowStatus.COMPLETED,
@@ -81,6 +89,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.INTAKE_COMPLETE: frozenset(
         {
             WorkflowStatus.INFORMATION_RETRIEVAL,
+            WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL,
             WorkflowStatus.FRAUD_TRIAGE,
             WorkflowStatus.GUIDANCE_PROCESSING,
             WorkflowStatus.COMPLETED,
@@ -93,7 +102,19 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED: frozenset(),
     WorkflowStatus.INFORMATION_RETRIEVAL: frozenset(
         {
+            WorkflowStatus.RETRIEVAL_COMPLETE,
             WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.GUIDANCE_PROCESSING,
+            WorkflowStatus.COMPLETED,
+            WorkflowStatus.FAILED,
+        }
+    ),
+    WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL: frozenset(
+        {WorkflowStatus.FRAUD_TRIAGE, WorkflowStatus.FAILED}
+    ),
+    WorkflowStatus.RETRIEVAL_COMPLETE: frozenset(
+        {
+            WorkflowStatus.GUIDANCE_GENERATION,
             WorkflowStatus.GUIDANCE_PROCESSING,
             WorkflowStatus.COMPLETED,
             WorkflowStatus.FAILED,
@@ -109,12 +130,21 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     ),
     WorkflowStatus.AWAITING_HUMAN_REVIEW: frozenset(
         {
-            WorkflowStatus.GUIDANCE_PROCESSING,
-            WorkflowStatus.COMPLETED,
+            WorkflowStatus.APPROVED,
+            WorkflowStatus.REJECTED,
+            WorkflowStatus.MORE_INFORMATION_REQUIRED,
+            WorkflowStatus.ESCALATED,
             WorkflowStatus.FAILED,
         }
     ),
+    WorkflowStatus.APPROVED: frozenset(),
+    WorkflowStatus.REJECTED: frozenset(),
+    WorkflowStatus.MORE_INFORMATION_REQUIRED: frozenset(),
+    WorkflowStatus.ESCALATED: frozenset(),
     WorkflowStatus.GUIDANCE_PROCESSING: frozenset(
+        {WorkflowStatus.COMPLETED, WorkflowStatus.FAILED}
+    ),
+    WorkflowStatus.GUIDANCE_GENERATION: frozenset(
         {WorkflowStatus.COMPLETED, WorkflowStatus.FAILED}
     ),
     WorkflowStatus.COMPLETED: frozenset(),

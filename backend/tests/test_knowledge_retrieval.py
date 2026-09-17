@@ -1,11 +1,5 @@
-import sys
-import os
-
-# Add the backend directory to the path so we can import app modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
-from app.retrieval.knowledge_retriever import KnowledgeRetriever
-from app.retrieval.schemas import KnowledgeEvidence
+from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.retrieval.schemas import KnowledgeEvidence
 
 
 # Mock knowledge retriever for testing - simulates what a real implementation would return
@@ -321,13 +315,13 @@ def test_evaluation_dataset_hit_at_k():
 
 def test_service_integration_with_knowledge():
     """Test that the full RetrievalService works with knowledge retrieval."""
-    from app.retrieval.schemas import (
+    from backend.app.retrieval.schemas import (
         RetrievalRequest,
         UserContext,
         IntentContext,
         PolicyLookupContext,
     )
-    from app.retrieval.service import RetrievalService
+    from backend.app.retrieval.service import RetrievalService
 
     # Create mock components
     class MockRepo:

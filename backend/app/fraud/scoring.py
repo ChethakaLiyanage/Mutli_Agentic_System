@@ -1,6 +1,6 @@
 from typing import Literal
 
-from app.fraud.schemas import RiskIndicator
+from backend.app.fraud.schemas import RiskIndicator
 
 
 def calculate_rule_score(

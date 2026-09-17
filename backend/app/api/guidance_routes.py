@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import logging
 from fastapi import APIRouter, HTTPException, status
-from ..guidance.schemas import GuidanceRequest, GuidanceResponse
-from ..guidance.service import GuidanceService
+from backend.app.guidance.schemas import GuidanceRequest, GuidanceResponse
+from backend.app.guidance.service import GuidanceService
 
 logger = logging.getLogger(__name__)
 

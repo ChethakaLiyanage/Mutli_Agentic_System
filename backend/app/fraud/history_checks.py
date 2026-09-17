@@ -1,13 +1,15 @@
 from datetime import date
 from decimal import Decimal
 
-from app.fraud.schemas import ClaimData, RiskIndicator
+from backend.app.fraud.schemas import ClaimData, RiskIndicator
 
 
 def flag_duplicate_claim(
     claim: ClaimData,
     historical_claims: list[dict],
 ) -> RiskIndicator | None:
+    if claim.claimed_amount is None:
+        return None
     for old_claim in historical_claims:
         if old_claim.get("claim_type") != claim.claim_type:
             continue

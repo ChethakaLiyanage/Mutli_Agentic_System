@@ -14,8 +14,8 @@ class ClaimData(BaseModel):
     incident_date: date
     incident_time: str | None = None
     incident_location: str | None = None
-    claimed_amount: Decimal
-    incident_description: str
+    claimed_amount: Decimal | None = None
+    incident_description: str | None = None
 
     police_report_number: str | None = None
 
@@ -37,6 +37,15 @@ class DocumentFacts(BaseModel):
         "repair_estimate",
         "invoice",
         "photo",
+        "claim_form",
+        "vehicle_registration",
+        "damage_photo",
+        "identity_document",
+        "policy_document",
+        "policy_manual",
+        "procedure_guide",
+        "guideline",
+        "manual",
         "other"
     ]
 
@@ -83,3 +92,4 @@ class FraudAssessment(BaseModel):
     automated_decision: bool = False
     rules_version: str = "1.0.0"
     model_version: str | None = None
+    warnings: list[str] = Field(default_factory=list)
