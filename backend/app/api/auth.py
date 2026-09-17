@@ -27,6 +27,7 @@ from backend.app.security.user_repository import (
     UserAlreadyExistsError,
     UserRepository,
 )
+from backend.app.services.repository_errors import RepositoryError
 
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,12 @@ async def register_user(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email is already registered",
         ) from error
+    except RepositoryError as error:
+        logger.exception("User registration persistence failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Persistence service failed",
+        ) from error
     logger.info("User registered: %s", user.user_id)
     return user
 
@@ -85,6 +92,12 @@ async def login_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
+        ) from error
+    except RepositoryError as error:
+        logger.exception("Login persistence failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Persistence service failed",
         ) from error
     logger.info("Login succeeded")
     return token

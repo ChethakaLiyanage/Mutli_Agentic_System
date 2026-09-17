@@ -12,14 +12,13 @@ from backend.app.config import Settings, get_settings
 from backend.app.schemas.auth import AuthenticatedUser
 from backend.app.security.jwt import InvalidAccessTokenError, decode_access_token
 from backend.app.security.roles import UserRole, role_is_allowed
-from backend.app.security.user_repository import (
-    InMemoryUserRepository,
-    UserRepository,
-)
+from backend.app.security.user_repository import UserRepository
+from backend.app.services.persistence import get_application_repositories
+from backend.app.services.repository_errors import RepositoryError
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
-_user_repository = InMemoryUserRepository()
+_user_repository = get_application_repositories().users
 
 
 def get_user_repository() -> UserRepository:
@@ -51,7 +50,13 @@ async def get_current_user(
     except InvalidAccessTokenError as error:
         raise _authentication_error() from error
 
-    user = await repository.get_by_id(claims["sub"])
+    try:
+        user = await repository.get_by_id(claims["sub"])
+    except RepositoryError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable",
+        ) from error
     if user is None or claims["role"] != user.role.value:
         raise _authentication_error()
     return AuthenticatedUser(

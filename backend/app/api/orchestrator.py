@@ -8,7 +8,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.orchestrator.agent_clients import LocalClaimIntakeClient
-from backend.app.orchestrator.repository import InMemoryWorkflowRepository
 from backend.app.orchestrator.service import (
     OrchestratorService,
     WorkflowAccessDeniedError,
@@ -23,12 +22,13 @@ from backend.app.schemas.orchestrator import (
     OrchestratorResponse,
 )
 from backend.app.security.dependencies import get_current_customer
+from backend.app.services.persistence import get_application_repositories
 
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
-_workflow_repository = InMemoryWorkflowRepository()
+_workflow_repository = get_application_repositories().workflows
 _orchestrator_service = OrchestratorService(
     claim_intake_client=LocalClaimIntakeClient(),
     workflow_repository=_workflow_repository,

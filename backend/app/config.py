@@ -22,6 +22,9 @@ class Settings:
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
+    persistence_backend: str = "memory"
+    supabase_url: str | None = None
+    supabase_service_role_key: str | None = None
 
     def __post_init__(self) -> None:
         if not self.jwt_secret:
@@ -30,6 +33,20 @@ class Settings:
             raise ValueError("Only HS256 is supported by this prototype")
         if self.jwt_access_token_expire_minutes <= 0:
             raise ValueError("JWT expiry must be positive")
+        if self.persistence_backend not in {"memory", "supabase"}:
+            raise ValueError("PERSISTENCE_BACKEND must be memory or supabase")
+        if self.persistence_backend == "supabase" and not self.supabase_url:
+            raise ValueError(
+                "Supabase persistence selected but SUPABASE_URL is not configured"
+            )
+        if (
+            self.persistence_backend == "supabase"
+            and not self.supabase_service_role_key
+        ):
+            raise ValueError(
+                "Supabase persistence selected but "
+                "SUPABASE_SERVICE_ROLE_KEY is not configured"
+            )
 
 
 def get_settings() -> Settings:
@@ -40,5 +57,10 @@ def get_settings() -> Settings:
         jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
         jwt_access_token_expire_minutes=int(
             os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+        ),
+        persistence_backend=os.getenv("PERSISTENCE_BACKEND", "memory").lower(),
+        supabase_url=os.getenv("SUPABASE_URL"),
+        supabase_service_role_key=(
+            os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
         ),
     )
