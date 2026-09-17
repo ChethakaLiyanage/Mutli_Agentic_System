@@ -83,3 +83,86 @@ def test_engine_returns_high_risk_for_multiple_red_flags():
     assert "DUPLICATE_CLAIM" in rule_ids
     assert "REPORT_REFERENCE_DUPLICATE" in rule_ids
     assert assessment.automated_decision is False
+
+
+
+from decimal import Decimal
+
+from app.fraud.engine import FraudDetectionEngine
+
+
+def test_engine_uses_ml_model_when_available():
+    claim_data = {
+        "claim_id": "claim-ml-001",
+        "policy_id": "policy-ml-001",
+        "customer_id": "customer-ml-001",
+        "policy_number": "MTR-ML-001",
+        "claim_type": "motor_accident",
+        "incident_date": "2026-09-15",
+        "claimed_amount": Decimal("1500000"),
+        "incident_description": "Vehicle collision.",
+        "police_report_number": "PR-ML-001",
+    }
+
+    policy_data = {
+        "policy_id": "policy-ml-001",
+        "policy_number": "MTR-ML-001",
+        "customer_id": "customer-ml-001",
+        "status": "active",
+        "start_date": "2026-09-12",
+        "end_date": "2027-09-12",
+        "coverage_details": {},
+    }
+
+    document_facts = [
+        {
+            "document_id": "doc-ml-001",
+            "document_type": "police_report",
+            "incident_date": "2026-09-12",
+            "police_report_number": "PR-ML-001",
+        },
+        {
+            "document_id": "doc-ml-002",
+            "document_type": "repair_estimate",
+            "claimed_amount": Decimal("375000"),
+        },
+    ]
+
+    historical_claims = [
+        {
+            "id": "old-claim-ml-001",
+            "claim_reference": "CLM-OLD-ML-001",
+            "claim_type": "motor_accident",
+            "incident_date": "2026-09-13",
+            "claimed_amount": "1450000",
+        },
+        {
+            "id": "old-claim-ml-002",
+            "claim_reference": "CLM-OLD-ML-002",
+            "claim_type": "motor_accident",
+            "incident_date": "2026-08-20",
+            "claimed_amount": "300000",
+        },
+        {
+            "id": "old-claim-ml-003",
+            "claim_reference": "CLM-OLD-ML-003",
+            "claim_type": "motor_accident",
+            "incident_date": "2026-08-05",
+            "claimed_amount": "275000",
+        },
+    ]
+
+    engine = FraudDetectionEngine()
+
+    assessment = engine.evaluate(
+        claim_data=claim_data,
+        policy_data=policy_data,
+        document_facts=document_facts,
+        historical_claims=historical_claims,
+        duplicate_police_report_claims=[],
+    )
+
+    assert assessment.ml_anomaly_score is not None
+    assert 0.0 <= assessment.ml_anomaly_score <= 1.0
+    assert assessment.model_version == "isolation_forest_v1"
+    assert assessment.automated_decision is False
