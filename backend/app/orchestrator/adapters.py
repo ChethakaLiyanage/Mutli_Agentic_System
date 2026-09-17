@@ -14,9 +14,16 @@ from backend.app.guidance.schemas import (
     RiskIndicatorContext as GuidanceRiskIndicatorContext,
 )
 from backend.app.retrieval.schemas import (
+    ClaimContext as RetrievalClaimContext,
+    ClaimLookupContext,
     DocumentEvidence,
+    DocumentReference as RetrievalDocumentReference,
+    IntentContext,
     KnowledgeEvidence,
+    PolicyLookupContext,
+    RetrievalRequest,
     RetrievalResponse,
+    UserContext,
 )
 from backend.app.schemas.domain import (
     ClaimContext,
@@ -50,6 +57,58 @@ def intake_to_claim_context(
         incident_location=incident.location,
         incident_description=damage.description,
         damage_areas=list(damage.areas),
+    )
+
+
+def build_retrieval_request(
+    *,
+    request_id: str,
+    authenticated_user_id: str,
+    original_query: str,
+    intake: IntakeResponse,
+    claim: ClaimContext | None = None,
+) -> RetrievalRequest:
+    """Create Agent 2 input without synthesizing unsupported identifiers."""
+    intent = intake.data.intent.label
+    if intent is None:
+        raise ValueError("Retrieval requires a determined intake intent")
+    claim = claim or intake_to_claim_context(
+        intake, customer_id=authenticated_user_id
+    )
+    return RetrievalRequest(
+        request_id=request_id,
+        query=original_query,
+        user_context=UserContext(user_id=authenticated_user_id),
+        intent_context=IntentContext(
+            intent=intent, confidence=intake.data.intent.confidence
+        ),
+        claim_context=RetrievalClaimContext(
+            incident_type=(claim.incident_type.value if claim.incident_type else None),
+            incident_date=(claim.incident_date.isoformat() if claim.incident_date else None),
+            incident_location=claim.incident_location,
+            damage_areas=list(claim.damage_areas),
+        ),
+        policy_context=(
+            PolicyLookupContext(
+                policy_id=claim.policy_id, policy_number=claim.policy_number
+            )
+            if claim.policy_id or claim.policy_number
+            else None
+        ),
+        claim_lookup=(
+            ClaimLookupContext(
+                claim_id=claim.claim_id, claim_reference=claim.claim_reference
+            )
+            if claim.claim_id or claim.claim_reference
+            else None
+        ),
+        document_references=[
+            RetrievalDocumentReference(
+                document_id=item.document_id,
+                document_type=(item.document_type.value if item.document_type else None),
+            )
+            for item in claim.document_references
+        ],
     )
 
 

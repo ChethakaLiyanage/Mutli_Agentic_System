@@ -42,6 +42,11 @@ def retrieval_agent(state: dict) -> dict:
 
     request = RetrievalRequest(
         request_id=state["request_id"],
+        query=(
+            state.get("original_text")
+            or state.get("raw_text")
+            or state.get("query")
+        ),
 
         user_context=UserContext(
             user_id=state["user_id"]

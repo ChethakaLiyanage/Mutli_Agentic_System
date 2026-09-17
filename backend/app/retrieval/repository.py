@@ -6,7 +6,12 @@ from typing import Any
 from supabase import Client
 
 from backend.app.retrieval.schemas import (
-    ClaimRecord, DocumentEvidence, HistoricalClaim, PolicyRecord,
+    ClaimRecord,
+    DocumentEvidence,
+    HistoricalClaim,
+    KnowledgeChunk,
+    KnowledgeDocumentType,
+    PolicyRecord,
 )
 
 
@@ -54,6 +59,10 @@ class RetrievalRepository:
             extracted_text=row.get("extracted_text"),
         )
 
+    @staticmethod
+    def knowledge_chunk_from_row(row: dict[str, Any]) -> KnowledgeChunk:
+        return KnowledgeChunk.model_validate(row)
+
     def get_policy_by_number(self, policy_number: str, user_id: str) -> PolicyRecord | None:
         response = (self.client.table("policies").select("*")
                     .eq("policy_number", policy_number).eq("customer_id", user_id)
@@ -90,10 +99,67 @@ class RetrievalRepository:
         return [self.history_from_row(row) for row in (response.data or [])]
 
     def get_claim_documents(self, claim_id: str, user_id: str) -> list[DocumentEvidence]:
-        try:
-            response = (self.client.table("claim_documents").select("*")
-                        .eq("claim_id", claim_id).eq("customer_id", user_id).execute())
-            return [self.document_from_row(row) for row in (response.data or [])]
-        except Exception:
-            # Documents are supplemental evidence; retain partial-result behavior.
+        response = (self.client.table("claim_documents").select("*")
+                    .eq("claim_id", claim_id).eq("customer_id", user_id).execute())
+        return [self.document_from_row(row) for row in (response.data or [])]
+
+    def list_knowledge_chunks(
+        self,
+        *,
+        insurance_type: str = "motor",
+        document_type: KnowledgeDocumentType | None = None,
+    ) -> list[KnowledgeChunk]:
+        query = (self.client.table("knowledge_chunks").select("*")
+                 .eq("insurance_type", insurance_type))
+        if document_type is not None:
+            query = query.eq("document_type", document_type)
+        response = query.execute()
+        return [self.knowledge_chunk_from_row(row) for row in (response.data or [])]
+
+    def get_knowledge_chunks_by_source(
+        self, source_document_id: str
+    ) -> list[KnowledgeChunk]:
+        response = (self.client.table("knowledge_chunks").select("*")
+                    .eq("source_document_id", source_document_id).execute())
+        return [self.knowledge_chunk_from_row(row) for row in (response.data or [])]
+
+    def upsert_knowledge_chunks(
+        self, chunks: list[KnowledgeChunk]
+    ) -> list[KnowledgeChunk]:
+        if not chunks:
             return []
+        rows = [
+            item.model_dump(mode="json", exclude_none=True) for item in chunks
+        ]
+        response = (self.client.table("knowledge_chunks")
+                    .upsert(rows, on_conflict="chunk_id").execute())
+        returned = response.data or rows
+        return [self.knowledge_chunk_from_row(row) for row in returned]
+
+    def replace_knowledge_chunks(
+        self,
+        source_document_id: str,
+        chunks: list[KnowledgeChunk],
+    ) -> list[KnowledgeChunk]:
+        """Upsert a source, then remove only that source's stale chunk IDs."""
+        if any(item.source_document_id != source_document_id for item in chunks):
+            raise ValueError("All chunks must belong to the requested source")
+        if not chunks:
+            self.delete_knowledge_chunks_for_source(source_document_id)
+            return []
+        existing = self.get_knowledge_chunks_by_source(source_document_id)
+        stored = self.upsert_knowledge_chunks(chunks)
+        current_ids = {item.chunk_id for item in chunks}
+        stale_ids = [item.chunk_id for item in existing if item.chunk_id not in current_ids]
+        if stale_ids:
+            (self.client.table("knowledge_chunks").delete()
+             .eq("source_document_id", source_document_id)
+             .in_("chunk_id", stale_ids).execute())
+        return stored
+
+    def delete_knowledge_chunks_for_source(
+        self, source_document_id: str
+    ) -> None:
+        """Delete exactly one explicitly selected source, never the whole corpus."""
+        (self.client.table("knowledge_chunks").delete()
+         .eq("source_document_id", source_document_id).execute())

@@ -1,84 +1,136 @@
-from typing import Any, Dict, List, Optional
+"""In-memory TF-IDF retrieval over durable controlled knowledge chunks."""
 
+from __future__ import annotations
+
+from threading import RLock
+from typing import Protocol
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 from supabase import Client
 
-from backend.app.retrieval.schemas import KnowledgeEvidence
+from backend.app.retrieval.preprocessing import preprocess_for_retrieval
+from backend.app.retrieval.repository import RetrievalRepository
+from backend.app.retrieval.schemas import KnowledgeChunk, KnowledgeDocumentType
+from backend.app.schemas.domain import EvidenceItem
+
+
+DEFAULT_TOP_K = 5
+DEFAULT_MINIMUM_SCORE = 0.08
+
+
+class _KnowledgeRepository(Protocol):
+    def list_knowledge_chunks(
+        self,
+        *,
+        insurance_type: str = "motor",
+        document_type: KnowledgeDocumentType | None = None,
+    ) -> list[KnowledgeChunk]: ...
 
 
 class KnowledgeRetriever:
-    def __init__(self, client: Client):
-        self.client = client
+    """Lazy lexical index; call ``refresh`` after successful ingestion."""
+
+    def __init__(
+        self,
+        client: Client | None = None,
+        *,
+        repository: _KnowledgeRepository | None = None,
+    ) -> None:
+        if repository is None:
+            if client is None:
+                raise ValueError("client or repository is required")
+            repository = RetrievalRepository(client)
+        self.repository = repository
+        self._lock = RLock()
+        self._chunks: list[KnowledgeChunk] = []
+        self._vectorizer: TfidfVectorizer | None = None
+        self._matrix = None
+        self._loaded = False
+
+    def refresh(self) -> int:
+        """Reload the durable corpus and deterministically rebuild the index."""
+        chunks = self.repository.list_knowledge_chunks(insurance_type="motor")
+        chunks = sorted(chunks, key=lambda item: item.chunk_id)
+        vectorizer: TfidfVectorizer | None = None
+        matrix = None
+        if chunks:
+            vectorizer = TfidfVectorizer(
+                lowercase=False,
+                tokenizer=str.split,
+                preprocessor=None,
+                token_pattern=None,
+                ngram_range=(1, 2),
+                sublinear_tf=True,
+                norm="l2",
+            )
+            matrix = vectorizer.fit_transform(
+                [item.normalized_content for item in chunks]
+            )
+        with self._lock:
+            self._chunks = chunks
+            self._vectorizer = vectorizer
+            self._matrix = matrix
+            self._loaded = True
+        return len(chunks)
 
     def retrieve(
         self,
         query: str,
         insurance_type: str = "motor",
-        top_k: int = 3,
-        min_relevance_score: float = 0.7,
-    ) -> List[KnowledgeEvidence]:
-        """
-        Retrieve relevant knowledge chunks using vector similarity search.
-
-        Args:
-            query: The search query text
-            insurance_type: Filter by insurance type (default: "motor")
-            top_k: Maximum number of results to return (default: 3)
-            min_relevance_score: Minimum similarity threshold (default: 0.7)
-
-        Returns:
-            List of KnowledgeEvidence objects sorted by relevance score (highest first)
-        """
-        # In a real implementation, this would:
-        # 1. Create an embedding for the query text
-        # 2. Perform vector similarity search against the knowledge_chunks table
-        # 3. Filter results by insurance_type and min_relevance_score
-        # 4. Return top_k results as KnowledgeEvidence objects
-
-        # For now, return empty list - this is a placeholder for the knowledge retrieval pipeline
-        # The actual implementation would require:
-        # - Setting up the knowledge_chunks table in Supabase with pgvector extension
-        # - Populating it with embedded chunks from source documents
-        # - Implementing the embedding generation (using a sentence transformer model)
-        # - Performing the actual vector search query
-
-        # Example of what the real implementation would look like:
-        #
-        # query_embedding = self._create_embedding(query)
-        #
-        # response = (
-        #     self.client
-        #     .rpc('match_knowledge_chunks', {
-        #         'query_embedding': query_embedding,
-        #         'match_threshold': min_relevance_score,
-        #         'match_count': top_k,
-        #         'filter_params': {'insurance_type': insurance_type}
-        #     })
-        #     .execute()
-        # )
-        #
-        # results = []
-        # for row in response.data or []:
-        #     evidence = KnowledgeEvidence(
-        #         evidence_id=row["id"],
-        #         source_id=row["source_id"],
-        #         source_title=row["source_title"],
-        #         section=row.get("section"),
-        #         document_type=row.get("document_type"),
-        #         content=row["content"],
-        #         relevance_score=row.get("similarity"),
-        #         metadata=row.get("metadata", {}),
-        #     )
-        #     results.append(evidence)
-        #
-        # return results
-
-        return []
-
-    def _create_embedding(self, text: str) -> List[float]:
-        """
-        Create a vector embedding for the given text.
-        This would use a sentence transformer model in practice.
-        """
-        # Placeholder - in reality this would call an embedding model
-        # For example: return self.embedding_model.encode(text).tolist()
-        return [0.0] * 384  # Example dimension for sentence transformers
+        top_k: int = DEFAULT_TOP_K,
+        min_relevance_score: float = DEFAULT_MINIMUM_SCORE,
+        *,
+        intent: str | None = None,
+        document_type: KnowledgeDocumentType | None = None,
+    ) -> list[EvidenceItem]:
+        if top_k <= 0:
+            raise ValueError("top_k must be positive")
+        if not 0 <= min_relevance_score <= 1:
+            raise ValueError("min_relevance_score must be between 0 and 1")
+        normalized_query = preprocess_for_retrieval(query)
+        if not normalized_query:
+            return []
+        if not self._loaded:
+            self.refresh()
+        with self._lock:
+            chunks = list(self._chunks)
+            vectorizer = self._vectorizer
+            matrix = self._matrix
+        if not chunks or vectorizer is None or matrix is None:
+            return []
+        query_vector = vectorizer.transform([normalized_query])
+        scores = cosine_similarity(query_vector, matrix).ravel()
+        ranked: list[tuple[float, KnowledgeChunk]] = []
+        for score, chunk in zip(scores, chunks):
+            if chunk.insurance_type != insurance_type:
+                continue
+            if document_type is not None and chunk.document_type != document_type:
+                continue
+            if float(score) >= min_relevance_score:
+                ranked.append((float(score), chunk))
+        ranked.sort(key=lambda item: (-item[0], item[1].chunk_id))
+        evidence: list[EvidenceItem] = []
+        for score, chunk in ranked[:top_k]:
+            metadata = dict(chunk.metadata)
+            metadata.update(
+                {
+                    "source_document_id": chunk.source_document_id,
+                    "chunk_id": chunk.chunk_id,
+                    "document_type": chunk.document_type,
+                    "insurance_type": chunk.insurance_type,
+                }
+            )
+            if intent is not None:
+                metadata["query_intent"] = intent
+            evidence.append(
+                EvidenceItem(
+                    evidence_id=chunk.chunk_id,
+                    source_title=chunk.source_title,
+                    section=chunk.section,
+                    content=chunk.content,
+                    score=score,
+                    metadata=metadata,
+                )
+            )
+        return evidence
