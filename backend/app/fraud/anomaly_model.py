@@ -27,6 +27,7 @@ class AnomalyModel:
         return self.model is not None
 
     def get_anomaly_score(
+            
         self,
         features: pd.DataFrame,
     ) -> float | None:

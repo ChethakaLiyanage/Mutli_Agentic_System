@@ -9,6 +9,10 @@ backend/tests/.pytest-tmp/
 .venv/
 venv/
 .env
+
+backend/models/
+*.joblib
+
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
