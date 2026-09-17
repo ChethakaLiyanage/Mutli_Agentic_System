@@ -1,3 +1,12 @@
+import sys
+from pathlib import Path
+
+repo_root = str(Path(__file__).resolve().parent.parent)
+backend_dir = str(Path(__file__).resolve().parent)
+for path in (repo_root, backend_dir):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
 import json
 from app.graph.workflow import create_claims_workflow
 
@@ -34,10 +43,12 @@ print('Risk Level:', result_submission['fraud_assessment']['risk_level'])
 print('Risk Score:', result_submission['fraud_assessment']['risk_score'])
 print('Recommended Action:', result_submission['fraud_assessment']['recommended_action'])
 
-print('\n--- Downstream Agent (reviewer_support_agent) Received State ---')
-assert 'reviewer_notes' in result_submission, 'reviewer_notes not found in state!'
-print('Reviewer Notes:', result_submission['reviewer_notes'])
-print('Final Decision:', result_submission['final_decision'])
+print('\n--- Downstream Agent (guidance_agent / reviewer_support_agent) Received State ---')
+assert 'guidance_response' in result_submission, 'guidance_response not found in state!'
+print('Guidance Status:', result_submission['guidance_response']['status'])
+print('Guidance Response Type:', result_submission['guidance_response']['response_type'])
+print('Guidance Message:', result_submission['guidance_response']['data']['message'])
+print('Next Step:', result_submission.get('next_step'))
 
 print('\n=== 3. Invoking LangGraph with policy_question intent ===')
 policy_query_state = {
@@ -50,9 +61,8 @@ policy_query_state = {
 
 result_policy = workflow.invoke(policy_query_state)
 print('Policy query retrieval_status:', result_policy['retrieval_status'])
-print('Reviewer Notes:', result_policy['reviewer_notes'])
 assert result_policy['retrieval_status'] == 'success'
 assert 'fraud_assessment' not in result_policy, 'fraud_detection_agent should have been skipped for policy_question!'
-assert 'reviewer_notes' in result_policy
+assert 'guidance_response' in result_policy
 
 print('\n ALL LANGGRAPH PIPELINE VERIFICATIONS PASSED!')

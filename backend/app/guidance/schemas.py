@@ -88,6 +88,9 @@ class FraudAssessmentContext(_GuidanceContract):
         "manual_review",
         "escalate",
     ] = "manual_review"
+    automated_decision: bool = False
+    rules_version: str = "1.0.0"
+    model_version: str | None = None
 
 
 class GuidanceRequest(_GuidanceContract):
