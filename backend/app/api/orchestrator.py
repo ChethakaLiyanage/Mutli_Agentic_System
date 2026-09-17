@@ -7,7 +7,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.app.orchestrator.agent_clients import LocalClaimIntakeClient
+from backend.app.orchestrator.agent_clients import (
+    LocalClaimIntakeClient,
+    LocalRetrievalClient,
+)
 from backend.app.orchestrator.service import (
     OrchestratorService,
     WorkflowAccessDeniedError,
@@ -31,6 +34,7 @@ router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
 _workflow_repository = get_application_repositories().workflows
 _orchestrator_service = OrchestratorService(
     claim_intake_client=LocalClaimIntakeClient(),
+    retrieval_client=LocalRetrievalClient(),
     workflow_repository=_workflow_repository,
 )
 
@@ -47,8 +51,8 @@ def get_orchestrator_service() -> OrchestratorService:
     status_code=status.HTTP_200_OK,
     summary="Process a motor-insurance request",
     description=(
-        "Run Claim Intake Agent analysis and return either a downstream-ready "
-        "workflow decision or a deterministic clarification request."
+        "Run Claim Intake analysis and, for information requests, controlled "
+        "Agent 2 retrieval before returning the current workflow state."
     ),
 )
 async def process_orchestrator_request(

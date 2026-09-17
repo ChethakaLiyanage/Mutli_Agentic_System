@@ -33,7 +33,8 @@ create table if not exists public.workflows (
     current_status text not null check (current_status in (
         'received', 'intake_processing', 'intake_complete', 'awaiting_clarification',
         'manual_assistance_required', 'information_retrieval', 'fraud_triage',
-        'awaiting_human_review', 'guidance_processing', 'completed', 'failed'
+        'retrieval_complete', 'awaiting_human_review', 'guidance_processing',
+        'completed', 'failed'
     )),
     missing_fields jsonb not null default '[]'::jsonb check (jsonb_typeof(missing_fields) = 'array'),
     requires_clarification boolean not null default false,

@@ -12,6 +12,7 @@ class WorkflowStatus(str, Enum):
     AWAITING_CLARIFICATION = "awaiting_clarification"
     MANUAL_ASSISTANCE_REQUIRED = "manual_assistance_required"
     INFORMATION_RETRIEVAL = "information_retrieval"
+    RETRIEVAL_COMPLETE = "retrieval_complete"
     FRAUD_TRIAGE = "fraud_triage"
     AWAITING_HUMAN_REVIEW = "awaiting_human_review"
     GUIDANCE_PROCESSING = "guidance_processing"
@@ -93,7 +94,15 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED: frozenset(),
     WorkflowStatus.INFORMATION_RETRIEVAL: frozenset(
         {
+            WorkflowStatus.RETRIEVAL_COMPLETE,
             WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.GUIDANCE_PROCESSING,
+            WorkflowStatus.COMPLETED,
+            WorkflowStatus.FAILED,
+        }
+    ),
+    WorkflowStatus.RETRIEVAL_COMPLETE: frozenset(
+        {
             WorkflowStatus.GUIDANCE_PROCESSING,
             WorkflowStatus.COMPLETED,
             WorkflowStatus.FAILED,

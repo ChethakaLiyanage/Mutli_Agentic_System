@@ -94,6 +94,10 @@ class OrchestratorResponse(_OrchestratorContract):
     workflow_type: WorkflowType
     intake_result: IntakeResponse | None = None
     retrieval_result: dict[str, Any] | None = None
+    retrieval_status: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    evidence_summary: list[dict[str, Any]] = Field(default_factory=list)
+    message: str | None = None
     fraud_result: dict[str, Any] | None = None
     human_review_result: dict[str, Any] | None = None
     guidance_result: dict[str, Any] | None = None

@@ -13,6 +13,11 @@ objects without dropping tables or deleting rows.
 
 The application does not apply database schema changes at startup.
 
+For a database created before Orchestrator Integration Step 4, apply
+`backend/db/migrations/step4_add_retrieval_complete.sql` once through the SQL
+editor. It only replaces the workflow-status check constraint and does not
+modify workflow rows.
+
 ## Existing or legacy project
 
 `CREATE TABLE IF NOT EXISTS` does not change an existing table. Inspect and

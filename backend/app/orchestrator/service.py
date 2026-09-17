@@ -11,7 +11,9 @@ from backend.app.graph.state import WorkflowState
 from backend.app.orchestrator.agent_clients import (
     ClaimIntakeClient,
     LocalClaimIntakeClient,
+    RetrievalClient,
 )
+from backend.app.orchestrator.adapters import build_retrieval_request
 from backend.app.orchestrator.constants import (
     ALLOWED_STATUS_TRANSITIONS,
     AuditEventStatus,
@@ -28,6 +30,7 @@ from backend.app.orchestrator.repository import (
     WorkflowRepository,
 )
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
+from backend.app.retrieval.schemas import RetrievalResponse
 from backend.app.schemas.orchestrator import (
     AuditEvent,
     ClarificationRequest,
@@ -64,8 +67,10 @@ class OrchestratorService:
         self,
         claim_intake_client: ClaimIntakeClient | None = None,
         workflow_repository: WorkflowRepository | None = None,
+        retrieval_client: RetrievalClient | None = None,
     ) -> None:
         self.claim_intake_client = claim_intake_client or LocalClaimIntakeClient()
+        self.retrieval_client = retrieval_client
         self.workflow_repository = (
             workflow_repository or InMemoryWorkflowRepository()
         )
@@ -187,13 +192,26 @@ class OrchestratorService:
     def to_response(self, state: WorkflowState) -> OrchestratorResponse:
         """Create a public response snapshot from current workflow state."""
 
+        retrieval_result = self._public_retrieval_result(state.retrieval_result)
+        retrieval_status = (
+            str(retrieval_result.get("status")) if retrieval_result else None
+        )
+        retrieval_body = retrieval_result.get("result", {}) if retrieval_result else {}
+        warnings = list(retrieval_body.get("warnings", []))
+        evidence_summary = list(retrieval_body.get("knowledge_evidence", []))
+        message = self._retrieval_message(retrieval_status)
+
         return OrchestratorResponse(
             request_id=state.last_request_id,
             workflow_id=state.workflow_id,
             status=state.current_status,
             workflow_type=state.workflow_type,
             intake_result=state.intake_result,
-            retrieval_result=state.retrieval_result,
+            retrieval_result=retrieval_result,
+            retrieval_status=retrieval_status,
+            warnings=warnings,
+            evidence_summary=evidence_summary,
+            message=message,
             fraud_result=state.fraud_result,
             human_review_result=state.human_review_result,
             guidance_result=state.guidance_result,
@@ -202,6 +220,49 @@ class OrchestratorService:
             errors=list(state.errors),
             audit_trail=list(state.audit_trail),
         )
+
+    @staticmethod
+    def _public_retrieval_result(
+        retrieval_result: dict | None,
+    ) -> dict | None:
+        """Remove ingestion-only metadata while preserving grounded evidence."""
+        if retrieval_result is None:
+            return None
+        public = {
+            key: value for key, value in retrieval_result.items()
+        }
+        result = dict(public.get("result") or {})
+        safe_evidence = []
+        allowed_metadata = {
+            "source_document_id", "chunk_id", "document_type",
+            "insurance_type", "page", "query_intent",
+        }
+        for item in result.get("knowledge_evidence", []):
+            evidence = dict(item)
+            metadata = dict(evidence.get("metadata") or {})
+            evidence["metadata"] = {
+                key: value for key, value in metadata.items()
+                if key in allowed_metadata
+            }
+            safe_evidence.append(evidence)
+        result["knowledge_evidence"] = safe_evidence
+        public["result"] = result
+        return public
+
+    @staticmethod
+    def _retrieval_message(status: str | None) -> str | None:
+        return {
+            "success": (
+                "Relevant controlled policy information was retrieved. "
+                "Final guidance is not yet connected."
+            ),
+            "partial_success": (
+                "Some controlled policy information was retrieved. "
+                "Final guidance is not yet connected."
+            ),
+            "no_results": "No relevant controlled evidence was found.",
+            "failed": "Policy information retrieval failed.",
+        }.get(status)
 
     def determine_workflow_type(self, state: WorkflowState) -> WorkflowType:
         """Map Agent 1's intent to one controlled Orchestrator workflow type."""
@@ -345,10 +406,11 @@ class OrchestratorService:
                 questions=questions,
             )
 
-        self.update_status(
+        await self.workflow_repository.save(state)
+        await self._advance_after_intake(
             state,
-            WorkflowStatus.INTAKE_COMPLETE,
-            message="Request understood and ready for downstream routing",
+            completion_message="Request understood and ready for downstream routing",
+            completion_step="orchestrator",
         )
         await self.workflow_repository.save(state)
         return self.to_response(state)
@@ -500,14 +562,99 @@ class OrchestratorService:
                 questions=questions,
             )
 
-        self.update_status(
+        await self.workflow_repository.save(state)
+        await self._advance_after_intake(
             state,
-            WorkflowStatus.INTAKE_COMPLETE,
-            message="Intake completed after clarification",
-            step="clarification",
+            completion_message="Intake completed after clarification",
+            completion_step="clarification",
         )
         await self.workflow_repository.save(state)
         return self.to_response(state)
+
+    async def _advance_after_intake(
+        self,
+        state: WorkflowState,
+        *,
+        completion_message: str,
+        completion_step: str,
+    ) -> None:
+        """Run Agent 2 only for information requests, then stop before guidance."""
+        if (
+            state.workflow_type is not WorkflowType.INFORMATION_REQUEST
+            or self.retrieval_client is None
+        ):
+            self.update_status(
+                state,
+                WorkflowStatus.INTAKE_COMPLETE,
+                message=completion_message,
+                step=completion_step,
+            )
+            return
+
+        if state.intake_result is None or state.authenticated_user_id is None:
+            self.mark_failed(
+                state,
+                code="RETRIEVAL_CONTEXT_INVALID",
+                message="Information retrieval could not be started safely",
+                step="information_retrieval",
+            )
+            return
+
+        self.update_status(
+            state,
+            WorkflowStatus.INFORMATION_RETRIEVAL,
+            message="Information retrieval started",
+            step="information_retrieval",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self.workflow_repository.save(state)
+
+        try:
+            retrieval_request = build_retrieval_request(
+                request_id=state.last_request_id,
+                authenticated_user_id=state.authenticated_user_id,
+                original_query=state.accumulated_text,
+                intake=state.intake_result,
+            )
+            retrieval_response = await self.retrieval_client.retrieve(
+                retrieval_request
+            )
+            if not isinstance(retrieval_response, RetrievalResponse):
+                raise TypeError("Retrieval client returned an invalid response")
+            state.retrieval_result = retrieval_response.model_dump(mode="json")
+        except Exception:
+            logger.exception(
+                "Information retrieval client failed for workflow %s",
+                state.workflow_id,
+            )
+            self.mark_failed(
+                state,
+                code="RETRIEVAL_FAILED",
+                message="Information retrieval could not be completed",
+                step="information_retrieval",
+            )
+            return
+
+        if retrieval_response.status == "failed":
+            self.mark_failed(
+                state,
+                code="RETRIEVAL_FAILED",
+                message="Information retrieval could not be completed",
+                step="information_retrieval",
+            )
+            return
+
+        messages = {
+            "success": "Information retrieval completed",
+            "partial_success": "Information retrieval partially completed",
+            "no_results": "Information retrieval returned no results",
+        }
+        self.update_status(
+            state,
+            WorkflowStatus.RETRIEVAL_COMPLETE,
+            message=messages[retrieval_response.status],
+            step="information_retrieval",
+        )
 
     async def route_next_step(self, _state: WorkflowState) -> None:
         """Placeholder for future agent routing and human-review coordination."""
