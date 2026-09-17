@@ -54,18 +54,19 @@ class MockLLMClient(BaseLLMClient):
         evidence_used = [
             f"{doc_name}#{section}" for _, doc_name, section in evidence_matches
         ]
+        evidence_contents = re.findall(
+            r'<document[^>]*>\s*(.*?)\s*</document>', user_prompt, re.DOTALL
+        )
 
         # Scenario: final_decision_explanation
         if "TASK: Explain the final decision" in user_prompt:
             if "APPROVED" in user_prompt:
                 return {
                     "message": (
-                        "We are pleased to inform you that your claim has been approved by the claims officer. "
-                        "The payment processing has been initiated in accordance with the verified settlement amount."
+                        "A claims officer reviewed your claim and recorded an approved decision."
                     ),
                     "next_steps": [
-                        "Verify your bank details in the customer portal",
-                        "Allow 2-3 business days for fund disbursement",
+                        "Keep your claim reference available for future correspondence",
                     ],
                     "evidence_used": evidence_used,
                     "requires_human_review": False,
@@ -73,17 +74,42 @@ class MockLLMClient(BaseLLMClient):
                     "automated_decision": False,
                 }
             elif "REJECTED" in user_prompt:
+                reason_match = re.search(
+                    r"Customer-safe decision reason:\s*([^\n]+)", user_prompt
+                )
+                reason = reason_match.group(1).strip() if reason_match else None
                 return {
                     "message": (
-                        "The claims officer has completed the review of your claim and determined that it cannot be approved. "
-                        "This decision is based on the specific terms and exclusions outlined in your policy schedule."
+                        "A claims officer reviewed the claim and recorded a rejected decision."
+                        + (f" The recorded reason is: {reason}" if reason else "")
                     ),
                     "next_steps": [
-                        "Review the officer's written explanation in your claim file",
-                        "Contact claims customer support if you wish to file a formal appeal",
+                        "Contact claims support if you need clarification about the recorded decision",
                     ],
                     "evidence_used": evidence_used,
                     "requires_human_review": False,
+                    "insufficient_evidence": False,
+                    "automated_decision": False,
+                }
+            elif "INFO_REQUESTED" in user_prompt:
+                reason_match = re.search(
+                    r"Customer-safe decision reason:\s*([^\n]+)", user_prompt
+                )
+                reason = reason_match.group(1).strip() if reason_match else "Additional information is required."
+                return {
+                    "message": f"A claims officer requested additional information: {reason}",
+                    "next_steps": ["Provide the requested information through the claims support channel"],
+                    "evidence_used": evidence_used,
+                    "requires_human_review": False,
+                    "insufficient_evidence": False,
+                    "automated_decision": False,
+                }
+            elif "ESCALATED" in user_prompt:
+                return {
+                    "message": "A claims officer escalated your claim for additional specialist review. No final approval or rejection has been recorded.",
+                    "next_steps": ["Wait for the specialist review team to contact you"],
+                    "evidence_used": evidence_used,
+                    "requires_human_review": True,
                     "insufficient_evidence": False,
                     "automated_decision": False,
                 }
@@ -95,14 +121,21 @@ class MockLLMClient(BaseLLMClient):
             if missing_match:
                 missing_docs = [d.strip() for d in missing_match.group(1).split(",") if d.strip()]
 
-            doc_text = "police report and repair estimate" if not missing_docs else ", ".join(missing_docs)
+            evidence_text = " ".join(evidence_contents).strip()
+            grounded_documents = [
+                label for label in (
+                    "Police report", "Repair estimate", "Driving license copy",
+                    "Vehicle registration", "Claim form", "Damage photos",
+                )
+                if label.lower() in evidence_text.lower()
+            ]
+            doc_text = ", ".join(missing_docs or grounded_documents)
             return {
                 "message": (
-                    f"To process your motor insurance claim, the required documentation includes {doc_text}. "
-                    "Please upload any outstanding documents to proceed."
+                    f"The retrieved claims guidance identifies these documents: {doc_text}."
                 ),
                 "next_steps": [
-                    f"Upload missing document: {doc}" for doc in (missing_docs or ["Repair estimate", "Police report"])
+                    f"Provide requested document: {doc}" for doc in (missing_docs or grounded_documents)
                 ],
                 "evidence_used": evidence_used,
                 "requires_human_review": False,
@@ -191,15 +224,16 @@ class MockLLMClient(BaseLLMClient):
                 "automated_decision": False,
             }
 
-        # Default / Coverage explanation
+        generic_scope = "specific_policy_not_available" in user_prompt
+        evidence_summary = " ".join(evidence_contents).strip()
         return {
             "message": (
-                "Based on the retrieved policy evidence, accidental damage may be eligible for coverage, "
-                "subject to the policy terms, applicable deductibles, and final verification by a claims officer."
+                ("The available material provides general policy information and does not confirm coverage under your specific policy. " if generic_scope else "")
+                + "Based on the retrieved policy evidence: "
+                + evidence_summary
             ),
             "next_steps": [
-                "Submit official repair estimate from an authorized garage",
-                "Ensure police report is provided if applicable",
+                "Review the cited policy material and contact claims support if clarification is needed",
             ],
             "evidence_used": evidence_used,
             "requires_human_review": False,

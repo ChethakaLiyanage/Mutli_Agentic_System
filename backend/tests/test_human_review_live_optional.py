@@ -29,6 +29,8 @@ def test_live_human_review_decision_transaction() -> None:
     suffix = uuid4().hex
     customer_id = f"TEST-CUSTOMER-{suffix}"
     officer_id = f"TEST-OFFICER-{suffix}"
+    customer_email = f"customer-{suffix}@example.com"
+    officer_email = f"officer-{suffix}@example.com"
     workflow_id = f"TEST-WF-{suffix}"
     policy_id = f"TEST-POL-{suffix}"
     claim_id = f"TEST-CLM-{suffix}"
@@ -54,9 +56,12 @@ def test_live_human_review_decision_transaction() -> None:
         except Exception:
             pytest.skip("STEP 6 DATABASE MIGRATION REQUIRED")
 
-        for user_id, role in ((customer_id, "customer"), (officer_id, "claims_officer")):
+        for user_id, email, role in (
+            (customer_id, customer_email, "customer"),
+            (officer_id, officer_email, "claims_officer"),
+        ):
             client.table("users").insert({
-                "user_id": user_id, "email": f"{user_id.lower()}@example.invalid",
+                "user_id": user_id, "email": email,
                 "password_hash": "synthetic-not-a-password", "role": role,
             }).execute()
         client.table("policies").insert({
@@ -109,7 +114,7 @@ def test_live_human_review_decision_transaction() -> None:
         )
         service = HumanReviewService(repository)
         reviewer = AuthenticatedUser(
-            user_id=officer_id, email=f"{officer_id.lower()}@example.invalid",
+            user_id=officer_id, email=officer_email,
             role=UserRole.CLAIMS_OFFICER, created_at=datetime.now(timezone.utc),
         )
         try:

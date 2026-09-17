@@ -13,12 +13,15 @@ from backend.app.graph.state import WorkflowState
 from backend.app.orchestrator.agent_clients import (
     ClaimIntakeClient,
     FraudClient,
+    GuidanceClient,
     LocalClaimIntakeClient,
     RetrievalClient,
 )
 from backend.app.orchestrator.adapters import (
     build_retrieval_request,
+    build_guidance_request,
     intake_to_claim_context,
+    retrieval_to_evidence_items,
     retrieval_to_document_facts,
     retrieval_to_policy_context,
 )
@@ -40,7 +43,12 @@ from backend.app.orchestrator.repository import (
 )
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
 from backend.app.retrieval.schemas import RetrievalResponse
-from backend.app.schemas.domain import FraudAssessmentContext
+from backend.app.guidance.schemas import GuidanceResponse
+from backend.app.schemas.domain import (
+    FraudAssessmentContext,
+    HumanDecision,
+    HumanDecisionContext,
+)
 from backend.app.schemas.orchestrator import (
     AuditEvent,
     ClarificationRequest,
@@ -81,12 +89,14 @@ class OrchestratorService:
         fraud_client: FraudClient | None = None,
         claim_repository: ClaimRepository | None = None,
         fraud_repository: FraudAssessmentRepository | None = None,
+        guidance_client: GuidanceClient | None = None,
     ) -> None:
         self.claim_intake_client = claim_intake_client or LocalClaimIntakeClient()
         self.retrieval_client = retrieval_client
         self.fraud_client = fraud_client
         self.claim_repository = claim_repository
         self.fraud_repository = fraud_repository
+        self.guidance_client = guidance_client
         self.workflow_repository = (
             workflow_repository or InMemoryWorkflowRepository()
         )
@@ -219,6 +229,8 @@ class OrchestratorService:
         )
         retrieval_body = retrieval_result.get("result", {}) if retrieval_result else {}
         warnings = list(retrieval_body.get("warnings", []))
+        if state.guidance_result:
+            warnings.extend(state.guidance_result.get("warnings", []))
         evidence_summary = list(retrieval_body.get("knowledge_evidence", []))
         public_fraud = (
             None
@@ -226,6 +238,7 @@ class OrchestratorService:
             else self._public_fraud_result(state.fraud_result)
         )
         message = self._public_message(state, retrieval_status)
+        public_guidance = self._public_guidance_result(state.guidance_result)
 
         return OrchestratorResponse(
             request_id=state.last_request_id,
@@ -251,12 +264,19 @@ class OrchestratorService:
                 list(public_fraud.get("missing_documents", []))
                 if public_fraud else []
             ),
-            human_review_result=state.human_review_result,
-            guidance_result=state.guidance_result,
+            human_review_result=(
+                None if state.authenticated_user_role == "customer"
+                else state.human_review_result
+            ),
+            guidance_result=public_guidance,
             missing_fields=list(state.missing_fields),
             requires_clarification=state.requires_clarification,
             errors=list(state.errors),
-            audit_trail=list(state.audit_trail),
+            audit_trail=(
+                [item for item in state.audit_trail if item.step != "human_review"]
+                if state.authenticated_user_role == "customer"
+                else list(state.audit_trail)
+            ),
         )
 
     @staticmethod
@@ -324,6 +344,10 @@ class OrchestratorService:
     def _public_message(
         self, state: WorkflowState, retrieval_status: str | None
     ) -> str | None:
+        if state.guidance_result:
+            data = state.guidance_result.get("data") or {}
+            if data.get("message"):
+                return str(data["message"])
         if state.current_status is WorkflowStatus.AWAITING_HUMAN_REVIEW:
             return "Your claim is awaiting review by a claims officer."
         decision_messages = {
@@ -339,6 +363,15 @@ class OrchestratorService:
         if state.current_status in decision_messages:
             return decision_messages[state.current_status]
         return self._retrieval_message(retrieval_status)
+
+    @staticmethod
+    def _public_guidance_result(guidance_result: dict | None) -> dict | None:
+        if guidance_result is None:
+            return None
+        return {
+            key: value for key, value in guidance_result.items()
+            if key in {"status", "response_type", "agent", "data", "warnings", "created_at"}
+        }
 
     def determine_workflow_type(self, state: WorkflowState) -> WorkflowType:
         """Map Agent 1's intent to one controlled Orchestrator workflow type."""
@@ -746,6 +779,91 @@ class OrchestratorService:
             message=messages[retrieval_response.status],
             step="information_retrieval",
         )
+        if self.guidance_client is not None:
+            await self.workflow_repository.save(state)
+            await self._run_information_guidance(state, retrieval_response)
+
+    async def _run_information_guidance(
+        self,
+        state: WorkflowState,
+        retrieval_response: RetrievalResponse,
+    ) -> None:
+        """Explain Agent 2 evidence without allowing unsupported policy facts."""
+        assert self.guidance_client is not None
+        assert state.intake_result is not None
+        intent = state.intake_result.data.intent.label
+        task_type = {
+            "coverage_question": "coverage_explanation",
+            "policy_question": "policy_explanation",
+            "required_documents_question": "required_documents",
+            "general_information": "policy_explanation",
+        }.get(intent or "", "policy_explanation")
+        self.update_status(
+            state,
+            WorkflowStatus.GUIDANCE_GENERATION,
+            message="Guidance generation started",
+            step="guidance",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self.workflow_repository.save(state)
+        try:
+            warnings = list(retrieval_response.result.warnings)
+            warnings.extend(retrieval_response.result.missing_evidence)
+            request = build_guidance_request(
+                request_id=state.last_request_id,
+                audience="customer",
+                task_type=task_type,
+                claim=state.claim_context,
+                policy=retrieval_to_policy_context(retrieval_response),
+                evidence=retrieval_to_evidence_items(retrieval_response),
+                intent=intent,
+                missing_fields=state.missing_fields,
+                retrieval_warnings=warnings,
+            )
+            response = await self.guidance_client.generate(request)
+            if not isinstance(response, GuidanceResponse):
+                raise TypeError("Guidance client returned an invalid response")
+            state.guidance_result = response.model_dump(mode="json")
+        except Exception:
+            logger.exception("Information guidance failed for %s", state.workflow_id)
+            self.append_audit_event(
+                state, step="guidance", status=AuditEventStatus.FAILED,
+                message="Guidance provider failed",
+            )
+            self.mark_failed(
+                state,
+                code="GUIDANCE_FAILED",
+                message="A grounded answer could not be generated",
+                step="guidance",
+            )
+            return
+        if response.status == "error":
+            self.append_audit_event(
+                state, step="guidance", status=AuditEventStatus.FAILED,
+                message="Guidance provider failed",
+            )
+            self.mark_failed(
+                state,
+                code="GUIDANCE_FAILED",
+                message="A grounded answer could not be generated",
+                step="guidance",
+            )
+            return
+        audit_message = (
+            "Insufficient evidence for guidance"
+            if response.status == "insufficient_evidence"
+            else "Grounded guidance returned"
+        )
+        self.append_audit_event(
+            state, step="guidance", status=AuditEventStatus.SUCCESS,
+            message=audit_message,
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.COMPLETED,
+            message="Guidance generation completed",
+            step="guidance",
+        )
 
     async def _run_claim_submission(self, state: WorkflowState) -> None:
         """Persist, retrieve, and risk-triage a claim without deciding it."""
@@ -779,6 +897,7 @@ class OrchestratorService:
             message="Claim persistence started",
         )
         await self.workflow_repository.save(state)
+
         try:
             claim = await asyncio.to_thread(
                 self.claim_repository.save_for_workflow,
@@ -791,26 +910,20 @@ class OrchestratorService:
         except Exception:
             logger.exception("Claim persistence failed for workflow %s", state.workflow_id)
             self.mark_failed(
-                state,
-                code="CLAIM_PERSISTENCE_FAILED",
-                message="The claim could not be stored safely",
-                step="claim_persistence",
+                state, code="CLAIM_PERSISTENCE_FAILED",
+                message="The claim could not be stored safely", step="claim_persistence",
             )
             return
         self.append_audit_event(
-            state,
-            step="claim_persistence",
-            status=AuditEventStatus.SUCCESS,
+            state, step="claim_persistence", status=AuditEventStatus.SUCCESS,
             message="Claim persistence completed",
         )
         await self.workflow_repository.save(state)
 
         self.update_status(
-            state,
-            WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL,
+            state, WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL,
             message="Structured claim retrieval started",
-            step="claim_information_retrieval",
-            audit_status=AuditEventStatus.STARTED,
+            step="claim_information_retrieval", audit_status=AuditEventStatus.STARTED,
         )
         await self.workflow_repository.save(state)
         try:
@@ -830,15 +943,13 @@ class OrchestratorService:
         except Exception:
             logger.exception("Structured claim retrieval failed for %s", state.workflow_id)
             self.mark_failed(
-                state,
-                code="CLAIM_RETRIEVAL_FAILED",
+                state, code="CLAIM_RETRIEVAL_FAILED",
                 message="Claim information retrieval could not be completed",
                 step="claim_information_retrieval",
             )
             return
         self.append_audit_event(
-            state,
-            step="claim_information_retrieval",
+            state, step="claim_information_retrieval",
             status=AuditEventStatus.SUCCESS,
             message="Structured claim retrieval completed",
         )
@@ -847,25 +958,20 @@ class OrchestratorService:
         policy = retrieval_to_policy_context(retrieval_response)
         if policy is None:
             self.mark_failed(
-                state,
-                code="POLICY_CONTEXT_UNAVAILABLE",
+                state, code="POLICY_CONTEXT_UNAVAILABLE",
                 message="An owned policy could not be retrieved for risk triage",
                 step="claim_information_retrieval",
             )
             return
-
         self.update_status(
-            state,
-            WorkflowStatus.FRAUD_TRIAGE,
-            message="Fraud risk triage started",
-            step="fraud_triage",
+            state, WorkflowStatus.FRAUD_TRIAGE,
+            message="Fraud risk triage started", step="fraud_triage",
             audit_status=AuditEventStatus.STARTED,
         )
         await self.workflow_repository.save(state)
         try:
             assessment = await self.fraud_client.assess(
-                claim=claim,
-                policy=policy,
+                claim=claim, policy=policy,
                 document_facts=retrieval_to_document_facts(retrieval_response),
                 historical_claims=list(retrieval_response.result.historical_claims),
             )
@@ -873,61 +979,194 @@ class OrchestratorService:
                 raise TypeError("Fraud client returned an invalid assessment")
             if assessment.automated_decision is not False:
                 raise ValueError("Automated claim decisions are prohibited")
-            assessment = assessment.model_copy(
-                update={
-                    "assessment_id": assessment.assessment_id
-                    or f"FRA-{uuid5(NAMESPACE_URL, state.workflow_id).hex.upper()}",
-                    "claim_id": claim.claim_id,
-                    "automated_decision": False,
-                }
-            )
+            assessment = assessment.model_copy(update={
+                "assessment_id": assessment.assessment_id
+                or f"FRA-{uuid5(NAMESPACE_URL, state.workflow_id).hex.upper()}",
+                "claim_id": claim.claim_id, "automated_decision": False,
+            })
             state.fraud_result = assessment.model_dump(mode="json")
         except Exception:
             logger.exception("Fraud triage failed for workflow %s", state.workflow_id)
             self.mark_failed(
-                state,
-                code="FRAUD_TRIAGE_FAILED",
-                message="Fraud risk triage could not be completed",
-                step="fraud_triage",
+                state, code="FRAUD_TRIAGE_FAILED",
+                message="Fraud risk triage could not be completed", step="fraud_triage",
             )
             return
         self.append_audit_event(
-            state,
-            step="fraud_triage",
-            status=AuditEventStatus.SUCCESS,
+            state, step="fraud_triage", status=AuditEventStatus.SUCCESS,
             message="Fraud risk triage completed",
         )
         await self.workflow_repository.save(state)
-
         try:
             await asyncio.to_thread(
-                self.fraud_repository.save_canonical_assessment,
-                assessment,
+                self.fraud_repository.save_canonical_assessment, assessment
             )
         except Exception:
             logger.exception("Fraud assessment persistence failed for %s", state.workflow_id)
             self.mark_failed(
-                state,
-                code="FRAUD_PERSISTENCE_FAILED",
+                state, code="FRAUD_PERSISTENCE_FAILED",
                 message="The risk assessment could not be stored safely",
                 step="fraud_persistence",
             )
             return
         self.append_audit_event(
-            state,
-            step="fraud_persistence",
-            status=AuditEventStatus.SUCCESS,
+            state, step="fraud_persistence", status=AuditEventStatus.SUCCESS,
             message="Fraud assessment persisted",
         )
         self.update_status(
-            state,
-            WorkflowStatus.AWAITING_HUMAN_REVIEW,
-            message="Claim awaiting human review",
-            step="human_review",
+            state, WorkflowStatus.AWAITING_HUMAN_REVIEW,
+            message="Claim awaiting human review", step="human_review",
             audit_status=AuditEventStatus.AWAITING_INPUT,
         )
         await self.workflow_repository.save(state)
 
+    async def get_customer_workflow_result(
+        self,
+        workflow_id: str,
+        *,
+        authenticated_user_id: str,
+    ) -> OrchestratorResponse:
+        """Return an owner-only result, generating post-decision guidance once."""
+        state = await self.workflow_repository.get(workflow_id)
+        if state is None:
+            raise WorkflowNotFoundError("Workflow not found")
+        if state.authenticated_user_id != authenticated_user_id:
+            raise WorkflowAccessDeniedError(
+                "You are not authorized to access this workflow"
+            )
+        final_statuses = {
+            WorkflowStatus.APPROVED,
+            WorkflowStatus.REJECTED,
+            WorkflowStatus.MORE_INFORMATION_REQUIRED,
+            WorkflowStatus.ESCALATED,
+        }
+        if (
+            state.current_status in final_statuses
+            and state.guidance_result is None
+            and state.human_review_result is not None
+        ):
+            await self._run_post_decision_guidance(state)
+        return self.to_response(state)
+
+    async def _run_post_decision_guidance(self, state: WorkflowState) -> None:
+        """Explain, but never modify, one persisted authoritative decision."""
+        original_status = state.current_status
+        decision = HumanDecisionContext.model_validate(state.human_review_result)
+        self.append_audit_event(
+            state, step="guidance", status=AuditEventStatus.STARTED,
+            message="Guidance generation started",
+        )
+        await self.workflow_repository.save(state)
+        use_fallback = self.guidance_client is None
+        response: GuidanceResponse | None = None
+        if not use_fallback:
+            try:
+                result = (state.retrieval_result or {}).get("result") or {}
+                retrieval = RetrievalResponse.model_validate({
+                    "request_id": state.last_request_id,
+                    "status": (state.retrieval_result or {}).get("status", "success"),
+                    "result": result,
+                    "errors": (state.retrieval_result or {}).get("errors", []),
+                })
+                request = build_guidance_request(
+                    request_id=state.last_request_id,
+                    audience="customer",
+                    task_type="final_decision_explanation",
+                    claim=state.claim_context,
+                    policy=retrieval_to_policy_context(retrieval),
+                    evidence=retrieval_to_evidence_items(retrieval),
+                    human_decision=decision,
+                    intent="claim_submission",
+                    retrieval_warnings=list(result.get("warnings") or []),
+                )
+                response = await self.guidance_client.generate(request)
+                use_fallback = (
+                    not isinstance(response, GuidanceResponse)
+                    or response.status != "success"
+                    or not self._guidance_matches_decision(
+                        response.data.message, decision.decision
+                    )
+                )
+            except Exception:
+                logger.exception("Post-decision guidance failed for %s", state.workflow_id)
+                use_fallback = True
+
+        if use_fallback:
+            state.guidance_result = self._decision_fallback(decision)
+            self.append_audit_event(
+                state, step="guidance", status=AuditEventStatus.SUCCESS,
+                message="Deterministic fallback used",
+            )
+        else:
+            assert response is not None
+            state.guidance_result = response.model_dump(mode="json")
+            self.append_audit_event(
+                state, step="guidance", status=AuditEventStatus.SUCCESS,
+                message="Grounded guidance returned",
+            )
+        if state.current_status is not original_status:
+            raise InvalidWorkflowTransition(
+                "Guidance cannot alter an authoritative human decision"
+            )
+        self.append_audit_event(
+            state, step="guidance", status=AuditEventStatus.SUCCESS,
+            message="Guidance generation completed",
+        )
+        await self.workflow_repository.save(state)
+
+    @staticmethod
+    def _guidance_matches_decision(message: str, decision: HumanDecision) -> bool:
+        text = message.lower()
+        approval = "approv" in text
+        rejection = "reject" in text or "cannot be approved" in text
+        if decision is HumanDecision.APPROVE:
+            return approval and not rejection
+        if decision is HumanDecision.REJECT:
+            return rejection and not "has been approved" in text
+        if decision is HumanDecision.REQUEST_MORE_INFORMATION:
+            return "information" in text and not approval and not rejection
+        return ("escalat" in text or "specialist" in text) and not approval and not rejection
+
+    @staticmethod
+    def _decision_fallback(decision: HumanDecisionContext) -> dict:
+        reason = decision.reason
+        messages = {
+            HumanDecision.APPROVE: (
+                "Your claim has been approved by a claims officer. "
+                "Detailed guidance is temporarily unavailable."
+            ),
+            HumanDecision.REJECT: (
+                "A claims officer has completed review and rejected the claim."
+                + (f" The recorded reason is: {reason}" if reason else "")
+            ),
+            HumanDecision.REQUEST_MORE_INFORMATION: (
+                "A claims officer requested additional information."
+                + (f" The request is: {reason}" if reason else "")
+            ),
+            HumanDecision.ESCALATE: (
+                "Your claim requires additional specialist review. "
+                "No approval or rejection has been recorded."
+            ),
+        }
+        return {
+            "status": "success",
+            "response_type": "final_decision_explanation",
+            "agent": "guidance_agent",
+            "data": {
+                "message": messages[decision.decision],
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": (
+                    decision.decision is HumanDecision.ESCALATE
+                ),
+                "insufficient_evidence": False,
+                "automated_decision": False,
+                "grounded": True,
+                "reviewer_summary": None,
+            },
+            "warnings": ["Deterministic fallback used"],
+            "provider": "deterministic_fallback",
+        }
     async def route_next_step(self, _state: WorkflowState) -> None:
         """Placeholder for future agent routing and human-review coordination."""
 

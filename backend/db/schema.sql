@@ -36,6 +36,7 @@ create table if not exists public.workflows (
         'manual_assistance_required', 'information_retrieval',
         'claim_information_retrieval', 'fraud_triage',
         'retrieval_complete', 'awaiting_human_review', 'guidance_processing',
+        'guidance_generation',
         'approved', 'rejected', 'more_information_required', 'escalated',
         'completed', 'failed'
     )),

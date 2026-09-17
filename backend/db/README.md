@@ -23,6 +23,11 @@ For databases created before Combined Integration Step 6, apply
 migration. It adds reviewer attribution/reason fields, final review statuses,
 one-decision-per-workflow enforcement, and an atomic decision transaction.
 
+For databases created before Combined Integration Step 7, apply
+`backend/db/migrations/step7_add_guidance_lifecycle.sql` after the Step 6
+migration. It adds the `guidance_generation` workflow status. The existing
+`guidance_result` workflow column already stores Agent 4 output.
+
 For a database created before Orchestrator Integration Step 4, apply
 `backend/db/migrations/step4_add_retrieval_complete.sql` once through the SQL
 editor. It only replaces the workflow-status check constraint and does not

@@ -92,6 +92,7 @@ def validate_evidence(request: GuidanceRequest) -> EvidenceValidationResult:
         clean_content, injection_found = sanitize_text(item.content)
         if injection_found:
             any_injection = True
+            clean_content = "[UNTRUSTED_CONTENT_FILTERED]"
 
         sanitized_items.append(
             EvidenceItem(

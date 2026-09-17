@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from backend.app.agents.claim_intake_agent import ClaimIntakeAgent
+from backend.app.agents.guidance_agent import GuidanceAgent
 from backend.app.fraud.engine import FraudDetectionEngine
 from backend.app.orchestrator.adapters import (
     canonical_to_fraud_inputs,
@@ -18,6 +19,7 @@ from backend.app.schemas.domain import (
     PolicyContext,
 )
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
+from backend.app.guidance.schemas import GuidanceRequest, GuidanceResponse
 from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
 from backend.app.retrieval.repository import RetrievalRepository
 from backend.app.retrieval.schemas import RetrievalRequest, RetrievalResponse
@@ -160,3 +162,33 @@ class LocalFraudClient:
             duplicate_police_report_claims=duplicate_reports,
         )
         return fraud_to_canonical(assessment, claim_id=claim.claim_id)
+
+
+@runtime_checkable
+class GuidanceClient(Protocol):
+    """Async replaceable boundary for Agent 4 grounded explanations."""
+
+    async def generate(self, request: GuidanceRequest) -> GuidanceResponse:
+        ...
+
+
+class _LocalGuidanceAgent(Protocol):
+    def process(self, request: GuidanceRequest) -> GuidanceResponse: ...
+
+
+class LocalGuidanceClient:
+    """Run the configured Agent 4 provider outside the event loop."""
+
+    def __init__(self, agent: Any | None = None) -> None:
+        self._agent = agent or GuidanceAgent()
+
+    async def generate(self, request: GuidanceRequest) -> GuidanceResponse:
+        handler = getattr(self._agent, "process", None) or getattr(
+            self._agent, "process_request", None
+        )
+        if handler is None:
+            raise TypeError("Guidance Agent must implement process or process_request")
+        response = await asyncio.to_thread(handler, request)
+        if not isinstance(response, GuidanceResponse):
+            raise TypeError("Guidance Agent returned an invalid response")
+        return response

@@ -58,10 +58,12 @@ def format_claim_context(request: GuidanceRequest) -> str:
     if request.human_decision:
         parts.append(
             f"Verified Human Officer Decision: {request.human_decision.decision.upper()}\n"
-            f"Officer ID: {request.human_decision.officer_id}\n"
-            f"Officer Notes: {request.human_decision.officer_notes or 'None'}\n"
+            f"Customer-safe decision reason: {request.human_decision.officer_notes or 'No customer-safe reason supplied'}\n"
             f"Settlement Amount: {request.human_decision.settlement_amount or 'N/A'}"
         )
+
+    if request.retrieval_warnings:
+        parts.append("Retrieval scope warnings: " + ", ".join(request.retrieval_warnings))
 
     # Include fraud assessment details only for reviewer mode or sanitized for customer
     if request.fraud_assessment:

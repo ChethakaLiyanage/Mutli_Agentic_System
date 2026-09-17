@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.orchestrator.agent_clients import (
     LocalFraudClient,
+    LocalGuidanceClient,
     LocalClaimIntakeClient,
     LocalRetrievalClient,
 )
@@ -43,6 +44,7 @@ _orchestrator_service = OrchestratorService(
     fraud_client=LocalFraudClient(),
     claim_repository=SupabaseClaimRepository(_supabase_client),
     fraud_repository=FraudRepository(_supabase_client),
+    guidance_client=LocalGuidanceClient(),
     workflow_repository=_workflow_repository,
 )
 
@@ -51,6 +53,36 @@ def get_orchestrator_service() -> OrchestratorService:
     """Provide the replaceable application-level Orchestrator service."""
 
     return _orchestrator_service
+
+
+@router.get(
+    "/workflows/{workflow_id}",
+    response_model=OrchestratorResponse,
+    summary="Get an owner-safe workflow result",
+)
+async def get_customer_workflow_result(
+    workflow_id: str,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_customer)],
+    service: OrchestratorService = Depends(get_orchestrator_service),
+) -> OrchestratorResponse:
+    try:
+        return await service.get_customer_workflow_result(
+            workflow_id,
+            authenticated_user_id=current_user.user_id,
+        )
+    except WorkflowNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Workflow not found") from error
+    except WorkflowAccessDeniedError as error:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You are not authorized to access this workflow",
+        ) from error
+    except Exception as error:
+        logger.exception("Customer workflow result failed for %s", workflow_id)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Workflow result is temporarily unavailable",
+        ) from error
 
 
 @router.post(

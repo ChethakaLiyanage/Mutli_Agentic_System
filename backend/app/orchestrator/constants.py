@@ -21,6 +21,7 @@ class WorkflowStatus(str, Enum):
     MORE_INFORMATION_REQUIRED = "more_information_required"
     ESCALATED = "escalated"
     GUIDANCE_PROCESSING = "guidance_processing"
+    GUIDANCE_GENERATION = "guidance_generation"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -113,6 +114,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     ),
     WorkflowStatus.RETRIEVAL_COMPLETE: frozenset(
         {
+            WorkflowStatus.GUIDANCE_GENERATION,
             WorkflowStatus.GUIDANCE_PROCESSING,
             WorkflowStatus.COMPLETED,
             WorkflowStatus.FAILED,
@@ -140,6 +142,9 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.MORE_INFORMATION_REQUIRED: frozenset(),
     WorkflowStatus.ESCALATED: frozenset(),
     WorkflowStatus.GUIDANCE_PROCESSING: frozenset(
+        {WorkflowStatus.COMPLETED, WorkflowStatus.FAILED}
+    ),
+    WorkflowStatus.GUIDANCE_GENERATION: frozenset(
         {WorkflowStatus.COMPLETED, WorkflowStatus.FAILED}
     ),
     WorkflowStatus.COMPLETED: frozenset(),

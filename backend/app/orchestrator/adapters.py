@@ -364,8 +364,8 @@ def _human_decision_to_guidance(
     }
     return GuidanceHumanDecisionContext(
         decision=decision_mapping[decision.decision],
-        officer_id=decision.reviewer_id,
-        officer_notes=decision.notes,
+        officer_id=None,
+        officer_notes=decision.reason,
         decision_date=(decision.decided_at.date() if decision.decided_at else None),
         settlement_amount=decision.settlement_amount,
     )
@@ -383,6 +383,7 @@ def build_guidance_request(
     human_decision: HumanDecisionContext | None = None,
     intent: str | None = None,
     missing_fields: list[str] | None = None,
+    retrieval_warnings: list[str] | None = None,
 ) -> GuidanceRequest:
     """Build Agent 4 input without executing Guidance or inventing absent facts."""
 
@@ -412,4 +413,5 @@ def build_guidance_request(
         claim_status=claim.claim_status if claim is not None else None,
         human_decision=_human_decision_to_guidance(human_decision),
         authorized_metadata=authorized_metadata,
+        retrieval_warnings=list(retrieval_warnings or []),
     )
