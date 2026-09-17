@@ -215,6 +215,29 @@ Open the interactive API documentation at:
 http://127.0.0.1:8000/docs
 ```
 
+## Frontend foundation
+
+The React, Vite, and TypeScript frontend in `frontend/` currently provides
+registration, login, authenticated-session restoration, logout, protected
+routing, a dashboard, and a Claim Assistant at `/claim-assistant`. The Claim
+Assistant starts authenticated Orchestrator workflows, displays Agent 1 intake
+results, and supports repeated clarification using the same workflow ID.
+Downstream retrieval, fraud, reviewer, and final-guidance interfaces remain
+intentionally unavailable until those backend agents are connected.
+
+Create `frontend/.env` from `frontend/.env.example`, then run:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+The development UI is available at `http://localhost:5173`. The backend allows
+requests only from `http://localhost:5173` and `http://127.0.0.1:5173` for local
+frontend development. Only `VITE_API_BASE_URL` belongs in the frontend
+environment; server secrets must remain in the backend environment.
+
 ### Health endpoint
 
 ```http
