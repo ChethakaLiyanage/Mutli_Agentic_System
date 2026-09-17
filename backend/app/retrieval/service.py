@@ -96,34 +96,23 @@ class RetrievalService:
             )
             return result
 
-        result.policy_data = PolicyRecord(
-            policy_id=policy["id"],
-            policy_number=policy["policy_number"],
-            customer_id=policy["customer_id"],
-            status=policy["status"],
-            start_date=str(policy["start_date"]),
-            end_date=str(policy["end_date"]),
-            coverage_details=policy.get(
-                "coverage_details",
-                {},
-            ),
-        )
+        result.policy_data = self._coerce_policy(policy)
 
         claim_history = (
             self.repository.get_policy_claim_history(
-                policy_id=policy["id"],
+                policy_id=result.policy_data.policy_id,
                 user_id=user_id,
             )
         )
 
         result.historical_claims = [
-            HistoricalClaim(
-                claim_id=row["id"],
+            row if isinstance(row, HistoricalClaim) else HistoricalClaim(
+                claim_id=row.get("claim_id", row.get("id")),
                 claim_reference=row["claim_reference"],
-                claim_type=row["claim_type"],
+                claim_type=row.get("incident_type", row.get("claim_type")),
                 incident_date=str(row["incident_date"]),
                 claimed_amount=row.get("claimed_amount"),
-                status=row.get("status"),
+                status=row.get("claim_status", row.get("status")),
             )
             for row in claim_history
         ]
@@ -140,8 +129,8 @@ class RetrievalService:
                 )
 
                 result.document_facts = [
-                    DocumentEvidence(
-                        document_id=row["id"],
+                    row if isinstance(row, DocumentEvidence) else DocumentEvidence(
+                        document_id=row.get("document_id", row.get("id")),
                         document_type=row["document_type"],
                         file_name=row.get("file_name"),
                         incident_date=row.get("incident_date"),
@@ -209,21 +198,7 @@ class RetrievalService:
             )
             return result
 
-        result.claim_record = ClaimRecord(
-            claim_id=claim["id"],
-            claim_reference=claim["claim_reference"],
-            customer_id=claim["customer_id"],
-            policy_id=claim["policy_id"],
-            claim_type=claim["claim_type"],
-            incident_date=str(claim["incident_date"]),
-            incident_location=claim.get(
-                "incident_location"
-            ),
-            claimed_amount=claim.get(
-                "claimed_amount"
-            ),
-            status=claim.get("status"),
-        )
+        result.claim_record = self._coerce_claim(claim)
 
         return result
 
@@ -246,18 +221,7 @@ class RetrievalService:
             )
             return result
 
-        result.policy_data = PolicyRecord(
-            policy_id=policy["id"],
-            policy_number=policy["policy_number"],
-            customer_id=policy["customer_id"],
-            status=policy["status"],
-            start_date=str(policy["start_date"]),
-            end_date=str(policy["end_date"]),
-            coverage_details=policy.get(
-                "coverage_details",
-                {},
-            ),
-        )
+        result.policy_data = self._coerce_policy(policy)
 
         # Add policy knowledge for policy_question and coverage_question
         if self.knowledge_retriever:
@@ -307,7 +271,7 @@ class RetrievalService:
         self,
         request: RetrievalRequest,
         user_id: str,
-    ) -> dict | None:
+    ) -> PolicyRecord | None:
 
         if request.policy_context is None:
             return None
@@ -327,6 +291,37 @@ class RetrievalService:
             )
 
         return None
+
+    @staticmethod
+    def _coerce_policy(policy) -> PolicyRecord:
+        """Keep test doubles compatible while production repositories return models."""
+        if isinstance(policy, PolicyRecord):
+            return policy
+        return PolicyRecord(
+            policy_id=policy.get("policy_id", policy.get("id")),
+            policy_number=policy["policy_number"],
+            customer_id=policy["customer_id"],
+            status=policy["status"],
+            start_date=str(policy["start_date"]),
+            end_date=str(policy["end_date"]),
+            coverage_details=policy.get("coverage_details", {}),
+        )
+
+    @staticmethod
+    def _coerce_claim(claim) -> ClaimRecord:
+        if isinstance(claim, ClaimRecord):
+            return claim
+        return ClaimRecord(
+            claim_id=claim.get("claim_id", claim.get("id")),
+            claim_reference=claim["claim_reference"],
+            customer_id=claim["customer_id"],
+            policy_id=claim["policy_id"],
+            claim_type=claim.get("incident_type", claim.get("claim_type")),
+            incident_date=str(claim["incident_date"]),
+            incident_location=claim.get("incident_location"),
+            claimed_amount=claim.get("claimed_amount"),
+            status=claim.get("claim_status", claim.get("status")),
+        )
 
     def _build_claim_submission_knowledge_query(self, request: RetrievalRequest) -> Optional[str]:
         """Build a knowledge query for claim_submission intent."""

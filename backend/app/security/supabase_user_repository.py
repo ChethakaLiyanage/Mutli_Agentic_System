@@ -49,7 +49,7 @@ class SupabaseUserRepository:
             role=role,
             created_at=datetime.now(timezone.utc),
         )
-        row = user.model_dump(mode="json")
+        row = self.user_to_row(user)
         try:
             response = await asyncio.to_thread(
                 lambda: self._client.table("users").insert(row).execute()
@@ -88,6 +88,11 @@ class SupabaseUserRepository:
             raise
         except Exception as error:
             raise UserPersistenceError("User lookup failed") from error
+
+    @staticmethod
+    def user_to_row(user: UserRecord) -> dict[str, Any]:
+        """Serialize a user using only canonical database columns."""
+        return user.model_dump(mode="json")
 
     @staticmethod
     def _from_row(row: dict[str, Any]) -> UserRecord:
