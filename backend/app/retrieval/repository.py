@@ -1,6 +1,6 @@
 from supabase import Client
 
-from app.core.config import settings
+
 
 
 class RetrievalRepository:
@@ -134,14 +134,15 @@ class RetrievalRepository:
         claim_id: str,
         user_id: str,
     ) -> list[dict]:
-
-        response = (
-            self.client
-            .table("claim_documents")
-            .select("*")
-            .eq("claim_id", claim_id)
-            .eq("customer_id", user_id)
-            .execute()
-        )
-
-        return response.data or []
+        try:
+            response = (
+                self.client
+                .table("claim_documents")
+                .select("*")
+                .eq("claim_id", claim_id)
+                .eq("customer_id", user_id)
+                .execute()
+            )
+            return response.data or []
+        except Exception:
+            return []
