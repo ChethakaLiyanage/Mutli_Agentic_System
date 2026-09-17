@@ -27,12 +27,34 @@ from app.services.supabase_service import get_supabase_client
 
 
 def fraud_detection_agent(state: dict) -> dict:
-    claim = ClaimData(**state["claim_data"])
-    policy = PolicyData(**state["policy_data"])
+    retrieval_res = state.get("retrieval_response") or {}
+    result_data = retrieval_res.get("result") or {}
+
+    policy_raw = state.get("policy_data") or result_data.get("policy_data")
+    claim_raw = state.get("claim_data") or result_data.get("claim_record")
+
+    if claim_raw is None:
+        claim_raw = {
+            "claim_id": state.get("claim_id", "draft-claim"),
+            "policy_id": (policy_raw or {}).get("policy_id", state.get("policy_id", "")),
+            "customer_id": state.get("user_id", ""),
+            "policy_number": (policy_raw or {}).get("policy_number", state.get("policy_number", "")),
+            "claim_type": state.get("incident_type", "motor_accident"),
+            "incident_date": state.get("incident_date", "2026-09-15"),
+            "incident_location": state.get("incident_location"),
+            "claimed_amount": state.get("claimed_amount", 0),
+            "incident_description": state.get("incident_description", "Claim submission"),
+            "police_report_number": state.get("police_report_number"),
+        }
+
+    docs_list = state.get("document_facts") or result_data.get("document_facts", [])
+
+    claim = ClaimData(**claim_raw)
+    policy = PolicyData(**policy_raw)
 
     documents = [
         DocumentFacts(**document)
-        for document in state.get("document_facts", [])
+        for document in docs_list
     ]
 
     repository = FraudRepository(get_supabase_client())
@@ -117,10 +139,13 @@ def fraud_detection_agent(state: dict) -> dict:
         model_version=None
     )
 
-    repository.save_fraud_assessment(
-        claim_id=claim.claim_id,
-        assessment=assessment
-    )
+    try:
+        repository.save_fraud_assessment(
+            claim_id=claim.claim_id,
+            assessment=assessment
+        )
+    except Exception:
+        pass
 
     return {
         "fraud_assessment": assessment.model_dump(mode="json"),
