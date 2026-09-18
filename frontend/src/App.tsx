@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { ClaimAssistantPage } from "./pages/ClaimAssistantPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { AdminDashboard } from "./pages/AdminDashboard";
 
 const PublicOnlyRoute = () => {
   const { user, loading } = useAuth();
@@ -36,8 +37,11 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/claim-assistant" element={<ClaimAssistantPage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Route>
       </Route>
+
+      <Route path="/admin-preview" element={<AdminDashboard />} />
 
       <Route path="/" element={<HomeRedirect />} />
       <Route path="*" element={<Navigate to="/" replace />} />
