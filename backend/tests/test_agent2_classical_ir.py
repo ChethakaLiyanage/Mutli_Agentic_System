@@ -258,6 +258,27 @@ def test_repository_failure_is_controlled_and_client_is_async_compatible():
     assert async_response.status == "failed"
 
 
+def test_knowledge_repository_exception_is_failed_not_no_results():
+    class FailingKnowledgeRepository:
+        def list_knowledge_chunks(self, **_kwargs):
+            raise RuntimeError("private repository connection detail")
+
+    request = RetrievalRequest(
+        request_id="REQ-REPOSITORY-FAIL",
+        query="Does my policy cover flood damage?",
+        user_context=UserContext(user_id="USR-1"),
+        intent_context=IntentContext(intent="coverage_question"),
+    )
+    response = RetrievalService(
+        EmptyStructuredRepository(),
+        KnowledgeRetriever(repository=FailingKnowledgeRepository()),
+    ).retrieve(request)
+
+    assert response.status == "failed"
+    assert response.errors[0].error_code == "knowledge_retrieval_failed"
+    assert "private repository" not in response.model_dump_json()
+
+
 def test_knowledge_failure_with_structured_policy_is_partial_success():
     class PolicyRepository(EmptyStructuredRepository):
         def get_policy_by_number(self, policy_number, user_id):

@@ -1,33 +1,35 @@
-type FutureValue = string & {};
-
 export type WorkflowStatus =
   | "received"
   | "intake_processing"
-  | "intake_complete"
   | "awaiting_clarification"
   | "manual_assistance_required"
+  | "intake_complete"
   | "information_retrieval"
+  | "retrieval_complete"
+  | "claim_information_retrieval"
   | "fraud_triage"
   | "awaiting_human_review"
   | "guidance_processing"
+  | "guidance_generation"
   | "completed"
-  | "failed"
-  | FutureValue;
+  | "approved"
+  | "rejected"
+  | "more_information_required"
+  | "escalated"
+  | "failed";
 
 export type WorkflowType =
   | "information_request"
   | "claim_submission"
   | "claim_status"
   | "clarification"
-  | "unknown"
-  | FutureValue;
+  | "unknown";
 
 export type AuditEventStatus =
   | "started"
   | "success"
   | "awaiting_input"
-  | "failed"
-  | FutureValue;
+  | "failed";
 
 export interface OrchestratorRequest {
   request_id: string;
@@ -38,6 +40,7 @@ export type ClarificationRequest = OrchestratorRequest;
 
 export interface IntentResult {
   label:
+    | "greeting"
     | "claim_submission"
     | "policy_question"
     | "coverage_question"
@@ -102,33 +105,70 @@ export interface OrchestratorError {
   step: string | null;
 }
 
-export interface OrchestratorResponse {
+export type GuidanceStatus = "success" | "insufficient_evidence" | "error";
+
+export type GuidanceResponseType =
+  | "coverage_explanation"
+  | "policy_explanation"
+  | "required_documents"
+  | "claim_status"
+  | "next_steps"
+  | "clarification_question"
+  | "reviewer_summary"
+  | "fraud_indicator_explanation"
+  | "final_decision_explanation";
+
+export interface CustomerGuidanceData {
+  message?: string;
+  next_steps?: string[];
+  evidence_used?: string[];
+  insufficient_evidence?: boolean;
+  grounded?: boolean;
+}
+
+export interface CustomerGuidanceResult {
+  status: GuidanceStatus;
+  response_type: GuidanceResponseType;
+  agent: "guidance_agent";
+  data: CustomerGuidanceData;
+  warnings?: string[];
+  created_at?: string;
+}
+
+export interface CustomerEvidence {
+  evidence_id?: string;
+  source_title: string;
+  section?: string | null;
+  content?: string;
+  score?: number | null;
+}
+
+interface WorkflowResponseBase {
   request_id: string;
   workflow_id: string;
   status: WorkflowStatus;
   workflow_type: WorkflowType;
   intake_result: IntakeResult | null;
-  retrieval_result: Record<string, unknown> | null;
-  fraud_result: Record<string, unknown> | null;
-  human_review_result: Record<string, unknown> | null;
-  guidance_result: Record<string, unknown> | null;
   missing_fields: string[];
   requires_clarification: boolean;
-  errors: OrchestratorError[];
   audit_trail: AuditEvent[];
 }
 
-export interface ClarificationResponse {
-  request_id: string;
-  workflow_id: string;
-  status: WorkflowStatus;
-  workflow_type: WorkflowType;
-  intake_result: IntakeResult | null;
-  missing_fields: string[];
+export interface OrchestratorResponse extends WorkflowResponseBase {
+  retrieval_status: string | null;
+  warnings: string[];
+  evidence_summary: CustomerEvidence[];
+  message: string | null;
+  guidance_result: CustomerGuidanceResult | null;
+  errors: OrchestratorError[];
+}
+
+export interface ClarificationResponse extends WorkflowResponseBase {
+  status: "awaiting_clarification";
+  workflow_type: "clarification";
   questions: string[];
   reason: string | null;
   requires_clarification: true;
-  audit_trail: AuditEvent[];
 }
 
 export type WorkflowResponse = OrchestratorResponse | ClarificationResponse;
@@ -136,3 +176,7 @@ export type WorkflowResponse = OrchestratorResponse | ClarificationResponse;
 export const isClarificationResponse = (
   response: WorkflowResponse,
 ): response is ClarificationResponse => "questions" in response;
+
+export const isOrchestratorResponse = (
+  response: WorkflowResponse,
+): response is OrchestratorResponse => "evidence_summary" in response;

@@ -28,7 +28,7 @@ def test_no_policy_evidence_returns_safe_uncertainty() -> None:
     )))
     assert response.status == "insufficient_evidence"
     assert response.data.grounded is False
-    assert "could not find sufficient information" in response.data.message.lower()
+    assert "couldn't find enough information" in response.data.message.lower()
 
 
 def test_generic_evidence_does_not_confirm_customer_specific_coverage() -> None:

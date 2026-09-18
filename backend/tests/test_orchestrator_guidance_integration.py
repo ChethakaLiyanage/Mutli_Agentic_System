@@ -24,6 +24,12 @@ from backend.app.review.service import HumanReviewService
 from backend.app.schemas.auth import AuthenticatedUser
 from backend.app.schemas.review import HumanDecisionRequest
 from backend.app.schemas.orchestrator import OrchestratorRequest
+from backend.app.schemas.intake import (
+    IntakeData,
+    IntakeRequest,
+    IntakeResponse,
+    IntentResult,
+)
 from backend.app.security.roles import UserRole
 from backend.tests.test_human_review_service import review_state
 
@@ -40,6 +46,55 @@ class Structured:
     def get_claim_by_reference(self, *_args, **_kwargs): return None
     def get_policy_claim_history(self, *_args, **_kwargs): return []
     def get_claim_documents(self, *_args, **_kwargs): return []
+
+
+class CoverageIntakeClient:
+    async def analyze(self, request: IntakeRequest) -> IntakeResponse:
+        return IntakeResponse(
+            request_id=request.request_id,
+            status="success",
+            data=IntakeData(
+                intent=IntentResult(label="coverage_question", confidence=0.95)
+            ),
+        )
+
+
+def test_empty_corpus_completes_with_safe_insufficient_evidence() -> None:
+    workflows = InMemoryWorkflowRepository()
+    service = OrchestratorService(
+        claim_intake_client=CoverageIntakeClient(),
+        workflow_repository=workflows,
+        retrieval_client=LocalRetrievalClient(
+            RetrievalService(
+                Structured(),
+                KnowledgeRetriever(repository=Corpus([])),
+            )
+        ),
+        guidance_client=LocalGuidanceClient(),
+    )
+
+    response = asyncio.run(
+        service.process_request(
+            OrchestratorRequest(
+                request_id="REQ-NO-EVIDENCE",
+                text="Does my policy cover flood damage?",
+            ),
+            authenticated_user_id="CUSTOMER-NO-EVIDENCE",
+            authenticated_user_role="customer",
+        )
+    )
+    stored = asyncio.run(workflows.get(response.workflow_id))
+
+    assert response.status is WorkflowStatus.COMPLETED
+    assert response.retrieval_status == "no_results"
+    assert response.evidence_summary == []
+    assert response.errors == []
+    assert response.guidance_result is not None
+    assert response.guidance_result["status"] == "insufficient_evidence"
+    assert response.guidance_result["data"]["insufficient_evidence"] is True
+    assert "couldn't find enough information" in response.message.lower()
+    assert stored is not None
+    assert stored.current_status is WorkflowStatus.COMPLETED
 
 
 def test_real_agent1_agent2_agent4_information_flow_completes() -> None:

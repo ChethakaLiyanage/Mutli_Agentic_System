@@ -4,6 +4,7 @@ import { apiClient, getApiErrorMessage } from "./client";
 import type {
   ClarificationRequest,
   OrchestratorRequest,
+  OrchestratorResponse,
   WorkflowResponse,
 } from "../types/orchestrator";
 
@@ -27,6 +28,18 @@ export const clarifyWorkflow = async (
   );
   return response.data;
 };
+
+export const getWorkflow = async (
+  workflowId: string,
+): Promise<OrchestratorResponse> => {
+  const response = await apiClient.get<OrchestratorResponse>(
+    `/orchestrator/workflows/${encodeURIComponent(workflowId)}`,
+  );
+  return response.data;
+};
+
+export const isWorkflowNotFoundError = (error: unknown): boolean =>
+  axios.isAxiosError(error) && error.response?.status === 404;
 
 export const getOrchestratorErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {

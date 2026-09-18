@@ -16,15 +16,22 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
+from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
+from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from backend.app.nlp.preprocessing import preprocess_text
+from backend.app.nlp.lexical_normalization import (
+    GREETING_PHRASES,
+    INSURANCE_TERMS,
+    ControlledTextNormalizer,
+    damerau_levenshtein_distance,
+)
 from backend.app.schemas.intake import IntentResult
 
 
 INTENT_LABELS = (
+    "greeting",
     "claim_submission",
     "policy_question",
     "coverage_question",
@@ -35,9 +42,25 @@ INTENT_LABELS = (
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_DATASET_PATH = BACKEND_DIR / "data" / "intent_training.csv"
+DEFAULT_CLEAN_EVALUATION_PATH = BACKEND_DIR / "data" / "intent_evaluation_clean.csv"
+DEFAULT_NOISY_EVALUATION_PATH = BACKEND_DIR / "data" / "intent_evaluation_noisy.csv"
 DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "models" / "intent_classifier.joblib"
 
 _MODEL_CACHE: dict[Path, Pipeline] = {}
+
+WORD_TFIDF_SETTINGS = {
+    "ngram_range": (1, 2),
+    "sublinear_tf": True,
+}
+CHAR_TFIDF_SETTINGS = {
+    "analyzer": "char_wb",
+    "ngram_range": (3, 5),
+    "sublinear_tf": True,
+}
+LOGISTIC_REGRESSION_SETTINGS = {
+    "C": 2.0,
+    "max_iter": 1000,
+}
 
 
 @dataclass(frozen=True)
@@ -53,6 +76,20 @@ class IntentTrainingResult:
     train_size: int
     test_size: int
     model_path: Path
+    class_distribution: dict[str, int]
+    cross_validation_accuracy: float
+    cross_validation_f1: float
+
+
+@dataclass(frozen=True)
+class IntentEvaluationResult:
+    """Metrics measured on one or more external, non-training datasets."""
+
+    accuracy: float
+    f1_score: float
+    classification_report: str
+    confusion_matrix: list[list[int]]
+    sample_size: int
 
 
 def _load_dataset(dataset_path: str | Path) -> tuple[list[str], list[str]]:
@@ -85,20 +122,65 @@ def _load_dataset(dataset_path: str | Path) -> tuple[list[str], list[str]]:
     return texts, labels
 
 
+def _load_evaluation_dataset(
+    dataset_path: str | Path,
+) -> tuple[list[str], list[str]]:
+    path = Path(dataset_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Intent evaluation dataset not found: {path}")
+
+    with path.open(encoding="utf-8", newline="") as dataset_file:
+        rows = list(csv.DictReader(dataset_file))
+    if not rows or not {"text", "label"}.issubset(rows[0]):
+        raise ValueError("Evaluation dataset must contain text and label columns")
+
+    texts: list[str] = []
+    labels: list[str] = []
+    for row_number, row in enumerate(rows, start=2):
+        text = row.get("text", "")
+        label = row.get("label", "")
+        if not preprocess_text(text):
+            raise ValueError(f"Evaluation row {row_number} has empty text")
+        if label not in INTENT_LABELS:
+            raise ValueError(
+                f"Evaluation row {row_number} has unsupported label: {label}"
+            )
+        texts.append(text)
+        labels.append(label)
+    return texts, labels
+
+
 def _build_pipeline(random_state: int) -> Pipeline:
     return Pipeline(
         steps=[
+            ("normalize", ControlledTextNormalizer()),
             (
-                "tfidf",
-                TfidfVectorizer(
-                    preprocessor=preprocess_text,
-                    lowercase=False,
-                    ngram_range=(1, 2),
+                "features",
+                FeatureUnion(
+                    transformer_list=[
+                        (
+                            "word_tfidf",
+                            TfidfVectorizer(
+                                lowercase=False,
+                                **WORD_TFIDF_SETTINGS,
+                            ),
+                        ),
+                        (
+                            "char_tfidf",
+                            TfidfVectorizer(
+                                lowercase=False,
+                                **CHAR_TFIDF_SETTINGS,
+                            ),
+                        ),
+                    ]
                 ),
             ),
             (
                 "classifier",
-                LogisticRegression(max_iter=1000, random_state=random_state),
+                LogisticRegression(
+                    random_state=random_state,
+                    **LOGISTIC_REGRESSION_SETTINGS,
+                ),
             ),
         ]
     )
@@ -130,6 +212,15 @@ def train_intent_classifier(
     evaluation_model = _build_pipeline(random_state)
     evaluation_model.fit(train_texts, train_labels)
     predictions = evaluation_model.predict(test_texts)
+
+    cross_validation = cross_validate(
+        _build_pipeline(random_state),
+        texts,
+        labels,
+        cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=random_state),
+        scoring=("accuracy", "f1_macro"),
+        n_jobs=1,
+    )
 
     accuracy = accuracy_score(test_labels, predictions)
     precision = precision_score(
@@ -183,6 +274,11 @@ def train_intent_classifier(
         train_size=len(train_texts),
         test_size=len(test_texts),
         model_path=resolved_model_path,
+        class_distribution={label: labels.count(label) for label in INTENT_LABELS},
+        cross_validation_accuracy=float(
+            cross_validation["test_accuracy"].mean()
+        ),
+        cross_validation_f1=float(cross_validation["test_f1_macro"].mean()),
     )
 
 
@@ -210,6 +306,48 @@ def load_intent_classifier(
     return model
 
 
+def evaluate_intent_classifier(
+    dataset_paths: str | Path | tuple[str | Path, ...],
+    model_path: str | Path = DEFAULT_MODEL_PATH,
+) -> IntentEvaluationResult:
+    """Evaluate the persisted production pipeline on external labeled data."""
+
+    paths = dataset_paths if isinstance(dataset_paths, tuple) else (dataset_paths,)
+    texts: list[str] = []
+    labels: list[str] = []
+    for path in paths:
+        path_texts, path_labels = _load_evaluation_dataset(path)
+        texts.extend(path_texts)
+        labels.extend(path_labels)
+
+    model = load_intent_classifier(model_path, force_reload=True)
+    predictions = [_predict_with_model(text, model)[0] for text in texts]
+    return IntentEvaluationResult(
+        accuracy=float(accuracy_score(labels, predictions)),
+        f1_score=float(
+            f1_score(
+                labels,
+                predictions,
+                labels=INTENT_LABELS,
+                average="macro",
+                zero_division=0,
+            )
+        ),
+        classification_report=classification_report(
+            labels,
+            predictions,
+            labels=INTENT_LABELS,
+            zero_division=0,
+        ),
+        confusion_matrix=confusion_matrix(
+            labels,
+            predictions,
+            labels=INTENT_LABELS,
+        ).tolist(),
+        sample_size=len(texts),
+    )
+
+
 def predict_intent(
     text: str,
     model_path: str | Path = DEFAULT_MODEL_PATH,
@@ -221,7 +359,68 @@ def predict_intent(
         raise ValueError("text must not be empty or whitespace only")
 
     model = load_intent_classifier(model_path)
-    probabilities = model.predict_proba([cleaned_text])[0]
+    return _predict_with_model(text, model)
+
+
+def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
+    """Apply the persisted model and controlled short-text arbitration."""
+
+    probabilities = model.predict_proba([text])[0]
+    normalized_text = model.named_steps["normalize"].transform([text])[0]
+    normalized_tokens = normalized_text.split()
+    normalized_token_set = set(normalized_tokens)
+
+    # A claim creation action must take precedence over greeting or status
+    # language. This is vocabulary-level arbitration rather than sentence
+    # matching, and still requires support from the supervised class score.
+    submission_actions = {"file", "lodge", "make", "open", "report", "submit"}
+    status_terms = {
+        "decision",
+        "pending",
+        "progress",
+        "reviewed",
+        "stage",
+        "status",
+        "track",
+        "update",
+    }
+    if (
+        "claim" in normalized_token_set
+        and normalized_token_set.intersection(submission_actions)
+        and not normalized_token_set.intersection(status_terms)
+    ):
+        submission_indexes = [
+            index
+            for index, model_label in enumerate(model.classes_)
+            if model_label == "claim_submission"
+        ]
+        if submission_indexes:
+            submission_index = submission_indexes[0]
+            submission_probability = float(probabilities[submission_index])
+            if submission_probability >= 0.15:
+                return "claim_submission", submission_probability
+
+    if (
+        len(normalized_tokens) <= 2
+        and not normalized_token_set.intersection(INSURANCE_TERMS)
+    ):
+        greeting_similarity = max(
+            1.0
+            - damerau_levenshtein_distance(normalized_text, phrase)
+            / max(len(normalized_text), len(phrase))
+            for phrase in GREETING_PHRASES
+        )
+        greeting_indexes = [
+            index
+            for index, model_label in enumerate(model.classes_)
+            if model_label == "greeting"
+        ]
+        if greeting_indexes:
+            greeting_index = greeting_indexes[0]
+            greeting_probability = float(probabilities[greeting_index])
+            if greeting_similarity >= 0.75 and greeting_probability >= 0.20:
+                return "greeting", greeting_probability
+
     best_index = int(probabilities.argmax())
     label = str(model.classes_[best_index])
     return label, float(probabilities[best_index])

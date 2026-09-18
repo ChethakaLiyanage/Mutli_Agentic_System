@@ -40,6 +40,18 @@ def test_preserves_vehicle_and_policy_like_identifiers() -> None:
     )
 
 
+def test_reduces_only_excessive_repetition_in_alphabetic_words() -> None:
+    assert preprocess_text("PLEEEEASE heeelp") == "pleease heelp"
+
+
+def test_repetition_normalization_does_not_change_identifiers_or_amounts() -> None:
+    text = "Policy MTR-100/26 claim CLM-9283 vehicle WP-CAB-1234 costs 1000.00"
+
+    assert preprocess_text(text) == (
+        "policy mtr-100/26 claim clm-9283 vehicle wp-cab-1234 costs 1000.00"
+    )
+
+
 def test_preserves_original_input_string() -> None:
     original = "  Claim for WP-CAD-1234!!!  "
 

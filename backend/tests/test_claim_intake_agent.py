@@ -38,6 +38,34 @@ def test_complete_collision_claim(agent: ClaimIntakeAgent) -> None:
     assert response.errors == []
 
 
+@pytest.mark.parametrize(
+    ("text", "expected_location"),
+    [
+        ("my car crashed yesterday at kandy", "Kandy"),
+        ("my car crashed yesterday near Kandy", "Kandy"),
+        ("my car had an accident yesterday in Colombo", "Colombo"),
+        ("my car had a collision yesterday near Negombo", "Negombo"),
+    ],
+)
+def test_claim_location_is_normalized_from_layered_extraction(
+    agent: ClaimIntakeAgent,
+    text: str,
+    expected_location: str,
+) -> None:
+    response = analyze(agent, text)
+
+    assert response.data.intent.label == "claim_submission"
+    assert response.data.incident.location == expected_location
+    assert "location" not in response.data.missing_fields
+
+
+def test_time_is_not_selected_as_claim_location(agent: ClaimIntakeAgent) -> None:
+    response = analyze(agent, "My car crashed yesterday at 5pm and I want to claim")
+
+    assert response.data.incident.location is None
+    assert "location" in response.data.missing_fields
+
+
 def test_incomplete_claim_reports_only_genuinely_missing_fields(
     agent: ClaimIntakeAgent,
 ) -> None:
@@ -69,7 +97,7 @@ def test_required_documents_question(agent: ClaimIntakeAgent) -> None:
 
     assert response.data.intent.label == "required_documents_question"
     assert response.data.missing_fields == []
-    assert response.data.requires_clarification is True
+    assert response.data.requires_clarification is False
 
 
 def test_claim_status_question(agent: ClaimIntakeAgent) -> None:
@@ -77,7 +105,7 @@ def test_claim_status_question(agent: ClaimIntakeAgent) -> None:
 
     assert response.data.intent.label == "claim_status"
     assert response.data.missing_fields == []
-    assert response.data.requires_clarification is True
+    assert response.data.requires_clarification is False
 
 
 def test_complete_flood_claim(agent: ClaimIntakeAgent) -> None:
@@ -137,6 +165,59 @@ def test_non_claim_intent_keeps_detectable_incident_details(
     assert response.data.intent.label == "coverage_question"
     assert response.data.incident.type == "flood_damage"
     assert response.data.missing_fields == []
+
+
+def test_greeting_never_requests_claim_fields(agent: ClaimIntakeAgent) -> None:
+    response = analyze(agent, "ih")
+
+    assert response.data.intent.label == "greeting"
+    assert response.data.missing_fields == []
+    assert response.data.requires_clarification is False
+
+
+def test_noisy_classification_does_not_replace_text_used_for_extraction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = "my car ws hit ystrday in colombo"
+    observed: list[str] = []
+
+    def record_entities(text: str):
+        observed.append(text)
+        return []
+
+    def record_incident(text: str):
+        observed.append(text)
+        return None
+
+    def record_damage(text: str):
+        observed.append(text)
+        return []
+
+    def record_date(text: str, reference_date: date):
+        observed.append(text)
+        return None, None
+
+    monkeypatch.setattr(
+        "backend.app.agents.claim_intake_agent.extract_entities",
+        record_entities,
+    )
+    monkeypatch.setattr(
+        "backend.app.agents.claim_intake_agent.extract_incident_type",
+        record_incident,
+    )
+    monkeypatch.setattr(
+        "backend.app.agents.claim_intake_agent.extract_damage_areas",
+        record_damage,
+    )
+    monkeypatch.setattr(
+        "backend.app.agents.claim_intake_agent.extract_date",
+        record_date,
+    )
+
+    response = analyze(ClaimIntakeAgent(), original)
+
+    assert response.data.intent.label == "claim_submission"
+    assert observed == [original, original, original, original]
 
 
 def test_internal_failure_returns_controlled_error(

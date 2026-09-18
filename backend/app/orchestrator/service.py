@@ -21,6 +21,7 @@ from backend.app.orchestrator.adapters import (
     build_retrieval_request,
     build_guidance_request,
     intake_to_claim_context,
+    merge_claim_intake_results,
     retrieval_to_evidence_items,
     retrieval_to_document_facts,
     retrieval_to_policy_context,
@@ -41,6 +42,9 @@ from backend.app.orchestrator.repository import (
     InMemoryWorkflowRepository,
     WorkflowRepository,
 )
+from backend.app.orchestrator.greetings import (
+    GREETING_RESPONSE_MESSAGE,
+)
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
 from backend.app.retrieval.schemas import RetrievalResponse
 from backend.app.guidance.schemas import GuidanceResponse
@@ -60,6 +64,12 @@ from backend.app.schemas.orchestrator import (
 
 
 logger = logging.getLogger(__name__)
+
+_POLICY_LINK_REQUIRED_MESSAGE = (
+    "Your claim details were saved as a draft, but no single motor policy is "
+    "linked to your account. A claims officer must link the correct policy "
+    "before processing can continue."
+)
 
 
 class InvalidWorkflowTransition(ValueError):
@@ -344,12 +354,23 @@ class OrchestratorService:
     def _public_message(
         self, state: WorkflowState, retrieval_status: str | None
     ) -> str | None:
+        if (
+            state.current_status is WorkflowStatus.COMPLETED
+            and state.intake_result is not None
+            and state.intake_result.data.intent.label == "greeting"
+        ):
+            return GREETING_RESPONSE_MESSAGE
         if state.guidance_result:
             data = state.guidance_result.get("data") or {}
             if data.get("message"):
                 return str(data["message"])
         if state.current_status is WorkflowStatus.AWAITING_HUMAN_REVIEW:
             return "Your claim is awaiting review by a claims officer."
+        if (
+            state.current_status is WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED
+            and any(error.code == "POLICY_LINK_REQUIRED" for error in state.errors)
+        ):
+            return _POLICY_LINK_REQUIRED_MESSAGE
         decision_messages = {
             WorkflowStatus.APPROVED: "Your claim has been approved by a claims officer.",
             WorkflowStatus.REJECTED: "A claims officer has completed review of your claim.",
@@ -478,6 +499,28 @@ class OrchestratorService:
         mapped_workflow = self.determine_workflow_type(state)
         state.workflow_type = mapped_workflow
         state.missing_fields = list(dict.fromkeys(intake_response.data.missing_fields))
+
+        if (
+            intake_response.data.intent.label == "greeting"
+            and not intake_response.data.requires_clarification
+        ):
+            state.missing_fields = []
+            state.requires_clarification = False
+            self.append_audit_event(
+                state,
+                step="workflow_routing",
+                status=AuditEventStatus.SUCCESS,
+                message="Greeting routed to deterministic conversation response",
+            )
+            self.update_status(
+                state,
+                WorkflowStatus.COMPLETED,
+                message="Greeting response completed",
+                step="greeting",
+            )
+            await self.workflow_repository.save(state)
+            return self.to_response(state)
+
         agent_requires_clarification = intake_response.data.requires_clarification
         claim_fields_missing = (
             mapped_workflow is WorkflowType.CLAIM_SUBMISSION
@@ -558,6 +601,7 @@ class OrchestratorService:
         _ = authenticated_user_role
         state.last_request_id = request.request_id
         state.clarification_count += 1
+        previous_intake_result = state.intake_result
         state.accumulated_text = (
             f"{state.accumulated_text.rstrip()} {request.text.strip()}"
         )
@@ -584,6 +628,10 @@ class OrchestratorService:
             )
             if not isinstance(intake_response, IntakeResponse):
                 raise TypeError("Claim Intake client returned an invalid response")
+            intake_response = merge_claim_intake_results(
+                previous_intake_result,
+                intake_response,
+            )
             state.intake_result = intake_response
         except Exception:
             logger.exception(
@@ -919,6 +967,24 @@ class OrchestratorService:
             message="Claim persistence completed",
         )
         await self.workflow_repository.save(state)
+
+        if not claim.policy_id:
+            state.errors.append(
+                OrchestratorError(
+                    code="POLICY_LINK_REQUIRED",
+                    message=_POLICY_LINK_REQUIRED_MESSAGE,
+                    step="claim_persistence",
+                )
+            )
+            self.update_status(
+                state,
+                WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
+                message="Claim draft requires policy linkage",
+                step="claim_persistence",
+                audit_status=AuditEventStatus.AWAITING_INPUT,
+            )
+            await self.workflow_repository.save(state)
+            return
 
         self.update_status(
             state, WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL,

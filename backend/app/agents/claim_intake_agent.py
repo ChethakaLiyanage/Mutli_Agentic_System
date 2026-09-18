@@ -8,7 +8,7 @@ from datetime import date
 
 from backend.app.nlp.damage_extraction import extract_damage_areas
 from backend.app.nlp.date_extraction import extract_date
-from backend.app.nlp.entity_extraction import extract_entities
+from backend.app.nlp.entity_extraction import extract_entities, normalize_location
 from backend.app.nlp.incident_extraction import extract_incident_type
 from backend.app.nlp.intent_classifier import predict_intent
 from backend.app.nlp.preprocessing import preprocess_text
@@ -32,14 +32,13 @@ _CLAIM_REQUIRED_FIELDS = ("incident_type", "incident_date", "location")
 def _select_location(entities: list[ExtractedEntity]) -> str | None:
     """Select the first grounded location in source-text order."""
 
-    return next(
-        (
-            entity.value.strip()
-            for entity in entities
-            if entity.entity_type == "LOCATION" and entity.value.strip()
-        ),
-        None,
-    )
+    for entity in entities:
+        if entity.entity_type != "LOCATION":
+            continue
+        location = normalize_location(entity.value)
+        if location:
+            return location
+    return None
 
 
 def _find_missing_claim_fields(
@@ -78,7 +77,9 @@ class ClaimIntakeAgent:
 
         try:
             cleaned_text = preprocess_text(original_text)
-            intent_label, intent_confidence = predict_intent(cleaned_text)
+            if not cleaned_text:
+                raise ValueError("text must not be empty after preprocessing")
+            intent_label, intent_confidence = predict_intent(original_text)
 
             entities = extract_entities(original_text)
             incident_type = extract_incident_type(original_text)

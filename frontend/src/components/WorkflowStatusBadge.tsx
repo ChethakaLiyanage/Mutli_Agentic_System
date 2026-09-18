@@ -1,27 +1,28 @@
 import type { WorkflowStatus } from "../types/orchestrator";
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS = {
   received: "Received",
   intake_processing: "Processing Intake",
-  intake_complete: "Intake Complete",
   awaiting_clarification: "Needs More Information",
   manual_assistance_required: "Manual Assistance Required",
+  intake_complete: "Intake Complete",
   information_retrieval: "Retrieving Information",
-  fraud_triage: "Fraud Triage",
+  retrieval_complete: "Information Retrieved",
+  claim_information_retrieval: "Checking Claim Information",
+  fraud_triage: "Processing Claim",
   awaiting_human_review: "Awaiting Human Review",
   guidance_processing: "Preparing Guidance",
+  guidance_generation: "Preparing Response",
   completed: "Completed",
+  approved: "Approved",
+  rejected: "Review Completed",
+  more_information_required: "More Information Required",
+  escalated: "Additional Review",
   failed: "Unable to Continue",
-};
-
-const toFriendlyLabel = (status: string): string =>
-  status
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+} satisfies Record<WorkflowStatus, string>;
 
 export const WorkflowStatusBadge = ({ status }: { status: WorkflowStatus }) => (
   <span className={`workflow-status workflow-status-${status}`}>
-    {STATUS_LABELS[status] ?? toFriendlyLabel(status)}
+    {STATUS_LABELS[status]}
   </span>
 );

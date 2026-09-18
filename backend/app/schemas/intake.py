@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 IntentLabel = Literal[
+    "greeting",
     "claim_submission",
     "policy_question",
     "coverage_question",

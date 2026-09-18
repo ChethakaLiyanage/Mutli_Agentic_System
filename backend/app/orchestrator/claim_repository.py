@@ -85,7 +85,10 @@ class SupabaseClaimRepository:
             payload = {key: value for key, value in row.items() if value is not None}
             response = (
                 self._client.table("claims")
-                .upsert(payload, on_conflict="workflow_id")
+                # The deterministic claim_id and the lookup above provide
+                # idempotency without requiring legacy databases to already
+                # have the canonical unique workflow_id constraint.
+                .insert(payload)
                 .execute()
             )
             persisted = dict(response.data[0]) if response.data else payload
@@ -99,25 +102,23 @@ class SupabaseClaimRepository:
 def _select_owned_policy(
     policies: list[dict[str, Any]],
     customer_id: str | None,
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     if customer_id is None:
         raise ClaimPersistenceError("Authenticated customer identity is required")
     owned = [row for row in policies if row.get("customer_id") == customer_id]
     active = [row for row in owned if row.get("status") == "active"]
     candidates = active if len(active) == 1 else owned
     if len(candidates) != 1:
-        raise ClaimPersistenceError(
-            "A single owned motor policy could not be resolved safely"
-        )
+        return None
     return deepcopy(candidates[0])
 
 
 def _claim_with_persistence_identity(
     workflow_id: str,
     claim: ClaimContext,
-    policy: dict[str, Any],
+    policy: dict[str, Any] | None,
 ) -> ClaimContext:
-    if policy.get("customer_id") != claim.customer_id:
+    if policy is not None and policy.get("customer_id") != claim.customer_id:
         raise ClaimPersistenceError("Policy ownership mismatch")
     claim_id = claim.claim_id or f"CLM-{uuid5(NAMESPACE_URL, workflow_id).hex.upper()}"
     claim_reference = claim.claim_reference or f"REF-{claim_id[4:20]}"
@@ -125,9 +126,11 @@ def _claim_with_persistence_identity(
         update={
             "claim_id": claim_id,
             "claim_reference": claim_reference,
-            "policy_id": policy.get("policy_id"),
-            "policy_number": policy.get("policy_number"),
-            "claim_status": claim.claim_status or "awaiting_human_review",
+            "policy_id": policy.get("policy_id") if policy else None,
+            "policy_number": policy.get("policy_number") if policy else None,
+            "claim_status": claim.claim_status or (
+                "awaiting_human_review" if policy else "policy_link_required"
+            ),
         },
         deep=True,
     )

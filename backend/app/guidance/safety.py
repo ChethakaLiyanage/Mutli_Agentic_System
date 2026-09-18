@@ -164,13 +164,12 @@ def build_insufficient_evidence_fallback(
     """
     if request.audience == "customer":
         msg = (
-            "I could not find sufficient information in the available insurance policy documents "
-            "to answer your question with complete confidence. "
-            "To ensure accuracy, a claims officer will review your request, or you may contact our customer support."
+            "I couldn't find enough information in the available policy documents "
+            "to confirm the answer reliably."
         )
         steps = [
-            "Wait for claims officer follow-up",
-            "Contact customer support if you require immediate clarification",
+            "Try asking another motor insurance question",
+            "Check your policy documents for more details",
         ]
     else:
         reason_detail = f" ({custom_reason})" if custom_reason else ""
@@ -187,7 +186,7 @@ def build_insufficient_evidence_fallback(
         message=msg,
         next_steps=steps,
         evidence_used=[],
-        requires_human_review=True,
+        requires_human_review=request.audience != "customer",
         insufficient_evidence=True,
         automated_decision=False,
     )

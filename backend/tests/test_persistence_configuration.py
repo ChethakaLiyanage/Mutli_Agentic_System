@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from backend.app.config import Settings
+from backend.app.config import (
+    ENV_FILE_PATH,
+    PROJECT_ROOT,
+    Settings,
+    get_settings,
+)
 from backend.app.orchestrator.repository import InMemoryWorkflowRepository
 from backend.app.orchestrator.supabase_workflow_repository import (
     SupabaseWorkflowRepository,
@@ -12,6 +17,8 @@ from backend.app.orchestrator.supabase_workflow_repository import (
 from backend.app.security.supabase_user_repository import SupabaseUserRepository
 from backend.app.security.user_repository import InMemoryUserRepository
 from backend.app.services import persistence
+from backend.app.services.persistence import ApplicationRepositories
+from backend.app.security import dependencies
 
 
 def test_supabase_configuration_requires_url_and_service_role_key() -> None:
@@ -23,6 +30,53 @@ def test_supabase_configuration_requires_url_and_service_role_key() -> None:
             persistence_backend="supabase",
             supabase_url="https://example.supabase.co",
         )
+
+
+def test_backend_environment_file_is_resolved_from_repository_root() -> None:
+    assert ENV_FILE_PATH == PROJECT_ROOT / ".env"
+    assert ENV_FILE_PATH.is_file()
+
+
+def test_supabase_backend_does_not_accept_a_generic_client_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("PERSISTENCE_BACKEND", "supabase")
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
+    monkeypatch.setenv("SUPABASE_KEY", "publishable-client-key")
+
+    with pytest.raises(ValueError, match="SUPABASE_SERVICE_ROLE_KEY"):
+        get_settings()
+
+    get_settings.cache_clear()
+
+
+def test_auth_repository_dependency_uses_central_persistence_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = InMemoryUserRepository()
+    second = InMemoryUserRepository()
+    repositories = iter(
+        [
+            ApplicationRepositories(
+                users=first,
+                workflows=InMemoryWorkflowRepository(),
+            ),
+            ApplicationRepositories(
+                users=second,
+                workflows=InMemoryWorkflowRepository(),
+            ),
+        ]
+    )
+    monkeypatch.setattr(
+        dependencies,
+        "get_application_repositories",
+        lambda: next(repositories),
+    )
+
+    assert dependencies.get_user_repository() is first
+    assert dependencies.get_user_repository() is second
 
 
 def test_memory_backend_builds_shared_in_memory_repositories(

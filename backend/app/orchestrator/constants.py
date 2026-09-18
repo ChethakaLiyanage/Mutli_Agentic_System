@@ -88,6 +88,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     ),
     WorkflowStatus.INTAKE_COMPLETE: frozenset(
         {
+            WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
             WorkflowStatus.INFORMATION_RETRIEVAL,
             WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL,
             WorkflowStatus.FRAUD_TRIAGE,
