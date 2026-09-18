@@ -1,0 +1,25 @@
+Motor Insurance - Collision Claim Process
+
+Section 1: Incident Reporting
+Following a vehicle collision, the customer should provide:
+- Date of incident
+- Location
+- Description of the collision
+- Details of vehicle damage
+- Other parties involved, where applicable
+
+Section 2: Supporting Documents
+Common supporting documents may include:
+- Claim form
+- Vehicle registration
+- Driving licence where required
+- Damage photographs
+- Repair estimate
+- Police report where required
+- Third-party information where available
+
+Section 3: Assessment
+The claim may be checked against the active policy, claim history, submitted documents, and other claim information.
+
+Section 4: Human Review
+Automated systems may assist with information retrieval and risk triage. An authorized claims officer remains responsible for consequential claim decisions.
