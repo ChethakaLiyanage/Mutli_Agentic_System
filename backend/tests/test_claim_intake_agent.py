@@ -38,6 +38,34 @@ def test_complete_collision_claim(agent: ClaimIntakeAgent) -> None:
     assert response.errors == []
 
 
+@pytest.mark.parametrize(
+    ("text", "expected_location"),
+    [
+        ("my car crashed yesterday at kandy", "Kandy"),
+        ("my car crashed yesterday near Kandy", "Kandy"),
+        ("my car had an accident yesterday in Colombo", "Colombo"),
+        ("my car had a collision yesterday near Negombo", "Negombo"),
+    ],
+)
+def test_claim_location_is_normalized_from_layered_extraction(
+    agent: ClaimIntakeAgent,
+    text: str,
+    expected_location: str,
+) -> None:
+    response = analyze(agent, text)
+
+    assert response.data.intent.label == "claim_submission"
+    assert response.data.incident.location == expected_location
+    assert "location" not in response.data.missing_fields
+
+
+def test_time_is_not_selected_as_claim_location(agent: ClaimIntakeAgent) -> None:
+    response = analyze(agent, "My car crashed yesterday at 5pm and I want to claim")
+
+    assert response.data.incident.location is None
+    assert "location" in response.data.missing_fields
+
+
 def test_incomplete_claim_reports_only_genuinely_missing_fields(
     agent: ClaimIntakeAgent,
 ) -> None:

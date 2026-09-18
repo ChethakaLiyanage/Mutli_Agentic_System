@@ -18,11 +18,12 @@ from backend.app.services.repository_errors import RepositoryError
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
-_user_repository = get_application_repositories().users
 
 
 def get_user_repository() -> UserRepository:
-    return _user_repository
+    """Resolve auth storage from the application's configured repository pair."""
+
+    return get_application_repositories().users
 
 
 def _authentication_error() -> HTTPException:

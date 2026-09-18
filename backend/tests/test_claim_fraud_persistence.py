@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from backend.app.fraud.repository import InMemoryFraudRepository
-from backend.app.orchestrator.claim_repository import InMemoryClaimRepository
+from backend.app.orchestrator.claim_repository import (
+    InMemoryClaimRepository,
+    SupabaseClaimRepository,
+)
 from backend.app.schemas.domain import ClaimContext, FraudAssessmentContext
+from backend.tests._supabase_fake import FakeSupabaseClient
 
 
 POLICY = {
@@ -24,6 +28,53 @@ def test_claim_persistence_is_idempotent_per_workflow() -> None:
     assert first.claim_reference == second.claim_reference
     assert first.policy_id == "POL-PERSIST"
     assert len(repository.claims_by_workflow) == 1
+
+
+def test_claim_without_linked_policy_is_saved_as_customer_owned_draft() -> None:
+    repository = InMemoryClaimRepository()
+    claim = ClaimContext(
+        customer_id="USR-NO-POLICY",
+        incident_type="vehicle_collision",
+        incident_date="2026-09-18",
+        incident_location="Kandy",
+    )
+
+    stored = repository.save_for_workflow(
+        workflow_id="WF-NO-POLICY",
+        claim=claim,
+    )
+
+    assert stored.claim_id is not None
+    assert stored.claim_reference is not None
+    assert stored.customer_id == "USR-NO-POLICY"
+    assert stored.policy_id is None
+    assert stored.policy_number is None
+    assert stored.claim_status == "policy_link_required"
+
+
+def test_supabase_claim_without_policy_uses_canonical_nullable_columns() -> None:
+    client = FakeSupabaseClient()
+    repository = SupabaseClaimRepository(client)
+    claim = ClaimContext(
+        customer_id="USR-NO-POLICY",
+        incident_type="vehicle_collision",
+        incident_date="2026-09-18",
+        incident_location="Kandy",
+    )
+
+    stored = repository.save_for_workflow(
+        workflow_id="WF-SUPABASE-NO-POLICY",
+        claim=claim,
+    )
+    row = client.rows["claims"]["WF-SUPABASE-NO-POLICY"]
+
+    assert stored.claim_status == "policy_link_required"
+    assert row["customer_id"] == "USR-NO-POLICY"
+    assert row["claim_status"] == "policy_link_required"
+    assert "policy_id" not in row
+    assert "policy_number" not in row
+    assert ("claims", "insert") in client.calls
+    assert ("claims", "upsert") not in client.calls
 
 
 def test_fraud_persistence_preserves_canonical_fields_and_never_decides() -> None:

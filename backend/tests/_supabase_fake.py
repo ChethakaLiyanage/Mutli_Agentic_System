@@ -66,6 +66,8 @@ class FakeSupabaseClient:
         self.rows: dict[str, dict[str, dict[str, Any]]] = {
             "users": {},
             "workflows": {},
+            "policies": {},
+            "claims": {},
         }
         self.calls: list[tuple[str, str]] = []
         self.fail_next: Exception | None = None

@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 
-load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ENV_FILE_PATH = PROJECT_ROOT / ".env"
+
+# Resolve the backend environment from the repository root instead of relying on
+# the process working directory. Existing operating-system variables still win.
+load_dotenv(dotenv_path=ENV_FILE_PATH, override=False)
 
 _DEVELOPMENT_JWT_SECRET = (
     "development-only-jwt-secret-change-before-production-32-chars"
@@ -49,6 +56,7 @@ class Settings:
             )
 
 
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Load settings; the fallback secret is for local development only."""
 
@@ -60,7 +68,5 @@ def get_settings() -> Settings:
         ),
         persistence_backend=os.getenv("PERSISTENCE_BACKEND", "memory").lower(),
         supabase_url=os.getenv("SUPABASE_URL"),
-        supabase_service_role_key=(
-            os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
-        ),
+        supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
     )

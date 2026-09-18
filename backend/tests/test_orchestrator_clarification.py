@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from datetime import date
 
 import pytest
 
 from backend.app.orchestrator.agent_clients import LocalClaimIntakeClient
+from backend.app.agents.claim_intake_agent import ClaimIntakeAgent
+from backend.app.orchestrator.adapters import merge_claim_intake_results
 from backend.app.orchestrator.constants import (
     MAX_CLARIFICATION_ATTEMPTS,
     WorkflowStatus,
@@ -20,6 +23,7 @@ from backend.app.orchestrator.service import (
     WorkflowNotResumableError,
 )
 from backend.app.schemas.intake import (
+    IncidentInformation,
     IntakeData,
     IntakeRequest,
     IntakeResponse,
@@ -305,5 +309,143 @@ def test_real_agent_one_completes_after_clarification() -> None:
         assert resumed.status is WorkflowStatus.INTAKE_COMPLETE
         assert resumed.workflow_type is WorkflowType.CLAIM_SUBMISSION
         assert resumed.missing_fields == []
+
+    asyncio.run(scenario())
+
+
+def test_merge_preserves_previous_incident_type_and_recalculates_missing() -> None:
+    previous = IntakeResponse(
+        request_id="MERGE001",
+        status="success",
+        data=IntakeData(
+            intent=IntentResult(label="claim_submission", confidence=0.82),
+            incident=IncidentInformation(type="vehicle_collision"),
+            missing_fields=["incident_date", "location"],
+            requires_clarification=True,
+        ),
+    )
+    clarification = IntakeResponse(
+        request_id="MERGE002",
+        status="success",
+        data=IntakeData(
+            intent=IntentResult(label="claim_submission", confidence=0.76),
+            incident=IncidentInformation(
+                date_text="yesterday",
+                normalized_date="2026-09-17",
+                location="Kandy",
+            ),
+            missing_fields=["incident_type"],
+            requires_clarification=True,
+        ),
+    )
+
+    merged = merge_claim_intake_results(previous, clarification)
+
+    assert merged.data.incident.type == "vehicle_collision"
+    assert merged.data.incident.normalized_date == "2026-09-17"
+    assert merged.data.incident.location == "Kandy"
+    assert merged.data.missing_fields == []
+    assert merged.data.requires_clarification is False
+
+
+def test_real_claim_clarification_merges_date_and_location_and_continues() -> None:
+    async def scenario() -> None:
+        repository = InMemoryWorkflowRepository()
+        agent = ClaimIntakeAgent(
+            reference_date_provider=lambda: date(2026, 9, 18)
+        )
+        service = OrchestratorService(LocalClaimIntakeClient(agent), repository)
+        initial = await service.process_request(
+            OrchestratorRequest(request_id="LOC001", text="my car crashed"),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+        assert isinstance(initial, ClarificationResponse)
+        assert initial.missing_fields == ["incident_date", "location"]
+
+        resumed = await service.resume_clarification(
+            initial.workflow_id,
+            ClarificationRequest(
+                request_id="LOC002",
+                text="yesterday at Kandy",
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+
+        assert isinstance(resumed, OrchestratorResponse)
+        assert resumed.workflow_id == initial.workflow_id
+        assert resumed.status is WorkflowStatus.INTAKE_COMPLETE
+        assert resumed.requires_clarification is False
+        assert resumed.missing_fields == []
+        assert resumed.intake_result is not None
+        incident = resumed.intake_result.data.incident
+        assert incident.type == "vehicle_collision"
+        assert incident.date_text == "yesterday"
+        assert incident.normalized_date == "2026-09-17"
+        assert incident.location == "Kandy"
+
+    asyncio.run(scenario())
+
+
+def test_location_only_clarification_preserves_existing_claim_facts() -> None:
+    async def scenario() -> None:
+        repository = InMemoryWorkflowRepository()
+        agent = ClaimIntakeAgent(
+            reference_date_provider=lambda: date(2026, 9, 18)
+        )
+        service = OrchestratorService(LocalClaimIntakeClient(agent), repository)
+        initial = await service.process_request(
+            OrchestratorRequest(
+                request_id="LOC003",
+                text="my car crashed yesterday",
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+        assert isinstance(initial, ClarificationResponse)
+        assert initial.missing_fields == ["location"]
+
+        resumed = await service.resume_clarification(
+            initial.workflow_id,
+            ClarificationRequest(request_id="LOC004", text="Kandy"),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+
+        assert isinstance(resumed, OrchestratorResponse)
+        assert resumed.missing_fields == []
+        assert resumed.intake_result is not None
+        incident = resumed.intake_result.data.incident
+        assert incident.type == "vehicle_collision"
+        assert incident.date_text == "yesterday"
+        assert incident.location == "Kandy"
+
+    asyncio.run(scenario())
+
+
+def test_location_only_reply_leaves_only_the_still_missing_date() -> None:
+    async def scenario() -> None:
+        repository = InMemoryWorkflowRepository()
+        service = OrchestratorService(LocalClaimIntakeClient(), repository)
+        initial = await service.process_request(
+            OrchestratorRequest(request_id="LOC005", text="my car crashed"),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+        assert isinstance(initial, ClarificationResponse)
+
+        resumed = await service.resume_clarification(
+            initial.workflow_id,
+            ClarificationRequest(request_id="LOC006", text="Kandy"),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+
+        assert isinstance(resumed, ClarificationResponse)
+        assert resumed.missing_fields == ["incident_date"]
+        assert resumed.questions == ["When did the incident happen?"]
+        assert resumed.intake_result.data.incident.type == "vehicle_collision"
+        assert resumed.intake_result.data.incident.location == "Kandy"
 
     asyncio.run(scenario())

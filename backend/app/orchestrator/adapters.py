@@ -41,6 +41,85 @@ from backend.app.schemas.domain import (
 from backend.app.schemas.intake import IntakeResponse
 
 
+_CLAIM_REQUIRED_FIELDS = ("incident_type", "incident_date", "location")
+
+
+def merge_claim_intake_results(
+    previous: IntakeResponse | None,
+    latest: IntakeResponse,
+    *,
+    confidence_threshold: float = 0.50,
+) -> IntakeResponse:
+    """Merge grounded claim facts across a clarification turn.
+
+    The latest analysis is authoritative for newly supplied values, while
+    previously grounded facts remain available when the customer answers with
+    only one missing field.
+    """
+
+    if (
+        previous is None
+        or previous.status != "success"
+        or latest.status != "success"
+        or previous.data.intent.label != "claim_submission"
+    ):
+        return latest
+
+    merged = latest.model_copy(deep=True)
+    if latest.data.intent.label != "claim_submission":
+        merged.data.intent = previous.data.intent.model_copy(deep=True)
+
+    old_incident = previous.data.incident
+    new_incident = merged.data.incident
+    new_incident.type = new_incident.type or old_incident.type
+    if (
+        new_incident.date_text is None
+        and new_incident.normalized_date is None
+    ):
+        new_incident.date_text = old_incident.date_text
+        new_incident.normalized_date = old_incident.normalized_date
+    new_incident.location = new_incident.location or old_incident.location
+
+    merged.data.damage.areas = list(
+        dict.fromkeys(previous.data.damage.areas + merged.data.damage.areas)
+    )
+    merged.data.damage.description = (
+        merged.data.damage.description or previous.data.damage.description
+    )
+
+    entity_keys: set[tuple[str, str, int | None, int | None]] = set()
+    merged_entities = []
+    for entity in previous.data.entities + merged.data.entities:
+        key = (entity.entity_type, entity.value, entity.start, entity.end)
+        if key not in entity_keys:
+            entity_keys.add(key)
+            merged_entities.append(entity)
+    merged.data.entities = merged_entities
+
+    available = {
+        "incident_type": bool(new_incident.type),
+        "incident_date": bool(
+            new_incident.date_text or new_incident.normalized_date
+        ),
+        "location": bool(new_incident.location),
+    }
+    has_grounded_claim_fact = any(available.values())
+    if has_grounded_claim_fact:
+        merged.data.missing_fields = [
+            field for field in _CLAIM_REQUIRED_FIELDS if not available[field]
+        ]
+    else:
+        # Preserve compatibility with remote/mock Agent 1 implementations that
+        # communicate only their missing-field list and no structured facts.
+        merged.data.missing_fields = list(
+            dict.fromkeys(latest.data.missing_fields)
+        )
+    merged.data.requires_clarification = bool(
+        merged.data.missing_fields
+    ) or merged.data.intent.confidence < confidence_threshold
+    return merged
+
+
 def intake_to_claim_context(
     response: IntakeResponse,
     *,

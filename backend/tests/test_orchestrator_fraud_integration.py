@@ -163,6 +163,38 @@ def test_claim_flow_uses_trusted_identity_and_persists_once() -> None:
     assert retrieval.requests[0].policy_context.policy_id == POLICY["policy_id"]
 
 
+def test_claim_without_linked_policy_is_saved_and_stops_before_downstream_agents() -> None:
+    claims = InMemoryClaimRepository()
+    retrieval = FakeRetrieval()
+    fraud = FakeFraud()
+    orchestrator = service(
+        FakeIntake(intake()),
+        retrieval,
+        fraud=fraud,
+        claims=claims,
+    )
+
+    response = asyncio.run(orchestrator.process_request(
+        OrchestratorRequest(
+            request_id="REQ-NO-POLICY",
+            text="My car crashed yesterday near Kandy.",
+        ),
+        authenticated_user_id=USER_ID,
+        authenticated_user_role="customer",
+    ))
+
+    assert response.status is WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED
+    assert response.errors[0].code == "POLICY_LINK_REQUIRED"
+    assert "saved as a draft" in response.message
+    assert "policy" in response.message.lower()
+    assert retrieval.requests == []
+    assert fraud.calls == []
+    stored = claims.claims_by_workflow[response.workflow_id]
+    assert stored.customer_id == USER_ID
+    assert stored.policy_id is None
+    assert stored.claim_status == "policy_link_required"
+
+
 @pytest.mark.parametrize(
     "intent",
     ["policy_question", "coverage_question", "required_documents_question", "general_information"],

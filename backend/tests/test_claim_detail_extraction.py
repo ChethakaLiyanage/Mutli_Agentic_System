@@ -6,7 +6,7 @@ import pytest
 
 from backend.app.nlp.damage_extraction import DamageExtractor, extract_damage_areas
 from backend.app.nlp.date_extraction import DateExtractor, extract_date
-from backend.app.nlp.entity_extraction import EntityExtractor
+from backend.app.nlp.entity_extraction import EntityExtractor, extract_entities
 from backend.app.nlp.incident_extraction import IncidentExtractor, extract_incident_type
 
 
@@ -118,3 +118,40 @@ def test_entity_extractor_uses_original_text_offsets() -> None:
 
     assert text[time_entity.start : time_entity.end] == time_entity.value
     assert text[location_entity.start : location_entity.end] == "Colombo"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("my car crashed yesterday at Kandy", "Kandy"),
+        ("my car crashed near Kandy", "Kandy"),
+        ("accident in Colombo", "Colombo"),
+        ("collision near Negombo", "Negombo"),
+        ("my car crashed near at kandy", "kandy"),
+        ("my car crashed at near kandy", "kandy"),
+        ("the crash happened kandy", "kandy"),
+        ("crashed yesterday kandy", "kandy"),
+        ("the collision was close to Matara", "Matara"),
+    ],
+)
+def test_layered_location_extraction_handles_customer_phrasing(
+    text: str,
+    expected: str,
+) -> None:
+    locations = [
+        entity.value
+        for entity in extract_entities(text)
+        if entity.entity_type == "LOCATION"
+    ]
+
+    assert expected in locations
+
+
+def test_time_after_at_is_not_treated_as_a_location() -> None:
+    entities = extract_entities("The accident happened at 5pm.")
+
+    assert not any(entity.entity_type == "LOCATION" for entity in entities)
+    assert any(
+        entity.entity_type == "TIME" and entity.value == "5pm"
+        for entity in entities
+    )
