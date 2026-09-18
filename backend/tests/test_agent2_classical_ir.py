@@ -6,7 +6,10 @@ from pathlib import Path
 import pytest
 from docx import Document
 
-from backend.app.orchestrator.adapters import build_retrieval_request
+from backend.app.orchestrator.adapters import (
+    build_guidance_request,
+    build_retrieval_request,
+)
 from backend.app.orchestrator.agent_clients import (
     LocalRetrievalClient,
     RetrievalClient,
@@ -14,7 +17,10 @@ from backend.app.orchestrator.agent_clients import (
 from backend.app.retrieval.document_ingestion import (
     DocumentIngestionError,
     DocumentIngestor,
+    ExtractedSection,
+    INGESTION_PIPELINE_VERSION,
     UnsupportedDocumentError,
+    chunk_sections,
     extract_document,
 )
 from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
@@ -31,6 +37,9 @@ from backend.app.retrieval.schemas import (
     UserContext,
 )
 from backend.app.retrieval.service import RetrievalService
+from backend.app.guidance.service import GuidanceService
+from backend.app.llm.client import MockLLMClient
+from backend.app.llm.config import LLMSettings
 from backend.app.schemas.intake import (
     IntakeData,
     IntakeResponse,
@@ -124,6 +133,116 @@ def test_txt_ingestion_sections_chunks_and_duplicate_protection(tmp_path):
     assert len(repository.chunks) == first.chunks_created_or_updated
     assert {item.section for item in repository.chunks} >= {"FLOOD COVERAGE", "EXCLUSIONS"}
     assert all(item.metadata["content_hash"] for item in repository.chunks)
+    assert all(
+        item.metadata["ingestion_pipeline_version"] == INGESTION_PIPELINE_VERSION
+        for item in repository.chunks
+    )
+
+
+def test_section_aware_chunking_keeps_heading_with_formatted_list(tmp_path):
+    path = tmp_path / "requirements.txt"
+    path.write_text(
+        "Motor Guide\n\n"
+        "Section 1: Required Documents\n"
+        "Please provide:\n"
+        "- Claim form\n"
+        "- Police report\n"
+        "- Vehicle registration\n\n"
+        "Section 2: Review\nA claims officer reviews the evidence.",
+        encoding="utf-8",
+    )
+
+    chunks = chunk_sections(extract_document(path))
+
+    requirements = next(
+        item for item in chunks if item.title == "Section 1: Required Documents"
+    )
+    assert "Section 1: Required Documents\nPlease provide:" in requirements.content
+    assert "\n- Claim form\n- Police report\n- Vehicle registration" in requirements.content
+    assert not any(item.content.strip() == item.title for item in chunks)
+
+
+def test_oversized_section_chunks_preserve_section_and_overlap():
+    body_lines = [
+        f"- Document item {index} supporting evidence" for index in range(1, 15)
+    ]
+    section = ExtractedSection(
+        "Section 2: Supporting Documents", "\n".join(body_lines), {}
+    )
+
+    chunks = chunk_sections([section], max_words=30, overlap_words=5)
+
+    assert len(chunks) > 1
+    assert all(item.title == "Section 2: Supporting Documents" for item in chunks)
+    assert all(
+        item.content.startswith("Section 2: Supporting Documents\n")
+        for item in chunks
+    )
+    assert all(len(item.content.split()) <= 30 for item in chunks)
+    assert all("\n- " in item.content for item in chunks)
+
+
+def test_current_theft_document_retrieves_complete_required_document_list():
+    source = (
+        Path(__file__).parents[1]
+        / "data"
+        / "policy_docs"
+        / "theft_claim_requirements.txt"
+    )
+    repository = MemoryKnowledgeRepository()
+    result = DocumentIngestor(repository).ingest_file(
+        source, document_type="procedure_guide"
+    )
+    retriever = KnowledgeRetriever(repository=repository)
+
+    evidence = retriever.retrieve(
+        "What documents do I need for a theft claim?", top_k=3
+    )
+
+    assert result.chunks_created_or_updated == 4
+    required = next(
+        item for item in repository.chunks
+        if item.section == "Section 2: Common Required Documents"
+    )
+    assert "\n- Completed claim form" in required.content
+    assert "\n- Police report or police reference" in required.content
+    assert "\n- Vehicle registration document" in required.content
+    assert any(item.evidence_id == required.chunk_id for item in evidence)
+    joined = "\n".join(item.content for item in evidence)
+    assert "Completed claim form" in joined
+    assert "Police report or police reference" in joined
+
+    guidance = GuidanceService(
+        MockLLMClient(LLMSettings(provider="mock"))
+    ).process_request(
+        build_guidance_request(
+            request_id="REQ-THEFT-GUIDANCE",
+            audience="customer",
+            task_type="required_documents",
+            intent="required_documents_question",
+            evidence=evidence,
+        )
+    )
+    assert guidance.status == "success"
+    assert guidance.data.grounded is True
+    assert "police report" in guidance.data.message.lower()
+    assert "vehicle registration" in guidance.data.message.lower()
+    assert "claim form" in guidance.data.message.lower()
+
+
+def test_legacy_same_hash_chunks_are_reprocessed_for_new_pipeline(tmp_path):
+    path = tmp_path / "guide.txt"
+    path.write_text("Section 1: Guide\nUseful policy information.", encoding="utf-8")
+    repository = MemoryKnowledgeRepository()
+    ingestor = DocumentIngestor(repository)
+    first = ingestor.ingest_file(path, document_type="guideline")
+    repository.chunks[0].metadata.pop("ingestion_pipeline_version")
+
+    refreshed = ingestor.ingest_file(path, document_type="guideline")
+
+    assert first.duplicate_unchanged is False
+    assert refreshed.duplicate_unchanged is False
+    assert repository.chunks[0].metadata["ingestion_pipeline_version"] == INGESTION_PIPELINE_VERSION
 
 
 def test_pdf_and_docx_text_extraction(tmp_path):

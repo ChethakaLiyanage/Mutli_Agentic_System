@@ -15,6 +15,7 @@ from backend.app.retrieval.document_ingestion import (
     SUPPORTED_EXTENSIONS,
 )
 from backend.app.retrieval.repository import RetrievalRepository
+from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
 from backend.app.retrieval.schemas import KnowledgeDocumentType
 from backend.app.services.supabase_service import get_supabase_client
 
@@ -63,6 +64,8 @@ def main() -> int:
     print(f"Unchanged duplicates: {duplicates}")
     print(f"Unsupported files: {len(unsupported)}")
     print(f"Failures: {failures}")
+    indexed_chunks = KnowledgeRetriever(repository=repository).refresh()
+    print(f"TF-IDF index refreshed: {indexed_chunks} chunks")
     return 1 if failures else 0
 
 
