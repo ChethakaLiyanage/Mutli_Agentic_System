@@ -11,6 +11,26 @@ _UNATTACHED_USEFUL_PUNCTUATION = re.compile(
     flags=re.UNICODE,
 )
 _REPEATED_WHITESPACE = re.compile(r"\s+")
+_ALPHABETIC_TOKEN = re.compile(r"^[^\W\d_]+$", flags=re.UNICODE)
+_EXCESSIVE_REPEATED_CHARACTER = re.compile(r"(.)\1{2,}", flags=re.UNICODE)
+
+
+def _normalize_excessive_repetition(text: str) -> str:
+    """Reduce decorative character runs in alphabetic words only.
+
+    Three or more identical characters are reduced to two. Keeping a pair
+    avoids guessing the intended spelling (for example, ``cool`` remains
+    ``cool``), while making inputs such as ``pleeeease`` less sparse. Tokens
+    containing digits or identifier punctuation are deliberately untouched.
+    """
+
+    tokens = text.split()
+    return " ".join(
+        _EXCESSIVE_REPEATED_CHARACTER.sub(r"\1\1", token)
+        if _ALPHABETIC_TOKEN.fullmatch(token)
+        else token
+        for token in tokens
+    )
 
 
 def preprocess_text(text: str) -> str:
@@ -27,4 +47,5 @@ def preprocess_text(text: str) -> str:
     cleaned = text.strip().lower()
     cleaned = _UNNECESSARY_PUNCTUATION.sub(" ", cleaned)
     cleaned = _UNATTACHED_USEFUL_PUNCTUATION.sub(" ", cleaned)
-    return _REPEATED_WHITESPACE.sub(" ", cleaned).strip()
+    cleaned = _REPEATED_WHITESPACE.sub(" ", cleaned).strip()
+    return _normalize_excessive_repetition(cleaned)

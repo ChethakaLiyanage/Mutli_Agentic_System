@@ -78,7 +78,9 @@ class ClaimIntakeAgent:
 
         try:
             cleaned_text = preprocess_text(original_text)
-            intent_label, intent_confidence = predict_intent(cleaned_text)
+            if not cleaned_text:
+                raise ValueError("text must not be empty after preprocessing")
+            intent_label, intent_confidence = predict_intent(original_text)
 
             entities = extract_entities(original_text)
             incident_type = extract_incident_type(original_text)

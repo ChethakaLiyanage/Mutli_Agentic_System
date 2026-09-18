@@ -1,21 +1,26 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import {
   clarifyWorkflow,
   getOrchestratorErrorMessage,
+  getWorkflow,
+  isWorkflowNotFoundError,
   processRequest,
 } from "../api/orchestrator";
 import type {
   ClarificationResponse,
   IntakeResult,
   OrchestratorResponse,
+  WorkflowStatus,
 } from "../types/orchestrator";
-import { ClaimAssistantPage } from "./ClaimAssistantPage";
+import { ACTIVE_WORKFLOW_KEY, ClaimAssistantPage } from "./ClaimAssistantPage";
 
 vi.mock("../api/orchestrator", () => ({
   processRequest: vi.fn(),
   clarifyWorkflow: vi.fn(),
+  getWorkflow: vi.fn(),
+  isWorkflowNotFoundError: vi.fn(() => false),
   getOrchestratorErrorMessage: vi.fn(
     () => "The workflow service is temporarily unavailable. Please try again.",
   ),
@@ -42,29 +47,86 @@ const intakeResult: IntakeResult = {
   errors: [],
 };
 
-const completeResponse: OrchestratorResponse = {
+const workflowResponse = (
+  overrides: Partial<OrchestratorResponse> = {},
+): OrchestratorResponse => ({
   request_id: "REQ-1",
-  workflow_id: "WF-COMPLETE",
-  status: "intake_complete",
+  workflow_id: "WF-CLAIM",
+  status: "awaiting_human_review",
   workflow_type: "claim_submission",
   intake_result: intakeResult,
-  retrieval_result: null,
-  fraud_result: null,
-  human_review_result: null,
+  retrieval_status: "success",
+  warnings: [],
+  evidence_summary: [],
+  message: "Your claim is awaiting review by a claims officer.",
   guidance_result: null,
   missing_fields: [],
   requires_clarification: false,
   errors: [],
   audit_trail: [],
-};
+  ...overrides,
+});
 
-const clarificationResponse = (
-  questions = [
-    "What happened to your vehicle?",
-    "When did the incident happen?",
-    "Where did the incident happen?",
+const completedInformationResponse = workflowResponse({
+  workflow_id: "WF-POLICY",
+  status: "completed",
+  workflow_type: "information_request",
+  intake_result: {
+    ...intakeResult,
+    data: {
+      ...intakeResult.data,
+      intent: { label: "coverage_question", confidence: 0.91 },
+      incident: { ...intakeResult.data.incident, type: "flood_damage" },
+    },
+  },
+  message: "Grounded policy guidance is ready.",
+  warnings: ["The available information may not confirm your specific policy."],
+  evidence_summary: [
+    {
+      evidence_id: "EVID-1",
+      source_title: "Motor Policy Manual",
+      section: "Flood Cover",
+      content: "Flood claims are assessed against the insured policy terms.",
+      score: 0.88,
+    },
   ],
-): ClarificationResponse => ({
+  guidance_result: {
+    status: "success",
+    response_type: "coverage_explanation",
+    agent: "guidance_agent",
+    data: {
+      message: "The available policy evidence describes how flood claims are assessed.",
+      next_steps: ["Check the cover listed on your policy schedule."],
+      evidence_used: ["EVID-1"],
+      insufficient_evidence: false,
+      grounded: true,
+    },
+    warnings: [],
+    created_at: "2026-09-18T09:00:00Z",
+  },
+});
+
+const greetingResponse = workflowResponse({
+  request_id: "REQ-GREETING",
+  workflow_id: "WF-GREETING",
+  status: "completed",
+  workflow_type: "unknown",
+  intake_result: {
+    ...intakeResult,
+    request_id: "REQ-GREETING",
+    data: {
+      ...intakeResult.data,
+      intent: { label: "greeting", confidence: 0.98 },
+      missing_fields: [],
+      requires_clarification: false,
+    },
+  },
+  retrieval_status: null,
+  message: "Hi! How can I help with your motor insurance today?",
+  guidance_result: null,
+});
+
+const clarificationResponse = (): ClarificationResponse => ({
   request_id: "REQ-1",
   workflow_id: "WF-CLARIFY",
   status: "awaiting_clarification",
@@ -84,28 +146,15 @@ const clarificationResponse = (
     },
   },
   missing_fields: ["incident_type", "incident_date", "location"],
-  questions,
+  questions: [
+    "What happened to your vehicle?",
+    "When did the incident happen?",
+    "Where did the incident happen?",
+  ],
   reason: "Additional claim information is required",
   requires_clarification: true,
   audit_trail: [],
 });
-
-const manualResponse: OrchestratorResponse = {
-  ...completeResponse,
-  workflow_id: "WF-MANUAL",
-  status: "manual_assistance_required",
-  workflow_type: "clarification",
-  intake_result: clarificationResponse().intake_result,
-  missing_fields: ["incident_type", "location"],
-  requires_clarification: true,
-  errors: [
-    {
-      code: "CLARIFICATION_LIMIT_REACHED",
-      message: "Additional information is still required.",
-      step: "clarification",
-    },
-  ],
-};
 
 const sendMessage = async (text: string) => {
   const user = userEvent.setup();
@@ -119,84 +168,292 @@ const sendMessage = async (text: string) => {
 describe("ClaimAssistantPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(isWorkflowNotFoundError).mockReturnValue(false);
   });
 
-  it("shows a complete claim, workflow metadata, and structured intake summary", async () => {
-    vi.mocked(processRequest).mockResolvedValue(completeResponse);
+  it("preserves claim intake details and stores an awaiting-review workflow", async () => {
+    vi.mocked(processRequest).mockResolvedValue(workflowResponse());
     render(<ClaimAssistantPage />);
 
     await sendMessage("A bus hit my car yesterday near Kandy and damaged the left door.");
 
-    expect(await screen.findByText("Intake Complete")).toBeInTheDocument();
-    expect(screen.getByText("WF-COMPLETE")).toBeInTheDocument();
+    expect(await screen.findByText("Awaiting Human Review")).toBeInTheDocument();
+    expect(screen.getByText("WF-CLAIM")).toBeInTheDocument();
     expect(screen.getByText(/Claim Submission \(94% confidence\)/)).toBeInTheDocument();
     expect(screen.getByText("Vehicle Collision")).toBeInTheDocument();
     expect(screen.getByText("Kandy")).toBeInTheDocument();
     expect(screen.getByText("Left Door")).toBeInTheDocument();
-    expect(processRequest).toHaveBeenCalledWith({
-      request_id: expect.stringMatching(/^REQ-/),
-      text: "A bus hit my car yesterday near Kandy and damaged the left door.",
-    });
+    expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBe("WF-CLAIM");
+    expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
   });
 
-  it("retains an incomplete workflow and sends the reply to the clarification endpoint", async () => {
+  it("keeps chat active after a greeting and starts insurance as a new workflow", async () => {
+    vi.mocked(processRequest)
+      .mockResolvedValueOnce(greetingResponse)
+      .mockResolvedValueOnce(completedInformationResponse);
+    render(<ClaimAssistantPage />);
+
+    await sendMessage("hi");
+
+    expect(await screen.findByText(/Hi! How can I help/i)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
+    expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBeNull();
+    expect(screen.queryByText("WF-GREETING")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^unknown$/i)).not.toBeInTheDocument();
+
+    await sendMessage("Does my policy cover flood damage?");
+
+    expect(processRequest).toHaveBeenCalledTimes(2);
+    expect(clarifyWorkflow).not.toHaveBeenCalled();
+    expect(await screen.findByText("WF-POLICY")).toBeInTheDocument();
+    expect(screen.getByText("hi")).toBeInTheDocument();
+    expect(screen.getByText("Does my policy cover flood damage?")).toBeInTheDocument();
+  });
+
+  it("starts another workflow after a completed information question", async () => {
+    const documentsResponse = workflowResponse({
+      ...completedInformationResponse,
+      request_id: "REQ-DOCUMENTS",
+      workflow_id: "WF-DOCUMENTS",
+      message: "Document guidance is ready.",
+      guidance_result: {
+        ...completedInformationResponse.guidance_result!,
+        response_type: "required_documents",
+        data: {
+          message: "The available guide lists the required theft documents.",
+          grounded: true,
+        },
+      },
+    });
+    vi.mocked(processRequest)
+      .mockResolvedValueOnce(completedInformationResponse)
+      .mockResolvedValueOnce(documentsResponse);
+    render(<ClaimAssistantPage />);
+
+    await sendMessage("Does my policy cover flood damage?");
+    await screen.findByText("WF-POLICY");
+    await sendMessage("What documents are required for theft?");
+
+    expect(processRequest).toHaveBeenCalledTimes(2);
+    expect(clarifyWorkflow).not.toHaveBeenCalled();
+    expect(await screen.findByText("WF-DOCUMENTS")).toBeInTheDocument();
+    expect(screen.getByText("Does my policy cover flood damage?")).toBeInTheDocument();
+    expect(screen.getByText("What documents are required for theft?")).toBeInTheDocument();
+  });
+
+  it("continues clarification through the same workflow", async () => {
     vi.mocked(processRequest).mockResolvedValue(clarificationResponse());
-    vi.mocked(clarifyWorkflow).mockResolvedValue(completeResponse);
+    vi.mocked(clarifyWorkflow).mockResolvedValue(workflowResponse());
     render(<ClaimAssistantPage />);
 
     await sendMessage("My car was damaged and I want to claim.");
-
     expect(await screen.findByText("What happened to your vehicle?")).toBeInTheDocument();
-    expect(screen.getByText("WF-CLARIFY")).toBeInTheDocument();
 
     await sendMessage("A bus hit it yesterday in Kandy.");
-
     expect(clarifyWorkflow).toHaveBeenCalledWith("WF-CLARIFY", {
       request_id: expect.stringMatching(/^REQ-/),
       text: "A bus hit it yesterday in Kandy.",
     });
-    expect(await screen.findByText("Intake Complete")).toBeInTheDocument();
+    expect(await screen.findByText("Awaiting Human Review")).toBeInTheDocument();
   });
 
-  it("uses the same workflow ID across multiple clarification turns", async () => {
-    vi.mocked(processRequest).mockResolvedValue(clarificationResponse());
-    vi.mocked(clarifyWorkflow)
-      .mockResolvedValueOnce(
-        clarificationResponse([
-          "What happened to your vehicle?",
-          "Where did the incident happen?",
-        ]),
-      )
-      .mockResolvedValueOnce(completeResponse);
-    render(<ClaimAssistantPage />);
-
-    await sendMessage("My car was damaged and I want to claim.");
-    await screen.findByText("When did the incident happen?");
-
-    await sendMessage("It happened yesterday.");
-    await screen.findByText("Where did the incident happen?");
-
-    await sendMessage("A bus hit it in Kandy.");
-
-    expect(clarifyWorkflow).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(clarifyWorkflow).mock.calls[0][0]).toBe("WF-CLARIFY");
-    expect(vi.mocked(clarifyWorkflow).mock.calls[1][0]).toBe("WF-CLARIFY");
-    expect(await screen.findByText("Intake Complete")).toBeInTheDocument();
-  });
-
-  it("stops submission and offers reset when manual assistance is required", async () => {
-    vi.mocked(processRequest).mockResolvedValue(manualResponse);
+  it("preserves the manual-assistance terminal state", async () => {
+    vi.mocked(processRequest).mockResolvedValue(workflowResponse({
+      workflow_id: "WF-MANUAL",
+      status: "manual_assistance_required",
+      workflow_type: "clarification",
+      intake_result: clarificationResponse().intake_result,
+      missing_fields: ["incident_type", "location"],
+      requires_clarification: true,
+      message: null,
+      errors: [
+        {
+          code: "CLARIFICATION_LIMIT_REACHED",
+          message: "Additional information is still required.",
+          step: "clarification",
+        },
+      ],
+    }));
     render(<ClaimAssistantPage />);
 
     await sendMessage("I still need help with my damaged car.");
 
     expect(await screen.findByText("Manual Assistance Required")).toBeInTheDocument();
     expect(screen.getByText(/contact a claims officer or start a new request/i)).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Your message" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Start New Request" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
   });
 
-  it("shows a safe HTTP error without exposing internal details", async () => {
+  it("renders completed grounded guidance, evidence, next steps, and warnings", async () => {
+    vi.mocked(processRequest).mockResolvedValue(completedInformationResponse);
+    render(<ClaimAssistantPage />);
+
+    await sendMessage("Does my policy cover flood damage?");
+
+    expect(await screen.findByRole("heading", { name: "Policy guidance" })).toBeInTheDocument();
+    expect(screen.getByText("Grounded in policy information")).toBeInTheDocument();
+    expect(screen.getByText("Motor Policy Manual")).toBeInTheDocument();
+    expect(screen.getByText("Section: Flood Cover")).toBeInTheDocument();
+    expect(screen.getByText("Check the cover listed on your policy schedule.")).toBeInTheDocument();
+    expect(screen.getByText(/may not confirm your specific policy/i)).toBeInTheDocument();
+    expect(screen.queryByText(/retrieval is not yet connected/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a safe insufficient-evidence response without inventing an answer", async () => {
+    vi.mocked(processRequest).mockResolvedValue(workflowResponse({
+      ...completedInformationResponse,
+      guidance_result: {
+        ...completedInformationResponse.guidance_result!,
+        status: "insufficient_evidence",
+        data: {
+          message: "We couldn't find enough policy information to answer this reliably.",
+          insufficient_evidence: true,
+          grounded: false,
+        },
+      },
+      evidence_summary: [],
+    }));
+    render(<ClaimAssistantPage />);
+
+    await sendMessage("Is this unusual modification covered?");
+
+    expect(await screen.findByText("Limited information available")).toBeInTheDocument();
+    expect(screen.getAllByText(/couldn't find enough policy information/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/your policy covers/i)).not.toBeInTheDocument();
+  });
+
+  it("refreshes an awaiting-review workflow through the owner endpoint", async () => {
+    vi.mocked(processRequest).mockResolvedValue(workflowResponse());
+    vi.mocked(getWorkflow).mockResolvedValue(workflowResponse({
+      status: "approved",
+      message: "Your claim has been approved by a claims officer.",
+      guidance_result: {
+        status: "success",
+        response_type: "final_decision_explanation",
+        agent: "guidance_agent",
+        data: {
+          message: "Your claim was approved after human review.",
+          next_steps: ["Keep your claim reference for future correspondence."],
+          grounded: true,
+        },
+      },
+    }));
+    render(<ClaimAssistantPage />);
+    const user = await sendMessage("I want to submit my complete claim.");
+
+    await user.click(await screen.findByRole("button", { name: "Check status" }));
+
+    expect(getWorkflow).toHaveBeenCalledWith("WF-CLAIM");
+    expect(await screen.findByText("Approved")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your claim has been approved" })).toBeInTheDocument();
+    expect(screen.getByText("Keep your claim reference for future correspondence.")).toBeInTheDocument();
+  });
+
+  it("keeps a pending claim trackable while a new policy workflow runs", async () => {
+    vi.mocked(processRequest)
+      .mockResolvedValueOnce(workflowResponse())
+      .mockResolvedValueOnce(completedInformationResponse);
+    render(<ClaimAssistantPage />);
+
+    await sendMessage("I want to submit my complete claim.");
+    await screen.findByText("Awaiting Human Review");
+    await sendMessage("Does my policy cover flood damage?");
+
+    expect(processRequest).toHaveBeenCalledTimes(2);
+    expect(clarifyWorkflow).not.toHaveBeenCalled();
+    expect(await screen.findByText("WF-POLICY")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check status" })).toBeInTheDocument();
+    expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBe("WF-CLAIM");
+  });
+
+  it.each([
+    ["approved", "Your claim has been approved"],
+    ["rejected", "Your claim review is complete"],
+    ["more_information_required", "More information is required"],
+    ["escalated", "Your claim needs additional review"],
+  ] satisfies Array<[WorkflowStatus, string]>) (
+    "renders the %s customer outcome",
+    async (status, heading) => {
+      vi.mocked(processRequest).mockResolvedValue(workflowResponse({
+        status,
+        message: `Customer-safe ${status} explanation.`,
+        guidance_result: {
+          status: "success",
+          response_type: "final_decision_explanation",
+          agent: "guidance_agent",
+          data: { message: `Customer-safe ${status} explanation.` },
+        },
+      }));
+      render(<ClaimAssistantPage />);
+
+      await sendMessage("Please show the latest result for my claim.");
+
+      expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
+      expect(screen.getAllByText(`Customer-safe ${status} explanation.`).length).toBeGreaterThan(0);
+    },
+  );
+
+  it("restores a workflow that still needs status tracking", async () => {
+    sessionStorage.setItem(ACTIVE_WORKFLOW_KEY, "WF-CLAIM");
+    vi.mocked(getWorkflow).mockResolvedValue(workflowResponse());
+
+    render(<ClaimAssistantPage />);
+
+    expect(await screen.findByText("WF-CLAIM")).toBeInTheDocument();
+    expect(getWorkflow).toHaveBeenCalledWith("WF-CLAIM");
+    expect(screen.getByRole("button", { name: "Check status" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
+  });
+
+  it("clears an unavailable restored workflow and returns to the empty assistant", async () => {
+    sessionStorage.setItem(ACTIVE_WORKFLOW_KEY, "WF-MISSING");
+    vi.mocked(getWorkflow).mockRejectedValue(new Error("not found"));
+    vi.mocked(isWorkflowNotFoundError).mockReturnValue(true);
+
+    render(<ClaimAssistantPage />);
+
+    expect(await screen.findByText("How can we help?")).toBeInTheDocument();
+    expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBeNull();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("start new request clears only the active workflow state", async () => {
+    vi.mocked(processRequest).mockResolvedValue(clarificationResponse());
+    render(<ClaimAssistantPage />);
+
+    const user = await sendMessage("My car was damaged and I want to claim.");
+    expect(await screen.findByText("WF-CLARIFY")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Start New Request" }));
+
+    expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBeNull();
+    expect(screen.getByText("How can we help?")).toBeInTheDocument();
+    expect(screen.queryByText("WF-CLARIFY")).not.toBeInTheDocument();
+  });
+
+  it("never renders fraud or reviewer internals from a malformed response", async () => {
+    const malformedResponse = {
+      ...workflowResponse(),
+      fraud_result: { anomaly_score: 0.99, indicators: ["SECRET_RISK_FLAG"] },
+      fraud_risk_level: "high",
+      recommended_next_action: "investigate customer",
+      human_review_result: {
+        reviewer_id: "REVIEWER-SECRET",
+        notes: "INTERNAL_REVIEW_NOTE",
+      },
+    } as OrchestratorResponse;
+    vi.mocked(processRequest).mockResolvedValue(malformedResponse);
+    render(<ClaimAssistantPage />);
+
+    await sendMessage("I want to submit my claim.");
+    await screen.findByText("Awaiting Human Review");
+
+    expect(screen.queryByText(/SECRET_RISK_FLAG/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/REVIEWER-SECRET/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/INTERNAL_REVIEW_NOTE/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0\.99/)).not.toBeInTheDocument();
+  });
+
+  it("shows a safe network error without exposing internal details", async () => {
     vi.mocked(processRequest).mockRejectedValue(new Error("private stack detail"));
     render(<ClaimAssistantPage />);
 
@@ -209,41 +466,13 @@ describe("ClaimAssistantPage", () => {
     expect(getOrchestratorErrorMessage).toHaveBeenCalled();
   });
 
-  it("does not fabricate a policy answer for an information request", async () => {
-    vi.mocked(processRequest).mockResolvedValue({
-      ...completeResponse,
-      workflow_id: "WF-POLICY",
-      workflow_type: "information_request",
-      intake_result: {
-        ...intakeResult,
-        data: {
-          ...intakeResult.data,
-          intent: { label: "coverage_question", confidence: 0.91 },
-          incident: { ...intakeResult.data.incident, type: "flood_damage" },
-        },
-      },
-    });
+  it("prevents duplicate input while workflow restoration is in progress", async () => {
+    sessionStorage.setItem(ACTIVE_WORKFLOW_KEY, "WF-POLICY");
+    vi.mocked(getWorkflow).mockReturnValue(new Promise(() => undefined));
     render(<ClaimAssistantPage />);
 
-    await sendMessage("Does my policy cover flood damage?");
-
-    expect(
-      await screen.findByText(/Policy retrieval is not yet connected/i),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/your policy covers/i)).not.toBeInTheDocument();
-  });
-
-  it("resets the active workflow without logging out or deleting backend state", async () => {
-    vi.mocked(processRequest).mockResolvedValue(clarificationResponse());
-    render(<ClaimAssistantPage />);
-
-    const user = await sendMessage("My car was damaged and I want to claim.");
-    expect(await screen.findByText("WF-CLARIFY")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Start New Request" }));
-
-    expect(screen.getByText("How can we help?")).toBeInTheDocument();
-    expect(screen.queryByText("WF-CLARIFY")).not.toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
+    expect(await screen.findByText("Restoring your workflow…")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Your message" })).toBeDisabled();
+    await waitFor(() => expect(getWorkflow).toHaveBeenCalledOnce());
   });
 });

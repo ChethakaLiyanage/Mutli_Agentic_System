@@ -69,7 +69,7 @@ def test_required_documents_question(agent: ClaimIntakeAgent) -> None:
 
     assert response.data.intent.label == "required_documents_question"
     assert response.data.missing_fields == []
-    assert response.data.requires_clarification is True
+    assert response.data.requires_clarification is False
 
 
 def test_claim_status_question(agent: ClaimIntakeAgent) -> None:
@@ -77,7 +77,7 @@ def test_claim_status_question(agent: ClaimIntakeAgent) -> None:
 
     assert response.data.intent.label == "claim_status"
     assert response.data.missing_fields == []
-    assert response.data.requires_clarification is True
+    assert response.data.requires_clarification is False
 
 
 def test_complete_flood_claim(agent: ClaimIntakeAgent) -> None:
@@ -137,6 +137,59 @@ def test_non_claim_intent_keeps_detectable_incident_details(
     assert response.data.intent.label == "coverage_question"
     assert response.data.incident.type == "flood_damage"
     assert response.data.missing_fields == []
+
+
+def test_greeting_never_requests_claim_fields(agent: ClaimIntakeAgent) -> None:
+    response = analyze(agent, "ih")
+
+    assert response.data.intent.label == "greeting"
+    assert response.data.missing_fields == []
+    assert response.data.requires_clarification is False
+
+
+def test_noisy_classification_does_not_replace_text_used_for_extraction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = "my car ws hit ystrday in colombo"
+    observed: list[str] = []
+
+    def record_entities(text: str):
+        observed.append(text)
+        return []
+
+    def record_incident(text: str):
+        observed.append(text)
+        return None
+
+    def record_damage(text: str):
+        observed.append(text)
+        return []
+
+    def record_date(text: str, reference_date: date):
+        observed.append(text)
+        return None, None
+
+    monkeypatch.setattr(
+        "backend.app.agents.claim_intake_agent.extract_entities",
+        record_entities,
+    )
+    monkeypatch.setattr(
+        "backend.app.agents.claim_intake_agent.extract_incident_type",
+        record_incident,
+    )
+    monkeypatch.setattr(
+        "backend.app.agents.claim_intake_agent.extract_damage_areas",
+        record_damage,
+    )
+    monkeypatch.setattr(
+        "backend.app.agents.claim_intake_agent.extract_date",
+        record_date,
+    )
+
+    response = analyze(ClaimIntakeAgent(), original)
+
+    assert response.data.intent.label == "claim_submission"
+    assert observed == [original, original, original, original]
 
 
 def test_internal_failure_returns_controlled_error(

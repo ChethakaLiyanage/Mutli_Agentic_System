@@ -14,6 +14,7 @@ inventing facts that are not present in the message.
 
 ### Supported intents
 
+- `greeting`
 - `claim_submission`
 - `policy_question`
 - `coverage_question`
@@ -70,7 +71,8 @@ The response can contain:
 ```text
 IntakeRequest
     -> deterministic preprocessing for intent classification
-    -> TF-IDF + Logistic Regression intent prediction
+    -> fitted controlled-vocabulary lexical normalization
+    -> combined word/character TF-IDF + Logistic Regression intent prediction
     -> spaCy entity extraction from the original text
     -> rule-based incident and damage extraction
     -> deterministic date extraction and normalization
@@ -80,17 +82,36 @@ IntakeRequest
 
 The original message is retained for entity and claim-detail extraction. The
 classification copy is trimmed, lowercased, stripped of unnecessary punctuation,
-and normalized to single whitespace. Internal punctuation useful for dates,
-times, registrations, and policy-like identifiers is preserved where possible.
+normalized to single whitespace, and alphabetic runs of three or more repeated
+characters are reduced to two. Internal punctuation useful for dates, times,
+registrations, monetary values, and policy-like identifiers is preserved. The
+original message, rather than the classification copy, is used for entity and
+claim-detail extraction.
 
 ### Intent classifier
 
-The classifier uses:
+The classifier uses one persisted scikit-learn pipeline containing:
 
-- a balanced CSV dataset containing 240 messages, with 40 examples per intent;
+- a balanced CSV dataset containing 350 messages, with 50 examples per intent;
 - the same deterministic preprocessing used at runtime;
-- `TfidfVectorizer(ngram_range=(1, 2))`; and
-- multiclass Logistic Regression with probability output.
+- a corpus-fitted `ControlledTextNormalizer` using conservative
+  Damerau-Levenshtein candidate matching;
+- word `TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True)` features;
+- character `TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5),
+  sublinear_tf=True)` features;
+- a `FeatureUnion` combining both sparse feature matrices; and
+- multiclass `LogisticRegression(C=2.0, max_iter=1000, random_state=42)`
+  with probability output.
+
+Word features preserve semantic phrases such as `claim status` and `policy
+cover`. Character features provide general tolerance for omitted, swapped, or
+misspelled characters. Lexical normalization repairs conservative candidates
+from the fitted corpus and controlled insurance/greeting vocabulary. Policy and
+claim references, registrations, dates, amounts, emails, URLs, and other tokens
+containing structured values are masked and restored without spelling changes.
+The training additions contain balanced, manually authored examples across all
+seven intents; required noisy regression phrases are not copied verbatim into
+the training dataset.
 
 The persisted model is committed at
 `backend/app/nlp/models/intent_classifier.joblib`. Runtime requests load and
@@ -103,19 +124,41 @@ To explicitly retrain, evaluate, and overwrite the persisted model:
 python backend/scripts/train_intent_classifier.py
 ```
 
-The current measured held-out evaluation used a stratified 80/20 split with
-192 training samples and 48 test samples:
+The current measured evaluation uses a stratified 80/20 split with 280 training
+samples and 70 held-out samples. A separate stratified, shuffled five-fold
+cross-validation run checks that the result is not dependent on one split.
+After evaluation, the production artifact is fitted on all 350 examples. Two
+external datasets, containing 35 clean and 49 noisy examples, remain excluded
+from training and are evaluated through the exact runtime prediction path:
 
 | Metric | Value |
 |---|---:|
-| Accuracy | 0.8333 |
-| Macro precision | 0.8397 |
-| Macro recall | 0.8333 |
-| Macro F1-score | 0.8296 |
+| Held-out accuracy | 0.9000 |
+| Held-out macro precision | 0.9032 |
+| Held-out macro recall | 0.9000 |
+| Held-out macro F1-score | 0.8998 |
+| 5-fold mean accuracy | 0.8829 |
+| 5-fold mean macro F1-score | 0.8817 |
+| External clean accuracy / macro F1 | 1.0000 / 1.0000 |
+| External noisy accuracy / macro F1 | 0.9388 / 0.9387 |
+| External combined accuracy / macro F1 | 0.9643 / 0.9643 |
+
+Held-out per-class results:
+
+| Intent | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| `greeting` | 1.00 | 0.90 | 0.95 | 10 |
+| `claim_submission` | 1.00 | 1.00 | 1.00 | 10 |
+| `policy_question` | 0.80 | 0.80 | 0.80 | 10 |
+| `coverage_question` | 1.00 | 1.00 | 1.00 | 10 |
+| `required_documents_question` | 0.89 | 0.80 | 0.84 | 10 |
+| `claim_status` | 0.83 | 1.00 | 0.91 | 10 |
+| `general_information` | 0.80 | 0.80 | 0.80 | 10 |
 
 The confusion-matrix label order was:
 
 ```text
+greeting
 claim_submission
 policy_question
 coverage_question
@@ -125,17 +168,32 @@ general_information
 ```
 
 ```text
-[[6, 0, 1, 0, 1, 0],
- [0, 6, 1, 0, 0, 1],
- [0, 0, 8, 0, 0, 0],
- [0, 0, 0, 8, 0, 0],
- [0, 0, 0, 0, 7, 1],
- [0, 1, 0, 1, 1, 5]]
+[[9, 0, 0, 0, 0, 0, 1],
+ [0, 10, 0, 0, 0, 0, 0],
+ [0, 0, 8, 0, 1, 0, 1],
+ [0, 0, 0, 10, 0, 0, 0],
+ [0, 0, 0, 0, 8, 2, 0],
+ [0, 0, 0, 0, 0, 10, 0],
+ [0, 0, 2, 0, 0, 0, 8]]
 ```
 
-On that split, `coverage_question` and `required_documents_question` had full
-recall. The largest overlap involved `general_information`, which was sometimes
-confused with policy, document, or claim-status language.
+The external combined confusion matrix, in the same label order, is:
+
+```text
+[[12, 0, 0, 0, 0, 0, 0],
+ [0, 12, 0, 0, 0, 0, 0],
+ [0, 0, 11, 0, 0, 0, 1],
+ [0, 1, 0, 11, 0, 0, 0],
+ [0, 0, 0, 0, 12, 0, 0],
+ [0, 0, 0, 0, 0, 12, 0],
+ [0, 0, 1, 0, 0, 0, 11]]
+```
+
+Pure high-confidence `greeting` predictions complete with a deterministic
+customer-safe response and never invoke retrieval, fraud, human review, or an
+LLM. Low-confidence messages such as `help` retain normal clarification.
+Insurance terms and claim-creation actions take precedence when greeting words
+occur in a substantive request.
 
 ### Clarification behavior
 

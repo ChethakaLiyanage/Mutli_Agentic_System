@@ -46,11 +46,18 @@ class GuidanceService:
                 custom_reason=evidence_result.reason,
             )
             self._record_audit(request, fallback_data)
+            evidence_warnings = list(warnings)
+            if evidence_result.reason:
+                evidence_warnings.append(
+                    "The available policy material was insufficient for a reliable answer."
+                    if request.audience == "customer"
+                    else evidence_result.reason
+                )
             return GuidanceResponse(
                 status="insufficient_evidence",
                 response_type=request.task_type,
                 data=fallback_data,
-                warnings=warnings + ([evidence_result.reason] if evidence_result.reason else []),
+                warnings=evidence_warnings,
                 provider=getattr(self.llm_client.settings, "provider", "unknown"),
             )
 

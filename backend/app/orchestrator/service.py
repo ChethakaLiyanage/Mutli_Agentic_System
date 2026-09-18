@@ -41,6 +41,9 @@ from backend.app.orchestrator.repository import (
     InMemoryWorkflowRepository,
     WorkflowRepository,
 )
+from backend.app.orchestrator.greetings import (
+    GREETING_RESPONSE_MESSAGE,
+)
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
 from backend.app.retrieval.schemas import RetrievalResponse
 from backend.app.guidance.schemas import GuidanceResponse
@@ -344,6 +347,12 @@ class OrchestratorService:
     def _public_message(
         self, state: WorkflowState, retrieval_status: str | None
     ) -> str | None:
+        if (
+            state.current_status is WorkflowStatus.COMPLETED
+            and state.intake_result is not None
+            and state.intake_result.data.intent.label == "greeting"
+        ):
+            return GREETING_RESPONSE_MESSAGE
         if state.guidance_result:
             data = state.guidance_result.get("data") or {}
             if data.get("message"):
@@ -478,6 +487,28 @@ class OrchestratorService:
         mapped_workflow = self.determine_workflow_type(state)
         state.workflow_type = mapped_workflow
         state.missing_fields = list(dict.fromkeys(intake_response.data.missing_fields))
+
+        if (
+            intake_response.data.intent.label == "greeting"
+            and not intake_response.data.requires_clarification
+        ):
+            state.missing_fields = []
+            state.requires_clarification = False
+            self.append_audit_event(
+                state,
+                step="workflow_routing",
+                status=AuditEventStatus.SUCCESS,
+                message="Greeting routed to deterministic conversation response",
+            )
+            self.update_status(
+                state,
+                WorkflowStatus.COMPLETED,
+                message="Greeting response completed",
+                step="greeting",
+            )
+            await self.workflow_repository.save(state)
+            return self.to_response(state)
+
         agent_requires_clarification = intake_response.data.requires_clarification
         claim_fields_missing = (
             mapped_workflow is WorkflowType.CLAIM_SUBMISSION

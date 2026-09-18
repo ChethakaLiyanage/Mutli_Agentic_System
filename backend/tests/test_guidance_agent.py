@@ -64,8 +64,8 @@ def test_scenario_2_coverage_question_without_evidence(agent: GuidanceAgent):
     response = agent.process(request)
     assert response.status == "insufficient_evidence"
     assert response.data.insufficient_evidence is True
-    assert response.data.requires_human_review is True
-    assert "could not find sufficient information" in response.data.message.lower()
+    assert response.data.requires_human_review is False
+    assert "couldn't find enough information" in response.data.message.lower()
 
 
 def test_scenario_3_required_documents_question(agent: GuidanceAgent):
