@@ -13,6 +13,11 @@ from backend.app.retrieval.schemas import KnowledgeChunk, KnowledgeDocumentType
 
 
 SUPPORTED_EXTENSIONS = frozenset({".txt", ".pdf", ".docx"})
+INGESTION_PIPELINE_VERSION = "section-aware-v2"
+_NUMBERED_SECTION = re.compile(
+    r"^(?:section|part|chapter)\s+[0-9]+[a-z]?\s*[:.\-]\s*\S.+$",
+    re.IGNORECASE,
+)
 
 
 class DocumentIngestionError(ValueError):
@@ -53,29 +58,40 @@ def _clean_text(text: str) -> str:
 
 
 def _plain_text_sections(text: str) -> list[ExtractedSection]:
-    """Recognize simple Markdown, all-caps, and colon-terminated headings."""
+    """Extract headings without mistaking prose/list introductions for headings."""
     sections: list[ExtractedSection] = []
     heading: str | None = None
     body: list[str] = []
+    preamble: str | None = None
+    preamble_attached = False
 
     def flush() -> None:
+        nonlocal preamble_attached
         content = _clean_text("\n".join(body))
         if content:
-            sections.append(ExtractedSection(heading, content, {}))
+            metadata: dict[str, object] = {}
+            if preamble and not preamble_attached:
+                metadata["document_preamble"] = preamble
+                preamble_attached = True
+            sections.append(ExtractedSection(heading, content, metadata))
+
+    def is_heading(line: str) -> bool:
+        if not line or len(line) > 120:
+            return False
+        if line.startswith("#") or _NUMBERED_SECTION.fullmatch(line):
+            return True
+        letters = [character for character in line if character.isalpha()]
+        return bool(letters and line.rstrip(":").isupper())
 
     for raw_line in text.splitlines():
         line = raw_line.strip()
-        is_heading = bool(
-            line
-            and len(line) <= 100
-            and (
-                line.startswith("#")
-                or line.endswith(":")
-                or (line.isupper() and any(char.isalpha() for char in line))
-            )
-        )
-        if is_heading:
-            flush()
+        if is_heading(line):
+            if heading is None and not sections:
+                leading_text = _clean_text("\n".join(body))
+                if leading_text:
+                    preamble = leading_text
+            else:
+                flush()
             heading = line.lstrip("# ").rstrip(":").strip() or None
             body = []
         else:
@@ -127,11 +143,16 @@ def extract_document(path: str | Path) -> list[ExtractedSection]:
             value = paragraph.text.strip()
             if not value:
                 continue
-            if paragraph.style and paragraph.style.name.lower().startswith("heading"):
+            style_name = paragraph.style.name.lower() if paragraph.style else ""
+            if style_name.startswith("heading"):
                 flush_docx()
                 heading = value
                 paragraphs = []
             else:
+                if style_name.startswith("list bullet"):
+                    value = f"- {value}"
+                elif style_name.startswith("list number"):
+                    value = f"1. {value}"
                 paragraphs.append(value)
         flush_docx()
         return sections
@@ -149,21 +170,81 @@ def chunk_sections(
     max_words: int = 180,
     overlap_words: int = 30,
 ) -> list[ExtractedSection]:
+    """Create section-aware chunks while retaining line and list formatting."""
     if max_words <= 0 or overlap_words < 0 or overlap_words >= max_words:
         raise ValueError("chunk sizes must satisfy 0 <= overlap < max_words")
     chunks: list[ExtractedSection] = []
-    step = max_words - overlap_words
+
+    def word_count(value: str) -> int:
+        return len(value.split())
+
+    def split_long_line(line: str, limit: int) -> list[str]:
+        words = line.split()
+        if len(words) <= limit:
+            return [line]
+        marker = ""
+        if words and words[0] in {"-", "*", "•"}:
+            marker = words.pop(0) + " "
+        width = max(1, limit - (1 if marker else 0))
+        return [
+            marker + " ".join(words[index : index + width])
+            for index in range(0, len(words), width)
+        ]
+
     for section in sections:
-        words = section.content.split()
-        for start in range(0, len(words), step):
-            content = " ".join(words[start : start + max_words]).strip()
-            if not content:
+        preamble = str(section.metadata.get("document_preamble") or "").strip()
+        first_prefix = [value for value in (preamble, section.title) if value]
+        continuation_prefix = [section.title] if section.title else []
+        prefix_budget = max(
+            word_count("\n".join(first_prefix)),
+            word_count("\n".join(continuation_prefix)),
+        )
+        body_limit = max(1, max_words - prefix_budget)
+        lines: list[str] = []
+        for line in section.content.splitlines():
+            if not line.strip():
+                lines.append("")
+            else:
+                lines.extend(split_long_line(line.strip(), body_limit))
+
+        groups: list[tuple[list[str], int]] = []
+        current: list[str] = []
+        current_words = 0
+        index = 0
+        while index < len(lines):
+            line = lines[index]
+            count = word_count(line)
+            if current and count and current_words + count > body_limit:
+                groups.append((current, current_words))
+                overlap: list[str] = []
+                overlap_count = 0
+                for previous in reversed(current):
+                    previous_count = word_count(previous)
+                    if previous_count and overlap_count + previous_count > overlap_words:
+                        break
+                    overlap.insert(0, previous)
+                    overlap_count += previous_count
+                current = overlap
+                current_words = overlap_count
+                while current and current_words + count > body_limit:
+                    removed = current.pop(0)
+                    current_words -= word_count(removed)
                 continue
+            current.append(line)
+            current_words += count
+            index += 1
+        if current and any(value.strip() for value in current):
+            groups.append((current, current_words))
+
+        unique_word_start = 0
+        for group_index, (body_lines, _) in enumerate(groups):
+            prefix = first_prefix if group_index == 0 else continuation_prefix
+            content = _clean_text("\n".join([*prefix, *body_lines]))
             metadata = dict(section.metadata)
-            metadata["word_start"] = start
+            metadata.pop("document_preamble", None)
+            metadata["word_start"] = unique_word_start
             chunks.append(ExtractedSection(section.title, content, metadata))
-            if start + max_words >= len(words):
-                break
+            unique_word_start += max(0, word_count("\n".join(body_lines)) - overlap_words)
     return chunks
 
 
@@ -216,6 +297,7 @@ class DocumentIngestor:
                 **piece.metadata,
                 "chunk_index": index,
                 "content_hash": content_hash,
+                "ingestion_pipeline_version": INGESTION_PIPELINE_VERSION,
                 "source_extension": file_path.suffix.lower(),
             }
             chunks.append(
@@ -233,8 +315,16 @@ class DocumentIngestor:
         if not chunks:
             raise DocumentIngestionError("Document produced no searchable chunks")
         existing = self.repository.get_knowledge_chunks_by_source(source_id)
-        if existing and all(
-            item.metadata.get("content_hash") == content_hash for item in existing
+        if (
+            existing
+            and {item.chunk_id for item in existing}
+            == {item.chunk_id for item in chunks}
+            and all(
+                item.metadata.get("content_hash") == content_hash
+                and item.metadata.get("ingestion_pipeline_version")
+                == INGESTION_PIPELINE_VERSION
+                for item in existing
+            )
         ):
             return IngestionResult(source_id, title, 0, True)
         stored = self.repository.replace_knowledge_chunks(source_id, chunks)
