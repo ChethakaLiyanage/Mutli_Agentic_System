@@ -54,6 +54,7 @@ from backend.app.schemas.domain import (
     FraudAssessmentContext,
     HumanDecision,
     HumanDecisionContext,
+    PolicyContext,
 )
 from backend.app.schemas.orchestrator import (
     AuditEvent,
@@ -550,6 +551,47 @@ class OrchestratorService:
             message=f"Agent 4 produced customer guidance for {task_type}",
         )
         return response
+
+    async def _run_reviewer_guidance(
+        self,
+        state: WorkflowState,
+        *,
+        policy: PolicyContext,
+    ) -> None:
+        """Give Agent 4 the full fraud assessment for reviewer-only context."""
+
+        if self.guidance_client is None or state.claim_context is None:
+            return
+
+        retrieval = (
+            RetrievalResponse.model_validate(state.retrieval_result)
+            if state.retrieval_result
+            else None
+        )
+        request = build_guidance_request(
+            request_id=state.last_request_id,
+            audience="reviewer",
+            task_type="reviewer_summary",
+            claim=state.claim_context,
+            policy=policy,
+            evidence=(retrieval_to_evidence_items(retrieval) if retrieval else []),
+            fraud_assessment=FraudAssessmentContext.model_validate(
+                state.fraud_result or {}
+            ),
+            intent="claim_submission",
+            workflow_status=state.current_status.value,
+        )
+        try:
+            response = await self.guidance_client.generate(request)
+            if not isinstance(response, GuidanceResponse):
+                raise TypeError("Guidance client returned an invalid response")
+        except Exception:
+            logger.exception("Reviewer guidance failed for workflow %s", state.workflow_id)
+            response = build_deterministic_guidance_response(
+                request,
+                warning="Reviewer guidance provider failed; deterministic fallback used",
+            )
+        state.reviewer_guidance_result = response.model_dump(mode="json")
 
     def _clarification_response(
         self,
@@ -1300,6 +1342,7 @@ class OrchestratorService:
             state, step="fraud_persistence", status=AuditEventStatus.SUCCESS,
             message="Fraud assessment persisted",
         )
+        await self._run_reviewer_guidance(state, policy=policy)
         self.update_status(
             state, WorkflowStatus.AWAITING_HUMAN_REVIEW,
             message="Claim awaiting human review", step="human_review",
