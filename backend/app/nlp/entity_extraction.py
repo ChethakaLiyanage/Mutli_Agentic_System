@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import csv
 import re
+from difflib import SequenceMatcher
 from functools import lru_cache
+from pathlib import Path
 
 import spacy
 from spacy.language import Language
@@ -27,31 +30,39 @@ _FALLBACK_PATTERNS = {
     "TIME": re.compile(r"\b\d{1,2}:\d{2}(?:\s*[ap]m)?\b", flags=re.IGNORECASE),
 }
 
-_SRI_LANKAN_LOCATIONS = (
-    "Colombo",
-    "Kandy",
-    "Galle",
-    "Negombo",
-    "Jaffna",
-    "Matara",
-    "Kurunegala",
-    "Anuradhapura",
-    "Ratnapura",
-    "Badulla",
-    "Nuwara Eliya",
-    "Batticaloa",
-    "Trincomalee",
-    "Kalutara",
-    "Gampaha",
+_GAZETTEER_PATH = (
+    Path(__file__).resolve().parents[2] / "data" / "sri_lanka_locations.csv"
 )
-_LOCATION_CANONICAL = {
-    location.casefold(): location for location in _SRI_LANKAN_LOCATIONS
-}
+
+
+def _location_key(value: str) -> str:
+    return " ".join(re.findall(r"[a-z]+", value.casefold()))
+
+
+@lru_cache(maxsize=1)
+def _load_location_gazetteer() -> dict[str, str]:
+    """Load canonical names and aliases from the controlled project data file."""
+
+    aliases: dict[str, str] = {}
+    with _GAZETTEER_PATH.open(encoding="utf-8", newline="") as source:
+        for row in csv.DictReader(source):
+            canonical = (row.get("name") or "").strip()
+            if not canonical:
+                continue
+            values = [canonical, *((row.get("aliases") or "").split("|"))]
+            for value in values:
+                key = _location_key(value)
+                if key:
+                    aliases[key] = canonical
+    return aliases
+
+
+_LOCATION_CANONICAL = _load_location_gazetteer()
 _LOCATION_LEXICON_PATTERN = re.compile(
     r"\b(?:"
     + "|".join(
-        re.escape(location).replace(r"\ ", r"\s+")
-        for location in sorted(_SRI_LANKAN_LOCATIONS, key=len, reverse=True)
+        re.escape(location).replace(r"\ ", r"[\s-]+")
+        for location in sorted(_LOCATION_CANONICAL, key=len, reverse=True)
     )
     + r")\b",
     flags=re.IGNORECASE,
@@ -111,7 +122,46 @@ def normalize_location(value: str) -> str | None:
     cleaned = re.sub(r"\s+", " ", value).strip(" \t\r\n,.;:!?()[]{}")
     if not cleaned:
         return None
-    return _LOCATION_CANONICAL.get(cleaned.casefold(), cleaned)
+    return _match_gazetteer(cleaned) or cleaned
+
+
+def _edit_distance(left: str, right: str) -> int:
+    previous = list(range(len(right) + 1))
+    for left_index, left_character in enumerate(left, start=1):
+        current = [left_index]
+        for right_index, right_character in enumerate(right, start=1):
+            current.append(
+                min(
+                    current[-1] + 1,
+                    previous[right_index] + 1,
+                    previous[right_index - 1]
+                    + (left_character != right_character),
+                )
+            )
+        previous = current
+    return previous[-1]
+
+
+def _match_gazetteer(value: str, *, fuzzy: bool = True) -> str | None:
+    key = _location_key(value)
+    exact = _LOCATION_CANONICAL.get(key)
+    if exact or not fuzzy or len(key.replace(" ", "")) < 6:
+        return exact
+
+    ranked: list[tuple[float, int, str]] = []
+    for alias, canonical in _LOCATION_CANONICAL.items():
+        if abs(len(alias) - len(key)) > 2:
+            continue
+        distance = _edit_distance(key, alias)
+        ratio = SequenceMatcher(None, key, alias).ratio()
+        if distance <= 2 and ratio >= 0.82:
+            ranked.append((ratio, -distance, canonical))
+    if not ranked:
+        return None
+    ranked.sort(reverse=True)
+    if len(ranked) > 1 and ranked[0][:2] == ranked[1][:2] and ranked[0][2] != ranked[1][2]:
+        return None
+    return ranked[0][2]
 
 
 def _preposition_location(match: re.Match[str]) -> tuple[str, int, int] | None:
@@ -133,7 +183,7 @@ def _preposition_location(match: re.Match[str]) -> tuple[str, int, int] | None:
         return None
 
     words = normalized.casefold().split()
-    known_location = normalized.casefold() in _LOCATION_CANONICAL
+    known_location = _match_gazetteer(candidate) is not None
     source_looks_proper = all(word[:1].isupper() for word in candidate.split())
     if (
         not known_location
@@ -212,6 +262,31 @@ def extract_entities(text: str) -> list[ExtractedEntity]:
                 end=end,
             )
         )
+
+    # Conservative fuzzy lookup handles minor customer spelling mistakes for
+    # gazetteer places. It accepts only a unique close match within two edits.
+    word_matches = list(re.finditer(r"[A-Za-z][A-Za-z'-]*", text))
+    for width in (3, 2, 1):
+        for index in range(0, len(word_matches) - width + 1):
+            selected = word_matches[index : index + width]
+            start, end = selected[0].start(), selected[-1].end()
+            candidate = text[start:end]
+            key = _location_key(candidate)
+            if key in _LOCATION_CANONICAL:
+                continue
+            canonical = _match_gazetteer(candidate)
+            entity_key = ("LOCATION", start, end)
+            if canonical is None or entity_key in seen:
+                continue
+            seen.add(entity_key)
+            entities.append(
+                ExtractedEntity(
+                    entity_type="LOCATION",
+                    value=candidate,
+                    start=start,
+                    end=end,
+                )
+            )
 
     # Finally, accept lexically safe proper-name phrases after common location
     # prepositions. This deliberately rejects time-like and generic phrases.

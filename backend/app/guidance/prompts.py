@@ -35,6 +35,21 @@ Highlight discrepancies, missing verification documents, and relevant policy cla
 """
 
 TASK_PROMPTS = {
+    "greeting": """TASK: Give a brief, friendly greeting and ask how you can help with motor insurance.
+Mention only the supported areas supplied in the context. Do not infer a claim or ask for claim details.
+""",
+    "claim_submission_start": """TASK: Confirm that the customer can begin a motor claim here, then naturally ask for only the required intake fields supplied as missing.
+Do not imply that a claim has already been created, saved, assessed, or accepted.
+""",
+    "information_answer": """TASK: Answer the customer's general motor-insurance question using only the retrieved evidence.
+If the evidence is insufficient, say so clearly rather than inventing an answer.
+""",
+    "coverage_answer": """TASK: Explain coverage using only the retrieved policy evidence.
+Do not guarantee coverage or imply a claim decision.
+""",
+    "policy_answer": """TASK: Explain the supplied policy evidence in concise customer-friendly language.
+Do not add policy facts that are not in the evidence.
+""",
     "coverage_explanation": """TASK: Explain policy coverage based STRICTLY on the retrieved evidence below.
 State clearly that coverage is subject to policy conditions, exclusions, and final human verification.
 Do not guarantee coverage or promise payments.
@@ -52,6 +67,27 @@ Reassure the customer that their claim is being handled and clearly describe wha
 """,
     "clarification_question": """TASK: Formulate polite, targeted clarification questions asking for the specific missing information identified in the context.
 Do not ask redundant questions if information was already provided.
+Ask only for fields explicitly listed as missing. Do not create new requirements.
+Briefly acknowledge relevant known information before asking the question.
+""",
+    "claim_progress": """TASK: Briefly explain the customer-safe workflow progress supplied in the context.
+Do not change the workflow status or imply an approval, rejection, coverage decision, or fraud conclusion.
+Do not mention risk scores, model details, or internal recommendations.
+""",
+    "awaiting_human_review": """TASK: Tell the customer that the claim is waiting for a claims officer's review.
+Do not expose fraud scores, risk indicators, model details, or internal recommendations.
+""",
+    "human_decision": """TASK: Explain exactly the verified human decision supplied in the context.
+Do not alter, reinterpret, strengthen, or weaken that decision.
+""",
+    "insufficient_evidence": """TASK: Explain briefly that the available controlled documents do not contain enough information for a confident answer.
+Do not invent a policy answer.
+""",
+    "manual_assistance_required": """TASK: Explain that a claims officer must help with the next workflow step, using only the supplied safe context.
+Do not expose internal processing or risk information.
+""",
+    "safe_error": """TASK: Give a short, customer-safe technical failure message and suggest trying again.
+Do not reveal stack traces, credentials, provider details, or internal component names.
 """,
     "reviewer_summary": """TASK: Generate a concise decision-support executive summary for the claims officer.
 Structure your findings into:

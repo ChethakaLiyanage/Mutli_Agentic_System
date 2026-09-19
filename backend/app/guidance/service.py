@@ -12,6 +12,7 @@ from backend.app.guidance.evidence_validator import validate_evidence
 from backend.app.guidance.prompt_builder import build_prompt
 from backend.app.guidance.response_validator import validate_guidance_response
 from backend.app.guidance.safety import build_insufficient_evidence_fallback
+from backend.app.guidance.fallbacks import build_deterministic_guidance_response
 from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
@@ -41,11 +42,23 @@ class GuidanceService:
             warnings.append(evidence_result.warning)
 
         if not evidence_result.is_sufficient:
-            fallback_data = build_insufficient_evidence_fallback(
-                request=request,
-                custom_reason=evidence_result.reason,
+            insufficient_request = request.model_copy(
+                update={"task_type": "insufficient_evidence", "retrieved_evidence": []}
             )
-            self._record_audit(request, fallback_data)
+            built_prompt = build_prompt(insufficient_request)
+            try:
+                raw_output = self.llm_client.generate_json(
+                    system_instruction=built_prompt.system_instruction,
+                    user_prompt=built_prompt.user_prompt,
+                )
+                parsed_data = GuidanceResponseData.model_validate(raw_output)
+                parsed_data = parsed_data.model_copy(update={"insufficient_evidence": True})
+            except Exception:
+                parsed_data = build_insufficient_evidence_fallback(
+                    request=request,
+                    custom_reason=evidence_result.reason,
+                )
+            self._record_audit(request, parsed_data)
             evidence_warnings = list(warnings)
             if evidence_result.reason:
                 evidence_warnings.append(
@@ -56,7 +69,7 @@ class GuidanceService:
             return GuidanceResponse(
                 status="insufficient_evidence",
                 response_type=request.task_type,
-                data=fallback_data,
+                data=parsed_data,
                 warnings=evidence_warnings,
                 provider=getattr(self.llm_client.settings, "provider", "unknown"),
             )
@@ -78,25 +91,12 @@ class GuidanceService:
             )
         except Exception as err:
             logger.error("LLM generation failed for request %s: %s", request.request_id, err)
-            fallback_data = GuidanceResponseData(
-                message=(
-                    "An error occurred while generating the explanation. "
-                    "A claims officer will review your request directly."
-                ),
-                next_steps=["Wait for claims officer follow-up"],
-                evidence_used=[],
-                requires_human_review=True,
-                insufficient_evidence=False,
-                automated_decision=False,
+            fallback = build_deterministic_guidance_response(
+                sanitized_request,
+                warning="Guidance provider failed; deterministic fallback used",
             )
-            self._record_audit(request, fallback_data)
-            return GuidanceResponse(
-                status="error",
-                response_type=request.task_type,
-                data=fallback_data,
-                warnings=warnings + ["Guidance provider failed"],
-                provider=getattr(self.llm_client.settings, "provider", "unknown"),
-            )
+            self._record_audit(request, fallback.data)
+            return fallback
 
         # 4. Parse Structured Output
         try:
@@ -107,16 +107,12 @@ class GuidanceService:
                 parse_err,
                 raw_output,
             )
-            # Create safe fallback preserving raw text if possible
-            msg = str(raw_output.get("message") or "Information processed; please consult with a claims officer.")
-            parsed_data = GuidanceResponseData(
-                message=msg,
-                next_steps=raw_output.get("next_steps", []),
-                evidence_used=raw_output.get("evidence_used", []),
-                requires_human_review=True,
-                insufficient_evidence=False,
-                automated_decision=False,
+            fallback = build_deterministic_guidance_response(
+                sanitized_request,
+                warning="Invalid provider response; deterministic fallback used",
             )
+            self._record_audit(request, fallback.data)
+            return fallback
 
         # 5. Output Validation, Safety & Grounding Checks
         validation = validate_guidance_response(data=parsed_data, request=sanitized_request)
@@ -126,18 +122,13 @@ class GuidanceService:
                 validation.errors,
             )
             # If forbidden decision or fraud accusation occurred, replace with safe fallback
-            safe_data = build_insufficient_evidence_fallback(
-                request=sanitized_request,
-                custom_reason="Safety guardrail triggered due to unauthorized decision or ungrounded statements.",
+            fallback = build_deterministic_guidance_response(
+                sanitized_request,
+                warning="Safety guardrail triggered; deterministic fallback used",
             )
-            self._record_audit(request, safe_data)
-            return GuidanceResponse(
-                status="insufficient_evidence",
-                response_type=request.task_type,
-                data=safe_data,
-                warnings=warnings + validation.errors,
-                provider=getattr(self.llm_client.settings, "provider", "unknown"),
-            )
+            fallback.warnings.extend(warnings + validation.errors)
+            self._record_audit(request, fallback.data)
+            return fallback
 
         # 6. Audit Trail Recording
         final_data = (validation.validated_data or parsed_data).model_copy(

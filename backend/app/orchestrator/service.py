@@ -42,12 +42,14 @@ from backend.app.orchestrator.repository import (
     InMemoryWorkflowRepository,
     WorkflowRepository,
 )
-from backend.app.orchestrator.greetings import (
-    GREETING_RESPONSE_MESSAGE,
-)
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
 from backend.app.retrieval.schemas import RetrievalResponse
-from backend.app.guidance.schemas import GuidanceResponse
+from backend.app.guidance.schemas import (
+    GuidanceRequest,
+    GuidanceResponse,
+    GuidanceTaskType,
+)
+from backend.app.guidance.fallbacks import build_deterministic_guidance_response
 from backend.app.schemas.domain import (
     FraudAssessmentContext,
     HumanDecision,
@@ -237,6 +239,8 @@ class OrchestratorService:
         retrieval_status = (
             str(retrieval_result.get("status")) if retrieval_result else None
         )
+        if self.guidance_client is not None and state.current_status is not WorkflowStatus.RECEIVED:
+            self._ensure_customer_guidance_fallback(state, retrieval_status)
         retrieval_body = retrieval_result.get("result", {}) if retrieval_result else {}
         warnings = list(retrieval_body.get("warnings", []))
         if state.guidance_result:
@@ -353,37 +357,89 @@ class OrchestratorService:
 
     def _public_message(
         self, state: WorkflowState, retrieval_status: str | None
-    ) -> str | None:
-        if (
-            state.current_status is WorkflowStatus.COMPLETED
-            and state.intake_result is not None
-            and state.intake_result.data.intent.label == "greeting"
-        ):
-            return GREETING_RESPONSE_MESSAGE
+    ) -> str:
+        if self.guidance_client is not None and state.current_status is not WorkflowStatus.RECEIVED:
+            self._ensure_customer_guidance_fallback(state, retrieval_status)
         if state.guidance_result:
             data = state.guidance_result.get("data") or {}
-            if data.get("message"):
-                return str(data["message"])
-        if state.current_status is WorkflowStatus.AWAITING_HUMAN_REVIEW:
+            message = str(data.get("message") or "").strip()
+            if message:
+                return message
+        if state.current_status == WorkflowStatus.AWAITING_HUMAN_REVIEW:
             return "Your claim is awaiting review by a claims officer."
-        if (
-            state.current_status is WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED
-            and any(error.code == "POLICY_LINK_REQUIRED" for error in state.errors)
-        ):
-            return _POLICY_LINK_REQUIRED_MESSAGE
-        decision_messages = {
-            WorkflowStatus.APPROVED: "Your claim has been approved by a claims officer.",
-            WorkflowStatus.REJECTED: "A claims officer has completed review of your claim.",
-            WorkflowStatus.MORE_INFORMATION_REQUIRED: (
-                "A claims officer has requested additional information."
-            ),
-            WorkflowStatus.ESCALATED: (
-                "Your claim requires additional specialist review."
-            ),
-        }
-        if state.current_status in decision_messages:
-            return decision_messages[state.current_status]
-        return self._retrieval_message(retrieval_status)
+        if state.retrieval_result:
+            return self._retrieval_message(retrieval_status) or "Policy information retrieval completed."
+        return (
+            state.audit_trail[-1].message
+            if state.audit_trail
+            else "Workflow request received"
+        )
+
+    def _fallback_task_for_state(
+        self,
+        state: WorkflowState,
+        retrieval_status: str | None,
+    ) -> GuidanceTaskType:
+        intent = (
+            state.intake_result.data.intent.label
+            if state.intake_result is not None
+            else None
+        )
+        if state.current_status is WorkflowStatus.FAILED:
+            return "safe_error"
+        if state.current_status is WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED:
+            return "manual_assistance_required"
+        if state.current_status is WorkflowStatus.AWAITING_HUMAN_REVIEW:
+            return "awaiting_human_review"
+        if state.current_status in {
+            WorkflowStatus.APPROVED,
+            WorkflowStatus.REJECTED,
+            WorkflowStatus.MORE_INFORMATION_REQUIRED,
+            WorkflowStatus.ESCALATED,
+        }:
+            return "human_decision"
+        if intent == "greeting":
+            return "greeting"
+        if state.current_status is WorkflowStatus.AWAITING_CLARIFICATION:
+            return "clarification_question"
+        if state.workflow_type is WorkflowType.CLAIM_STATUS:
+            return "claim_status"
+        if state.workflow_type is WorkflowType.INFORMATION_REQUEST:
+            if retrieval_status in {None, "no_results", "failed"}:
+                return "insufficient_evidence"
+            return {
+                "coverage_question": "coverage_answer",
+                "policy_question": "policy_answer",
+                "required_documents_question": "required_documents",
+            }.get(intent or "", "information_answer")
+        return "claim_progress"
+
+    def _ensure_customer_guidance_fallback(
+        self,
+        state: WorkflowState,
+        retrieval_status: str | None,
+    ) -> None:
+        """Guarantee one non-empty Agent 4 envelope for every public response."""
+
+        if state.guidance_result:
+            data = state.guidance_result.get("data") or {}
+            if str(data.get("message") or "").strip():
+                return
+        task_type = self._fallback_task_for_state(state, retrieval_status)
+        request = self._build_customer_guidance_request(
+            state,
+            task_type=task_type,
+            safe_customer_context={
+                "policy_link_required": any(
+                    error.code == "POLICY_LINK_REQUIRED" for error in state.errors
+                )
+            },
+        )
+        response = build_deterministic_guidance_response(
+            request,
+            warning="Deterministic Agent 4 fallback used",
+        )
+        state.guidance_result = response.model_dump(mode="json")
 
     @staticmethod
     def _public_guidance_result(guidance_result: dict | None) -> dict | None:
@@ -403,27 +459,112 @@ class OrchestratorService:
         return INTENT_TO_WORKFLOW_TYPE.get(intent_label or "", WorkflowType.UNKNOWN)
 
     @staticmethod
-    def _questions_for(missing_fields: Iterable[str]) -> list[str]:
-        return [
-            CLARIFICATION_QUESTIONS[field]
-            for field in dict.fromkeys(missing_fields)
-            if field in CLARIFICATION_QUESTIONS
-        ]
+    def _has_supported_missing_fields(missing_fields: Iterable[str]) -> bool:
+        return any(
+            field in {"incident_type", "incident_date", "location"}
+            for field in missing_fields
+        )
+
+    @staticmethod
+    def _known_customer_fields(state: WorkflowState) -> dict[str, object]:
+        if state.intake_result is None:
+            return {}
+        incident = state.intake_result.data.incident
+        damage = state.intake_result.data.damage
+        values: dict[str, object | None] = {
+            "incident_type": incident.type,
+            "date_text": incident.date_text,
+            "incident_date": incident.normalized_date,
+            "location": incident.location,
+            "damage_areas": list(damage.areas) or None,
+        }
+        return {
+            key: value for key, value in values.items() if value is not None
+        }
+
+    def _build_customer_guidance_request(
+        self,
+        state: WorkflowState,
+        *,
+        task_type: GuidanceTaskType,
+        safe_customer_context: dict[str, object] | None = None,
+    ) -> GuidanceRequest:
+        intent = (
+            state.intake_result.data.intent.label
+            if state.intake_result is not None
+            else None
+        )
+        return build_guidance_request(
+            request_id=state.last_request_id,
+            audience="customer",
+            task_type=task_type,
+            claim=state.claim_context,
+            intent=intent,
+            workflow_status=state.current_status.value,
+            known_fields=self._known_customer_fields(state),
+            missing_fields=state.missing_fields,
+            safe_customer_context=safe_customer_context,
+        )
+
+    async def _run_customer_guidance(
+        self,
+        state: WorkflowState,
+        *,
+        task_type: GuidanceTaskType,
+        safe_customer_context: dict[str, object] | None = None,
+    ) -> GuidanceResponse:
+        """Ask Agent 4 to verbalize state without granting workflow authority."""
+
+        request = self._build_customer_guidance_request(
+            state,
+            task_type=task_type,
+            safe_customer_context=safe_customer_context,
+        )
+        if self.guidance_client is None:
+            response = build_deterministic_guidance_response(request)
+        else:
+            try:
+                candidate = await self.guidance_client.generate(request)
+                if (
+                    not isinstance(candidate, GuidanceResponse)
+                    or candidate.status == "error"
+                    or not candidate.data.message.strip()
+                ):
+                    raise TypeError("Guidance client returned an invalid response")
+                response = candidate
+            except Exception:
+                logger.exception(
+                    "Customer guidance failed for workflow %s task %s",
+                    state.workflow_id,
+                    task_type,
+                )
+                response = build_deterministic_guidance_response(
+                    request,
+                    warning="Guidance provider failed; deterministic fallback used",
+                )
+        state.guidance_result = response.model_dump(mode="json")
+        self.append_audit_event(
+            state,
+            step="guidance",
+            status=AuditEventStatus.SUCCESS,
+            message=f"Agent 4 produced customer guidance for {task_type}",
+        )
+        return response
 
     def _clarification_response(
         self,
         state: WorkflowState,
-        *,
-        reason: str,
-        questions: list[str],
     ) -> ClarificationResponse:
+        message = self._public_message(state, None)
         return ClarificationResponse(
             request_id=state.last_request_id,
             workflow_id=state.workflow_id,
             intake_result=state.intake_result,
             missing_fields=list(state.missing_fields),
-            questions=questions,
-            reason=reason,
+            questions=[message] if message else [],
+            reason=message,
+            message=message,
+            guidance_result=self._public_guidance_result(state.guidance_result),
             audit_trail=list(state.audit_trail),
         )
 
@@ -510,13 +651,26 @@ class OrchestratorService:
                 state,
                 step="workflow_routing",
                 status=AuditEventStatus.SUCCESS,
-                message="Greeting routed to deterministic conversation response",
+                message="Greeting routed to Agent 4",
             )
             self.update_status(
                 state,
                 WorkflowStatus.COMPLETED,
                 message="Greeting response completed",
                 step="greeting",
+            )
+            await self._run_customer_guidance(
+                state,
+                task_type="greeting",
+                safe_customer_context={
+                    "supported_topics": [
+                        "claims",
+                        "policy questions",
+                        "coverage",
+                        "required documents",
+                        "claim status",
+                    ]
+                },
             )
             await self.workflow_repository.save(state)
             return self.to_response(state)
@@ -539,24 +693,22 @@ class OrchestratorService:
         )
 
         if state.requires_clarification:
-            questions = self._questions_for(state.missing_fields)
-            if questions:
-                reason = "Additional claim information is required"
+            if self._has_supported_missing_fields(state.missing_fields):
+                reason = "missing_claim_fields"
             else:
-                reason = LOW_CONFIDENCE_CLARIFICATION_MESSAGE
-                questions = [LOW_CONFIDENCE_CLARIFICATION_MESSAGE]
+                reason = "intent_needs_clarification"
 
             self.mark_clarification_required(
                 state,
                 state.missing_fields,
                 reason=reason,
             )
-            await self.workflow_repository.save(state)
-            return self._clarification_response(
+            await self._run_customer_guidance(
                 state,
-                reason=reason,
-                questions=questions,
+                task_type=self._fallback_task_for_state(state, None),
             )
+            await self.workflow_repository.save(state)
+            return self._clarification_response(state)
 
         await self.workflow_repository.save(state)
         await self._advance_after_intake(
@@ -596,12 +748,59 @@ class OrchestratorService:
                 "Workflow is not awaiting clarification"
             )
 
+        # Pre-screen the incoming message with Agent 1 before assuming it is a continuation
+        # of the awaiting claim. If the user sent an independent greeting or inquiry, or if the
+        # message does not supply any missing fields, route it as a clean new request.
+        try:
+            standalone_intake = await self.claim_intake_client.analyze(
+                IntakeRequest(request_id=request.request_id, text=request.text)
+            )
+            standalone_intent = (
+                standalone_intake.data.intent.label if standalone_intake.status == "success" else None
+            )
+            is_independent_intent = standalone_intent in {
+                "greeting",
+                "policy_question",
+                "coverage_question",
+                "required_documents_question",
+                "general_information",
+                "claim_status",
+            }
+            # Check if this message provides any of the missing fields
+            provides_missing_info = False
+            if state.missing_fields and standalone_intake.status == "success":
+                new_incident = standalone_intake.data.incident
+                if "incident_type" in state.missing_fields and new_incident.type:
+                    provides_missing_info = True
+                if "incident_date" in state.missing_fields and (new_incident.date_text or new_incident.normalized_date):
+                    provides_missing_info = True
+                if "location" in state.missing_fields and new_incident.location:
+                    provides_missing_info = True
+
+            if is_independent_intent or not provides_missing_info:
+                logger.info(
+                    "Clarification input '%s' identified as independent intent %s (provides_missing=%s); routing as new request",
+                    request.text,
+                    standalone_intent,
+                    provides_missing_info,
+                )
+                return await self.process_request(
+                    OrchestratorRequest(request_id=request.request_id, text=request.text),
+                    authenticated_user_id=state.authenticated_user_id,
+                    authenticated_user_role=state.authenticated_user_role,
+                )
+        except Exception:
+            logger.warning(
+                "Clarification pre-screening failed; proceeding with normal clarification flow"
+            )
+
         # The stored role remains authoritative for this workflow. Role-specific
         # reviewer behavior is intentionally outside this step.
         _ = authenticated_user_role
         state.last_request_id = request.request_id
         state.clarification_count += 1
         previous_intake_result = state.intake_result
+        state.guidance_result = None
         state.accumulated_text = (
             f"{state.accumulated_text.rstrip()} {request.text.strip()}"
         )
@@ -695,15 +894,17 @@ class OrchestratorService:
                     step="clarification",
                     audit_status=AuditEventStatus.AWAITING_INPUT,
                 )
+                await self._run_customer_guidance(
+                    state,
+                    task_type="manual_assistance_required",
+                )
                 await self.workflow_repository.save(state)
                 return self.to_response(state)
 
-            questions = self._questions_for(state.missing_fields)
-            if questions:
-                reason = "Additional claim information is required"
+            if self._has_supported_missing_fields(state.missing_fields):
+                reason = "missing_claim_fields"
             else:
-                reason = LOW_CONFIDENCE_CLARIFICATION_MESSAGE
-                questions = [LOW_CONFIDENCE_CLARIFICATION_MESSAGE]
+                reason = "intent_needs_clarification"
             self.mark_clarification_required(
                 state,
                 state.missing_fields,
@@ -712,12 +913,12 @@ class OrchestratorService:
             state.audit_trail[-1].message = (
                 f"Clarification still required: {reason}"
             )
-            await self.workflow_repository.save(state)
-            return self._clarification_response(
+            await self._run_customer_guidance(
                 state,
-                reason=reason,
-                questions=questions,
+                task_type=self._fallback_task_for_state(state, None),
             )
+            await self.workflow_repository.save(state)
+            return self._clarification_response(state)
 
         await self.workflow_repository.save(state)
         await self._advance_after_intake(
@@ -755,12 +956,32 @@ class OrchestratorService:
                 )
             ):
                 await self._run_claim_submission(state)
+            else:
+                await self._run_customer_guidance(
+                    state,
+                    task_type="claim_progress",
+                )
+            return
+
+        if state.workflow_type is WorkflowType.CLAIM_STATUS:
+            if self.guidance_client is not None:
+                await self._run_customer_guidance(
+                    state,
+                    task_type="claim_status",
+                )
             return
 
         if (
             state.workflow_type is not WorkflowType.INFORMATION_REQUEST
-            or self.retrieval_client is None
         ):
+            return
+
+        if self.retrieval_client is None:
+            if self.guidance_client is not None:
+                await self._run_customer_guidance(
+                    state,
+                    task_type="insufficient_evidence",
+                )
             return
 
         if state.intake_result is None or state.authenticated_user_id is None:
@@ -841,11 +1062,11 @@ class OrchestratorService:
         assert state.intake_result is not None
         intent = state.intake_result.data.intent.label
         task_type = {
-            "coverage_question": "coverage_explanation",
-            "policy_question": "policy_explanation",
+            "coverage_question": "coverage_answer",
+            "policy_question": "policy_answer",
             "required_documents_question": "required_documents",
-            "general_information": "policy_explanation",
-        }.get(intent or "", "policy_explanation")
+            "general_information": "information_answer",
+        }.get(intent or "", "information_answer")
         self.update_status(
             state,
             WorkflowStatus.GUIDANCE_GENERATION,
@@ -869,23 +1090,18 @@ class OrchestratorService:
                 retrieval_warnings=warnings,
             )
             response = await self.guidance_client.generate(request)
-            if not isinstance(response, GuidanceResponse):
-                raise TypeError("Guidance client returned an invalid response")
+            if (
+                not isinstance(response, GuidanceResponse)
+                or response.status == "error"
+                or not response.data.message.strip()
+            ):
+                response = build_deterministic_guidance_response(
+                    request,
+                    warning="Invalid Agent 4 response; deterministic fallback used",
+                )
             state.guidance_result = response.model_dump(mode="json")
         except Exception:
             logger.exception("Information guidance failed for %s", state.workflow_id)
-            self.append_audit_event(
-                state, step="guidance", status=AuditEventStatus.FAILED,
-                message="Guidance provider failed",
-            )
-            self.mark_failed(
-                state,
-                code="GUIDANCE_FAILED",
-                message="A grounded answer could not be generated",
-                step="guidance",
-            )
-            return
-        if response.status == "error":
             self.append_audit_event(
                 state, step="guidance", status=AuditEventStatus.FAILED,
                 message="Guidance provider failed",
@@ -982,6 +1198,11 @@ class OrchestratorService:
                 message="Claim draft requires policy linkage",
                 step="claim_persistence",
                 audit_status=AuditEventStatus.AWAITING_INPUT,
+            )
+            await self._run_customer_guidance(
+                state,
+                task_type="claim_progress",
+                safe_customer_context={"policy_link_required": True},
             )
             await self.workflow_repository.save(state)
             return
@@ -1083,6 +1304,10 @@ class OrchestratorService:
             state, WorkflowStatus.AWAITING_HUMAN_REVIEW,
             message="Claim awaiting human review", step="human_review",
             audit_status=AuditEventStatus.AWAITING_INPUT,
+        )
+        await self._run_customer_guidance(
+            state,
+            task_type="awaiting_human_review",
         )
         await self.workflow_repository.save(state)
 

@@ -461,6 +461,9 @@ def build_guidance_request(
     fraud_assessment: FraudAssessmentContext | None = None,
     human_decision: HumanDecisionContext | None = None,
     intent: str | None = None,
+    workflow_status: str | None = None,
+    known_fields: dict[str, object] | None = None,
+    safe_customer_context: dict[str, object] | None = None,
     missing_fields: list[str] | None = None,
     retrieval_warnings: list[str] | None = None,
 ) -> GuidanceRequest:
@@ -472,12 +475,19 @@ def build_guidance_request(
         if policy is not None
         else {}
     )
-    guidance_fraud = _fraud_to_guidance(fraud_assessment)
+    guidance_fraud = (
+        _fraud_to_guidance(fraud_assessment)
+        if audience == "reviewer"
+        else None
+    )
     return GuidanceRequest(
         request_id=request_id,
         audience=audience,
         task_type=task_type,
         intent=intent,
+        workflow_status=workflow_status,
+        known_fields=dict(known_fields or {}),
+        safe_customer_context=dict(safe_customer_context or {}),
         claim_data=claim_data,
         retrieved_evidence=[
             canonical_evidence_to_guidance(item) for item in (evidence or [])

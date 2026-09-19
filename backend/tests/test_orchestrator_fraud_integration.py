@@ -185,7 +185,7 @@ def test_claim_without_linked_policy_is_saved_and_stops_before_downstream_agents
 
     assert response.status is WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED
     assert response.errors[0].code == "POLICY_LINK_REQUIRED"
-    assert "saved as a draft" in response.message
+    assert "claim details were saved" in response.message
     assert "policy" in response.message.lower()
     assert retrieval.requests == []
     assert fraud.calls == []
@@ -251,6 +251,11 @@ def test_real_fraud_engine_handles_missing_amount_without_fabrication() -> None:
     assert saved.fraud_result["anomaly_score"] is None
     assert saved.fraud_result["automated_decision"] is False
     assert response.missing_document_summary == []
+    assert response.guidance_result is not None
+    assert response.guidance_result["response_type"] in {"claim_progress", "awaiting_human_review"}
+    assert "claims officer" in response.message.lower()
+    assert "risk" not in response.message.lower()
+    assert "fraud" not in response.message.lower()
 
 
 class SyntheticStructuredRepository:

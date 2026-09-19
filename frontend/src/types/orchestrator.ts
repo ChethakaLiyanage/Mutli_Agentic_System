@@ -108,6 +108,17 @@ export interface OrchestratorError {
 export type GuidanceStatus = "success" | "insufficient_evidence" | "error";
 
 export type GuidanceResponseType =
+  | "greeting"
+  | "claim_submission_start"
+  | "information_answer"
+  | "coverage_answer"
+  | "policy_answer"
+  | "claim_progress"
+  | "awaiting_human_review"
+  | "human_decision"
+  | "insufficient_evidence"
+  | "manual_assistance_required"
+  | "safe_error"
   | "coverage_explanation"
   | "policy_explanation"
   | "required_documents"
@@ -168,6 +179,8 @@ export interface ClarificationResponse extends WorkflowResponseBase {
   workflow_type: "clarification";
   questions: string[];
   reason: string | null;
+  message: string | null;
+  guidance_result: CustomerGuidanceResult | null;
   requires_clarification: true;
 }
 

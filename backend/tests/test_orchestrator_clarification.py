@@ -424,6 +424,46 @@ def test_location_only_clarification_preserves_existing_claim_facts() -> None:
     asyncio.run(scenario())
 
 
+def test_misspelled_gazetteer_location_completes_existing_claim_context() -> None:
+    async def scenario() -> None:
+        repository = InMemoryWorkflowRepository()
+        agent = ClaimIntakeAgent(
+            reference_date_provider=lambda: date(2026, 9, 18)
+        )
+        service = OrchestratorService(LocalClaimIntakeClient(agent), repository)
+        initial = await service.process_request(
+            OrchestratorRequest(
+                request_id="LOC-NUG-1",
+                text="my car crashed yesterday",
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+        assert isinstance(initial, ClarificationResponse)
+        assert initial.missing_fields == ["location"]
+        assert initial.message is not None
+        assert "yesterday" in initial.message
+        assert initial.questions == [initial.message]
+
+        resumed = await service.resume_clarification(
+            initial.workflow_id,
+            ClarificationRequest(request_id="LOC-NUG-2", text="nuggeoda"),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+
+        assert isinstance(resumed, OrchestratorResponse)
+        assert resumed.workflow_id == initial.workflow_id
+        assert resumed.requires_clarification is False
+        assert resumed.intake_result is not None
+        incident = resumed.intake_result.data.incident
+        assert incident.type == "vehicle_collision"
+        assert incident.date_text == "yesterday"
+        assert incident.location == "Nugegoda"
+
+    asyncio.run(scenario())
+
+
 def test_location_only_reply_leaves_only_the_still_missing_date() -> None:
     async def scenario() -> None:
         repository = InMemoryWorkflowRepository()

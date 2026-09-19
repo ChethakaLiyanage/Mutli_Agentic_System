@@ -20,7 +20,6 @@ import { IntakeSummary } from "../components/IntakeSummary";
 import { WorkflowStatusBadge } from "../components/WorkflowStatusBadge";
 import type { ChatMessage } from "../types/chat";
 import {
-  isClarificationResponse,
   isOrchestratorResponse,
   type OrchestratorResponse,
   type WorkflowStatus,
@@ -69,45 +68,9 @@ const createMessage = (
 });
 
 const resultMessage = (response: WorkflowResponse): string => {
-  const backendMessage = isOrchestratorResponse(response)
-    ? response.guidance_result?.data.message || response.message
-    : null;
+  const backendMessage = response.guidance_result?.data.message || response.message;
   if (backendMessage) return backendMessage;
-
-  switch (response.status) {
-    case "awaiting_clarification":
-      return "We need a little more information before the intake can continue.";
-    case "manual_assistance_required":
-      return "We still need additional information to continue automatically. Please contact a claims officer or start a new request with more detail.";
-    case "awaiting_human_review":
-      return "Your claim has been submitted for review by a claims officer.";
-    case "approved":
-      return "Your claim has been approved by a claims officer.";
-    case "rejected":
-      return "A claims officer has completed review of your claim.";
-    case "more_information_required":
-      return "A claims officer has requested more information.";
-    case "escalated":
-      return "Your claim requires additional specialist review.";
-    case "completed":
-      return "Your request has been completed.";
-    case "failed": {
-      const publicError = isOrchestratorResponse(response)
-        ? response.errors[0]?.message
-        : null;
-      return publicError || "We could not continue this workflow. You can start a new request and try again.";
-    }
-    case "received":
-    case "intake_processing":
-    case "intake_complete":
-    case "information_retrieval":
-    case "retrieval_complete":
-    case "claim_information_retrieval":
-    case "fraud_triage":
-    case "guidance_processing":
-    case "guidance_generation":
-      return `Your request is now at: ${response.status.replaceAll("_", " ")}.`;
-  }
+  return "We couldn't display the assistant's response. Please try again.";
 };
 
 export const ClaimAssistantPage = () => {
@@ -123,9 +86,6 @@ export const ClaimAssistantPage = () => {
 
   const canClarify = workflow?.status === "awaiting_clarification";
   const canSend = !sending && !restoring && !refreshing;
-  const questions =
-    workflow && isClarificationResponse(workflow) ? workflow.questions : [];
-
   const latestIntake = workflow?.intake_result ?? null;
   const hasConversation = messages.length > 0 || workflow !== null;
   const separateTrackedWorkflow =
@@ -220,7 +180,10 @@ export const ClaimAssistantPage = () => {
 
     try {
       const request = { request_id: makeId("REQ"), text };
-      const response = canClarify && workflow
+      const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening)\b/i.test(text);
+      const isQuestion = /^(can|does|what|where|how|tell me|is|are|why)\b/i.test(text);
+      const shouldClarify = canClarify && workflow && !isGreeting && !isQuestion;
+      const response = shouldClarify
         ? await clarifyWorkflow(workflow.workflow_id, request)
         : await processRequest(request);
 
@@ -342,15 +305,6 @@ export const ClaimAssistantPage = () => {
                     </time>
                   </article>
                 ))}
-
-                {questions.length > 0 && canClarify && (
-                  <section className="clarification-panel">
-                    <h3>We need a little more information:</h3>
-                    <ul>
-                      {questions.map((question) => <li key={question}>{question}</li>)}
-                    </ul>
-                  </section>
-                )}
 
                 {sending && (
                   <div className="assistant-thinking" role="status">

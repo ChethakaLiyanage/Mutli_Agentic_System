@@ -149,7 +149,7 @@ def test_local_guidance_client_required_documents_guidance() -> None:
     assert response.data.automated_decision is False
 
 
-def test_local_guidance_client_provider_failure_returns_error_envelope() -> None:
+def test_local_guidance_client_provider_failure_uses_safe_fallback() -> None:
     from backend.app.guidance.service import GuidanceService
     from backend.app.llm.client import BaseLLMClient, LLMClientError
 
@@ -166,7 +166,9 @@ def test_local_guidance_client_provider_failure_returns_error_envelope() -> None
             document_id="DOC-1", document_name="Doc", section="Sec", content="Valid content.",
         )],
     )))
-    assert response.status == "error"
-    assert "error occurred" in response.data.message.lower()
-    assert any("failed" in w.lower() for w in response.warnings)
+    assert response.status == "success"
+    assert "relevant controlled policy information" in response.data.message.lower()
+    assert response.data.automated_decision is False
+    assert response.provider == "deterministic_fallback"
+    assert any("fallback" in warning.lower() for warning in response.warnings)
 
