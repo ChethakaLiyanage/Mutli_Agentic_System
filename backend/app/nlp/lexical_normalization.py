@@ -36,6 +36,41 @@ GREETING_PHRASES = (
     "hi there",
 )
 
+THANKS_PHRASES = (
+    "thanks",
+    "thank you",
+    "thank you very much",
+    "appreciate it",
+    "many thanks",
+    "thanks a lot",
+    "thank you so much",
+    "cheers",
+)
+
+GOODBYE_PHRASES = (
+    "bye",
+    "goodbye",
+    "good bye",
+    "see you",
+    "talk later",
+    "take care",
+    "bye for now",
+    "see you later",
+)
+
+ACKNOWLEDGEMENT_PHRASES = (
+    "ok",
+    "okay",
+    "got it",
+    "alright",
+    "understood",
+    "noted",
+    "sure",
+    "sounds good",
+    "i understand",
+    "all right",
+)
+
 INSURANCE_TERMS = frozenset(
     {
         "accident",
@@ -74,18 +109,51 @@ INSURANCE_TERMS = frozenset(
 CONVERSATIONAL_TERMS = frozenset(
     {
         "about",
+        "acknowledge",
+        "alright",
+        "am",
+        "appreciate",
         "are",
+        "bye",
+        "can",
+        "care",
         "check",
+        "cheers",
+        "could",
+        "do",
+        "does",
         "explain",
+        "for",
         "good",
+        "goodbye",
+        "got",
+        "have",
         "help",
         "how",
+        "is",
+        "later",
+        "may",
+        "me",
+        "much",
+        "my",
         "need",
+        "noted",
+        "ok",
+        "okay",
         "please",
+        "see",
+        "sounds",
+        "sure",
         "tell",
+        "thank",
+        "thanks",
         "there",
+        "understand",
+        "understood",
         "want",
         "what",
+        "will",
+        "would",
         "you",
     }
 )

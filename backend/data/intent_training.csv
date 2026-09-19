@@ -1,351 +1,501 @@
 text,label
-"My car was hit yesterday and I want to make a claim",claim_submission
-"Someone crashed into my vehicle and I need insurance help",claim_submission
-"I was rear-ended this morning and need to report the damage",claim_submission
-"My parked car was damaged overnight and I want to claim",claim_submission
-"I had an accident in Colombo and need to lodge a motor claim",claim_submission
-"A bus sideswiped my car near Kandy today",claim_submission
-"My motorcycle collided with a van and I need to report it",claim_submission
-"Flood water entered my car last night and caused damage",claim_submission
-"A stone cracked my windscreen and I want to submit a claim",claim_submission
-"My vehicle was stolen from outside my house",claim_submission
-"Someone broke into my car and damaged the lock",claim_submission
-"A tree fell on my vehicle during the storm and I need assistance",claim_submission
-"I hit a pothole and damaged the wheel so I need to lodge a claim",claim_submission
-"A three wheeler hit the side of my car yesterday",claim_submission
-"I accidentally reversed into a pole and damaged my bumper",claim_submission
-"The bonnet was crushed in a collision and I want to report the loss",claim_submission
-"Another vehicle knocked off my side mirror",claim_submission
-"Hail damaged the roof of my car and I would like to claim",claim_submission
-"There was a fire in my vehicle and I need to notify insurance",claim_submission
-"Someone vandalised my car while it was parked",claim_submission
-"My car got badly scratched at the supermarket car park",claim_submission
-"A lorry hit my vehicle on the highway and drove away",claim_submission
-"The passenger door is dented after an accident last evening",claim_submission
-"My front bumper cracked when another car hit me",claim_submission
-"I need to report a motor accident that happened on Monday",claim_submission
-"Please help me start a claim for damage to my car",claim_submission
-"How can I file this accident as a new claim",claim_submission
-"I am submitting a claim because my van was hit",claim_submission
-"Water got into the engine during the flood and I want to claim",claim_submission
-"A thief stole the mirrors and lights from my parked vehicle",claim_submission
-"My rear glass shattered while I was driving and I need to report it",claim_submission
-"I bumped another car this morning and both vehicles are damaged",claim_submission
-"My car hit an animal on the road and the front is broken",claim_submission
-"A branch dropped onto my windscreen during heavy rain",claim_submission
-"An unknown driver dented my car and left the scene",claim_submission
-"My car had to be towed after a crash and I want to open a claim",claim_submission
-"Our family van was damaged in a collision near Galle",claim_submission
-"The taxi I drive was damaged by another vehicle today",claim_submission
-"I had a collision on the expressway and need to notify you",claim_submission
-"Can I report my motor loss online right now",claim_submission
-"Can you explain what the wording in my motor policy means",policy_question
-"What does comprehensive motor insurance cover in general",policy_question
-"I do not understand the excess shown on my policy",policy_question
-"Where can I find the policy period on my document",policy_question
-"What is the difference between comprehensive and third party policies",policy_question
-"Please explain the terms and conditions of my vehicle policy",policy_question
-"What does insured value mean on my motor schedule",policy_question
-"Why is there a deductible listed in my policy",policy_question
-"Can you tell me what a no claim bonus means",policy_question
-"What does third party liability mean in my policy",policy_question
-"I need help understanding my motor insurance certificate",policy_question
-"Where is the policy number printed on the schedule",policy_question
-"What does the renewal date on this policy refer to",policy_question
-"Can I get a simple explanation of my policy wording",policy_question
-"What is meant by market value in motor insurance",policy_question
-"Please explain the exclusions section without giving legal advice",policy_question
-"What does an endorsement on my vehicle policy mean",policy_question
-"I see a named driver section and do not understand it",policy_question
-"What is the meaning of period of insurance",policy_question
-"Could you explain the premium breakdown on my motor policy",policy_question
-"My policy says private use only what does that phrase mean",policy_question
-"What does sum insured mean for a car",policy_question
-"I want to understand the definitions page in my policy",policy_question
-"What is an insurance policy schedule",policy_question
-"Does policyholder mean the same as the vehicle owner",policy_question
-"Explain the difference between policy start date and issue date",policy_question
-"What does voluntary excess mean",policy_question
-"Why does my document mention geographic limits",policy_question
-"What is the purpose of a motor insurance endorsement",policy_question
-"Could you explain what own damage means in the policy",policy_question
-"What does authorised driver mean on this certificate",policy_question
-"I need clarification about the vehicle details printed in my policy",policy_question
-"What is meant by limitations as to use",policy_question
-"Can you explain the cancellation section of a motor policy",policy_question
-"What does basic premium mean on my renewal notice",policy_question
-"I found a clause I do not understand in the policy booklet",policy_question
-"What is the difference between the certificate and the policy schedule",policy_question
-"Please explain why an engine number appears on the policy",policy_question
-"What does policy expiry mean and where is it shown",policy_question
-"I need general help reading my car insurance documents",policy_question
-"Does my insurance cover flood damage to my car",coverage_question
-"Is a cracked windscreen covered by my policy",coverage_question
-"Would theft of my vehicle be covered",coverage_question
-"Am I covered if someone breaks into the car",coverage_question
-"Does motor insurance pay for damage from a falling tree",coverage_question
-"Is damage caused by a pothole included",coverage_question
-"Would my policy cover a collision with another vehicle",coverage_question
-"Is the side mirror covered if it gets knocked off",coverage_question
-"Does insurance cover water damage to the engine",coverage_question
-"Would I be covered if my parked car is vandalised",coverage_question
-"Is fire damage to a vehicle normally included in my cover",coverage_question
-"Does my cover apply when another driver uses my car",coverage_question
-"Am I insured for damage caused by hail",coverage_question
-"Would scratches in a car park be covered",coverage_question
-"Does the policy cover a stolen car radio",coverage_question
-"Is towing after an accident part of my cover",coverage_question
-"Would insurance cover damage from hitting an animal",coverage_question
-"Am I covered for an accident outside my home town",coverage_question
-"Does my motor cover include third party vehicle damage",coverage_question
-"Will the policy cover a dented door after a hit and run",coverage_question
-"Is a broken rear window covered or only the windscreen",coverage_question
-"Does my insurance include accidental bumper damage",coverage_question
-"Would flood damage while parked be covered",coverage_question
-"Am I covered if the vehicle is stolen with the keys",coverage_question
-"Does the policy cover personal items left inside the car",coverage_question
-"Will insurance pay if a branch damages the roof",coverage_question
-"Is damage during a storm included in motor cover",coverage_question
-"Would my policy cover a collision in a private car park",coverage_question
-"Does my cover include damage to lights and indicators",coverage_question
-"Am I covered if an unknown vehicle hits me",coverage_question
-"Is tyre damage from an accident covered",coverage_question
-"Does insurance cover the cost of replacing a damaged lock",coverage_question
-"Would I have cover if I accidentally reverse into a wall",coverage_question
-"Is malicious damage included in comprehensive insurance",coverage_question
-"Does my current cover apply to a temporary replacement car",coverage_question
-"Will a chipped windscreen qualify for cover",coverage_question
-"Is my vehicle covered while it is being transported",coverage_question
-"Would damage caused by road debris be included",coverage_question
-"Does cover continue when the car is parked overnight",coverage_question
-"Can I claim for both body damage and broken glass",coverage_question
-"What documents do I need after a road accident",required_documents_question
-"Do I need a police report for a collision",required_documents_question
-"Which papers are required to submit a motor claim",required_documents_question
-"Should I send photos of the damaged vehicle",required_documents_question
-"Do you need a copy of my driving licence",required_documents_question
-"What proof is needed for a stolen car claim",required_documents_question
-"Is the vehicle registration document required",required_documents_question
-"Do I need to provide the insurance certificate",required_documents_question
-"What should I upload for a windscreen claim",required_documents_question
-"Is an accident statement needed from the other driver",required_documents_question
-"Which documents should I collect at the crash scene",required_documents_question
-"Do you require repair estimates with the claim",required_documents_question
-"Should I keep the towing receipt for insurance",required_documents_question
-"What paperwork is needed for flood damage",required_documents_question
-"Do I have to submit pictures from the incident location",required_documents_question
-"Is a police entry required after a break in",required_documents_question
-"What identification documents do you need from me",required_documents_question
-"Can I submit a scanned licence or must it be the original",required_documents_question
-"Do you need the other vehicle's registration number",required_documents_question
-"What forms must I complete for a new claim",required_documents_question
-"Is a garage quotation required before I submit",required_documents_question
-"Should I provide witness contact details",required_documents_question
-"What evidence is needed for vandalism damage",required_documents_question
-"Do I need a bank document for the claim payment",required_documents_question
-"Which pages of the policy document should I attach",required_documents_question
-"Can you list everything I need to send for my accident",required_documents_question
-"Do you need a photo of the vehicle number plate",required_documents_question
-"Is the emission test document needed for a claim",required_documents_question
-"Should I attach the police complaint reference",required_documents_question
-"What proof of ownership is acceptable for the vehicle",required_documents_question
-"Do I need the driver's national ID copy",required_documents_question
-"Can I send digital copies of the required claim papers",required_documents_question
-"What docs are needed if the windscreen was damaged by a stone",required_documents_question
-"Do you require the original repair invoice",required_documents_question
-"Should the accident sketch be included with my claim",required_documents_question
-"What should I bring when reporting the claim in person",required_documents_question
-"Do I need a letter from the leasing company",required_documents_question
-"Which reciepts should I keep after the accident",required_documents_question
-"Is dashcam footage something I should submit",required_documents_question
-"Do you need a written description of how the crash happened",required_documents_question
-"What is happening with my claim",claim_status
-"Has my claim been reviewed yet",claim_status
-"Can you check the progress of claim CLM-2048",claim_status
-"I submitted my documents last week what is the update",claim_status
-"Is my motor claim still being processed",claim_status
-"Has a decision been made on my accident claim",claim_status
-"Why has my claim status not changed",claim_status
-"Please tell me where my claim is in the process",claim_status
-"Was my claim approved or rejected",claim_status
-"I want an update on the windscreen claim I filed",claim_status
-"Has the assessor looked at my vehicle claim",claim_status
-"Is there any progress on my flood damage case",claim_status
-"When will my submitted claim be completed",claim_status
-"Can I track my claim using the reference number",claim_status
-"My claim says pending what does its current progress look like",claim_status
-"Have you received the documents for my existing claim",claim_status
-"Is anything delaying my motor claim",claim_status
-"I lodged a claim on Monday and need a status update",claim_status
-"Could you check whether my payment has been arranged",claim_status
-"Has my repair approval been issued yet",claim_status
-"What stage is claim REQ-778 currently at",claim_status
-"I have not heard back about my accident claim",claim_status
-"Is the inspection for my claim complete",claim_status
-"Can you see if my theft claim is still open",claim_status
-"Has the garage authorisation been sent",claim_status
-"I am waiting for an update on my submitted case",claim_status
-"Please check whether my claim documents were accepted",claim_status
-"How far along is the review of my vehicle damage",claim_status
-"Has anyone been assigned to my claim yet",claim_status
-"I need the latest status for my collision claim",claim_status
-"Is my claim awaiting more information from me",claim_status
-"When can I expect news about the claim I filed",claim_status
-"The online tracker has not updated my claim",claim_status
-"Has the surveyor report been added to my case",claim_status
-"Can you confirm whether my old claim is closed",claim_status
-"My claim reference is CLM/2026/51 please check its status",claim_status
-"Any update pls on the car claim from last month",claim_status
-"I sent the missing paper yesterday has my case moved forward",claim_status
-"What is the current outcome of my motor claim",claim_status
-"Could I know if my submitted claim is under review",claim_status
-"How does motor insurance work",general_information
-"Can you give me a basic introduction to vehicle insurance",general_information
-"Why do drivers need motor insurance",general_information
-"What types of motor insurance are commonly available",general_information
-"How do insurance claims generally work after an accident",general_information
-"Where can I learn about car insurance",general_information
-"What is the purpose of vehicle insurance",general_information
-"Can you explain motor insurance in simple words",general_information
-"How do insurers assess vehicle damage in general",general_information
-"What usually happens after someone reports an accident",general_information
-"What is a motor insurance claim",general_information
-"How can a new driver learn about insurance basics",general_information
-"What is the difference between insurance and a warranty",general_information
-"Who is normally involved in handling a vehicle claim",general_information
-"What does an insurance assessor generally do",general_information
-"How are car insurance premiums generally calculated",general_information
-"What is a claim reference number used for",general_information
-"Can you describe the usual motor claim process",general_information
-"What information is useful to record after a crash",general_information
-"How should drivers prepare for an accident emergency",general_information
-"What does a vehicle surveyor do",general_information
-"Where should insurance documents normally be stored",general_information
-"What is the role of an insurance company after a collision",general_information
-"How can I learn common motor insurance terms",general_information
-"What are the main stages of a typical insurance claim",general_information
-"Why do insurers inspect damaged vehicles",general_information
-"What is meant by risk in motor insurance",general_information
-"How does a vehicle damage assessment usually happen",general_information
-"Can you explain the idea of an insurance premium",general_information
-"What should motorists generally do immediately after an accident",general_information
-"How are insurance policies usually renewed",general_information
-"What is the general purpose of an insurance certificate",general_information
-"How can someone contact an insurer after a road incident",general_information
-"What is an insurance claim form used for",general_information
-"Can you explain why accurate accident details matter",general_information
-"What are common reasons people buy comprehensive insurance",general_information
-"How does insurance help vehicle owners manage risk",general_information
-"What is a policyholder in simple terms",general_information
-"What basic insurance words should a first-time car owner know",general_information
-"Can you share general motor insurance guidance",general_information
-"wana start motor clam after my van got hit",claim_submission
-"need 2 lodge cliam for broken windscreen",claim_submission
-"car ws stolen pls help me file claim",claim_submission
-"I HIT A POLE n wana report damage",claim_submission
-"accidnt happnd yday how do i submit",claim_submission
-"plsss open a claim my bumper is smashed",claim_submission
-"need claim help flood got into my car",claim_submission
-"rear ended this mornin want to cliam",claim_submission
-"sumone broke into vehicle need report",claim_submission
-"my bike crashd can i file now",claim_submission
-"tell me whats writen in my polcy",policy_question
-"need help undrstanding my motor policy",policy_question
-"what do these polcy terms mean",policy_question
-"POLICY DETALS PLS",policy_question
-"can u explain my insurance contract",policy_question
-"wats the excess shown on my polcy",policy_question
-"where can i find my policy conditons",policy_question
-"explain the wording in my motr plan",policy_question
-"i dont undrstand this policy section",policy_question
-"wat does policy holder mean here",policy_question
-"is flod dmg inclded in my cover",coverage_question
-"am i covred if car gets stoln",coverage_question
-"polcy cover a crackd windscreen?",coverage_question
-"does insurence pay for rear bumper dmg",coverage_question
-"is theft protecion part of my plan",coverage_question
-"WILL MY COVER WORK FOR WATER DMG",coverage_question
-"does my policy inclde break in damage",coverage_question
-"am i insured for a hit n run",coverage_question
-"covrage for side mirror?",coverage_question
-"would this cover accidental car damge",coverage_question
-"which documnts are reqd after crash",required_documents_question
-"wat paprs should i send for a theft claim",required_documents_question
-"docs needed if windscreen gets crackd",required_documents_question
-"what proof do u need for flod damage",required_documents_question
-"accidnt claim paperwork list pls",required_documents_question
-"do i ned photos n police report",required_documents_question
-"which forms are requird to make claim",required_documents_question
-"tell me docs 2 bring after break in",required_documents_question
-"WHAT PAPERS MUST I UPLOAD",required_documents_question
-"need document cheklist for vehicle claim",required_documents_question
-"chek progress of my cliam pls",claim_status
-"any updat on the claim i sent",claim_status
-"is my motr claim still pending",claim_status
-"CLAIM STATAS PLS",claim_status
-"wat stage is my accident case at",claim_status
-"has my clam been aproved yet",claim_status
-"track clm 9283 for me",claim_status
-"why is my claim takin so long",claim_status
-"did u review my damage claim",claim_status
-"need latest update on filed cliam",claim_status
-"how dose car insurence work",general_information
-"new to motor insurance where do i start",general_information
-"wat is a premium in simple words",general_information
-"why do ppl insure their cars",general_information
-"give me basic info abt vehicle insurance",general_information
-"how do insurers handle accidnts generally",general_information
-"MOTOR INSURANCE BASICS PLS",general_information
-"can u explain how renewals usually work",general_information
-"what is an insurer n policyholder",general_information
-"general tips for first time car owner insurance",general_information
-"Hi",greeting
-"Hello",greeting
-"Hey",greeting
-"Good morning",greeting
-"Good afternoon",greeting
-"Good evening",greeting
-"How are you",greeting
-"Hello there",greeting
-"Hi there",greeting
-"Greetings",greeting
-"Morning",greeting
-"Afternoon",greeting
-"Evening",greeting
-"Hey there",greeting
-"Hello support",greeting
-"Hi support team",greeting
-"Good day",greeting
-"A very good morning",greeting
-"Hope you are well",greeting
-"How is it going",greeting
-"Nice to meet you",greeting
-"Hello can anyone help",greeting
-"Hi is anyone there",greeting
-"Hey how are things",greeting
-"Good morning team",greeting
-"Good afternoon support",greeting
-"Good evening team",greeting
-"Greetings to you",greeting
-"Hello again",greeting
-"Hi again",greeting
-"Hey everyone",greeting
-"Morning support team",greeting
-"Afternoon everyone",greeting
-"Evening all",greeting
-"Warm greetings",greeting
-"hellooo",greeting
-"heyy there",greeting
-"greetngs",greeting
-"morningg",greeting
-"afternon",greeting
-"evenng",greeting
-"hllo there",greeting
-"good mornng",greeting
-"good afternon",greeting
-"good evenng",greeting
-"HI!!!",greeting
-"hello??",greeting
-"hey...",greeting
-"Gud day",greeting
-"how r u",greeting
+My car was hit yesterday and I want to make a claim,claim_submission
+Someone crashed into my vehicle and I need insurance help,claim_submission
+I was rear-ended this morning and need to report the damage,claim_submission
+My parked car was damaged overnight and I want to claim,claim_submission
+I had an accident in Colombo and need to lodge a motor claim,claim_submission
+A bus sideswiped my car near Kandy today,claim_submission
+My motorcycle collided with a van and I need to report it,claim_submission
+Flood water entered my car last night and caused damage,claim_submission
+A stone cracked my windscreen and I want to submit a claim,claim_submission
+My vehicle was stolen from outside my house,claim_submission
+Someone broke into my car and damaged the lock,claim_submission
+A tree fell on my vehicle during the storm and I need assistance,claim_submission
+I hit a pothole and damaged the wheel so I need to lodge a claim,claim_submission
+A three wheeler hit the side of my car yesterday,claim_submission
+I accidentally reversed into a pole and damaged my bumper,claim_submission
+The bonnet was crushed in a collision and I want to report the loss,claim_submission
+Another vehicle knocked off my side mirror,claim_submission
+Hail damaged the roof of my car and I would like to claim,claim_submission
+There was a fire in my vehicle and I need to notify insurance,claim_submission
+Someone vandalised my car while it was parked,claim_submission
+My car got badly scratched at the supermarket car park,claim_submission
+A lorry hit my vehicle on the highway and drove away,claim_submission
+The passenger door is dented after an accident last evening,claim_submission
+My front bumper cracked when another car hit me,claim_submission
+I need to report a motor accident that happened on Monday,claim_submission
+Please help me start a claim for damage to my car,claim_submission
+How can I file this accident as a new claim,claim_submission
+I am submitting a claim because my van was hit,claim_submission
+Water got into the engine during the flood and I want to claim,claim_submission
+A thief stole the mirrors and lights from my parked vehicle,claim_submission
+My rear glass shattered while I was driving and I need to report it,claim_submission
+I bumped another car this morning and both vehicles are damaged,claim_submission
+My car hit an animal on the road and the front is broken,claim_submission
+A branch dropped onto my windscreen during heavy rain,claim_submission
+An unknown driver dented my car and left the scene,claim_submission
+My car had to be towed after a crash and I want to open a claim,claim_submission
+Our family van was damaged in a collision near Galle,claim_submission
+The taxi I drive was damaged by another vehicle today,claim_submission
+I had a collision on the expressway and need to notify you,claim_submission
+Can I report my motor loss online right now,claim_submission
+Can you explain what the wording in my motor policy means,policy_question
+What does comprehensive motor insurance cover in general,policy_question
+I do not understand the excess shown on my policy,policy_question
+Where can I find the policy period on my document,policy_question
+What is the difference between comprehensive and third party policies,policy_question
+Please explain the terms and conditions of my vehicle policy,policy_question
+What does insured value mean on my motor schedule,policy_question
+Why is there a deductible listed in my policy,policy_question
+Can you tell me what a no claim bonus means,policy_question
+What does third party liability mean in my policy,policy_question
+I need help understanding my motor insurance certificate,policy_question
+Where is the policy number printed on the schedule,policy_question
+What does the renewal date on this policy refer to,policy_question
+Can I get a simple explanation of my policy wording,policy_question
+What is meant by market value in motor insurance,policy_question
+Please explain the exclusions section without giving legal advice,policy_question
+What does an endorsement on my vehicle policy mean,policy_question
+I see a named driver section and do not understand it,policy_question
+What is the meaning of period of insurance,policy_question
+Could you explain the premium breakdown on my motor policy,policy_question
+My policy says private use only what does that phrase mean,policy_question
+What does sum insured mean for a car,policy_question
+I want to understand the definitions page in my policy,policy_question
+What is an insurance policy schedule,policy_question
+Does policyholder mean the same as the vehicle owner,policy_question
+Explain the difference between policy start date and issue date,policy_question
+What does voluntary excess mean,policy_question
+Why does my document mention geographic limits,policy_question
+What is the purpose of a motor insurance endorsement,policy_question
+Could you explain what own damage means in the policy,policy_question
+What does authorised driver mean on this certificate,policy_question
+I need clarification about the vehicle details printed in my policy,policy_question
+What is meant by limitations as to use,policy_question
+Can you explain the cancellation section of a motor policy,policy_question
+What does basic premium mean on my renewal notice,policy_question
+I found a clause I do not understand in the policy booklet,policy_question
+What is the difference between the certificate and the policy schedule,policy_question
+Please explain why an engine number appears on the policy,policy_question
+What does policy expiry mean and where is it shown,policy_question
+I need general help reading my car insurance documents,policy_question
+Does my insurance cover flood damage to my car,coverage_question
+Is a cracked windscreen covered by my policy,coverage_question
+Would theft of my vehicle be covered,coverage_question
+Am I covered if someone breaks into the car,coverage_question
+Does motor insurance pay for damage from a falling tree,coverage_question
+Is damage caused by a pothole included,coverage_question
+Would my policy cover a collision with another vehicle,coverage_question
+Is the side mirror covered if it gets knocked off,coverage_question
+Does insurance cover water damage to the engine,coverage_question
+Would I be covered if my parked car is vandalised,coverage_question
+Is fire damage to a vehicle normally included in my cover,coverage_question
+Does my cover apply when another driver uses my car,coverage_question
+Am I insured for damage caused by hail,coverage_question
+Would scratches in a car park be covered,coverage_question
+Does the policy cover a stolen car radio,coverage_question
+Is towing after an accident part of my cover,coverage_question
+Would insurance cover damage from hitting an animal,coverage_question
+Am I covered for an accident outside my home town,coverage_question
+Does my motor cover include third party vehicle damage,coverage_question
+Will the policy cover a dented door after a hit and run,coverage_question
+Is a broken rear window covered or only the windscreen,coverage_question
+Does my insurance include accidental bumper damage,coverage_question
+Would flood damage while parked be covered,coverage_question
+Am I covered if the vehicle is stolen with the keys,coverage_question
+Does the policy cover personal items left inside the car,coverage_question
+Will insurance pay if a branch damages the roof,coverage_question
+Is damage during a storm included in motor cover,coverage_question
+Would my policy cover a collision in a private car park,coverage_question
+Does my cover include damage to lights and indicators,coverage_question
+Am I covered if an unknown vehicle hits me,coverage_question
+Is tyre damage from an accident covered,coverage_question
+Does insurance cover the cost of replacing a damaged lock,coverage_question
+Would I have cover if I accidentally reverse into a wall,coverage_question
+Is malicious damage included in comprehensive insurance,coverage_question
+Does my current cover apply to a temporary replacement car,coverage_question
+Will a chipped windscreen qualify for cover,coverage_question
+Is my vehicle covered while it is being transported,coverage_question
+Would damage caused by road debris be included,coverage_question
+Does cover continue when the car is parked overnight,coverage_question
+Can I claim for both body damage and broken glass,coverage_question
+What documents do I need after a road accident,required_documents_question
+Do I need a police report for a collision,required_documents_question
+Which papers are required to submit a motor claim,required_documents_question
+Should I send photos of the damaged vehicle,required_documents_question
+Do you need a copy of my driving licence,required_documents_question
+What proof is needed for a stolen car claim,required_documents_question
+Is the vehicle registration document required,required_documents_question
+Do I need to provide the insurance certificate,required_documents_question
+What should I upload for a windscreen claim,required_documents_question
+Is an accident statement needed from the other driver,required_documents_question
+Which documents should I collect at the crash scene,required_documents_question
+Do you require repair estimates with the claim,required_documents_question
+Should I keep the towing receipt for insurance,required_documents_question
+What paperwork is needed for flood damage,required_documents_question
+Do I have to submit pictures from the incident location,required_documents_question
+Is a police entry required after a break in,required_documents_question
+What identification documents do you need from me,required_documents_question
+Can I submit a scanned licence or must it be the original,required_documents_question
+Do you need the other vehicle's registration number,required_documents_question
+What forms must I complete for a new claim,required_documents_question
+Is a garage quotation required before I submit,required_documents_question
+Should I provide witness contact details,required_documents_question
+What evidence is needed for vandalism damage,required_documents_question
+Do I need a bank document for the claim payment,required_documents_question
+Which pages of the policy document should I attach,required_documents_question
+Can you list everything I need to send for my accident,required_documents_question
+Do you need a photo of the vehicle number plate,required_documents_question
+Is the emission test document needed for a claim,required_documents_question
+Should I attach the police complaint reference,required_documents_question
+What proof of ownership is acceptable for the vehicle,required_documents_question
+Do I need the driver's national ID copy,required_documents_question
+Can I send digital copies of the required claim papers,required_documents_question
+What docs are needed if the windscreen was damaged by a stone,required_documents_question
+Do you require the original repair invoice,required_documents_question
+Should the accident sketch be included with my claim,required_documents_question
+What should I bring when reporting the claim in person,required_documents_question
+Do I need a letter from the leasing company,required_documents_question
+Which reciepts should I keep after the accident,required_documents_question
+Is dashcam footage something I should submit,required_documents_question
+Do you need a written description of how the crash happened,required_documents_question
+What is happening with my claim,claim_status
+Has my claim been reviewed yet,claim_status
+Can you check the progress of claim CLM-2048,claim_status
+I submitted my documents last week what is the update,claim_status
+Is my motor claim still being processed,claim_status
+Has a decision been made on my accident claim,claim_status
+Why has my claim status not changed,claim_status
+Please tell me where my claim is in the process,claim_status
+Was my claim approved or rejected,claim_status
+I want an update on the windscreen claim I filed,claim_status
+Has the assessor looked at my vehicle claim,claim_status
+Is there any progress on my flood damage case,claim_status
+When will my submitted claim be completed,claim_status
+Can I track my claim using the reference number,claim_status
+My claim says pending what does its current progress look like,claim_status
+Have you received the documents for my existing claim,claim_status
+Is anything delaying my motor claim,claim_status
+I lodged a claim on Monday and need a status update,claim_status
+Could you check whether my payment has been arranged,claim_status
+Has my repair approval been issued yet,claim_status
+What stage is claim REQ-778 currently at,claim_status
+I have not heard back about my accident claim,claim_status
+Is the inspection for my claim complete,claim_status
+Can you see if my theft claim is still open,claim_status
+Has the garage authorisation been sent,claim_status
+I am waiting for an update on my submitted case,claim_status
+Please check whether my claim documents were accepted,claim_status
+How far along is the review of my vehicle damage,claim_status
+Has anyone been assigned to my claim yet,claim_status
+I need the latest status for my collision claim,claim_status
+Is my claim awaiting more information from me,claim_status
+When can I expect news about the claim I filed,claim_status
+The online tracker has not updated my claim,claim_status
+Has the surveyor report been added to my case,claim_status
+Can you confirm whether my old claim is closed,claim_status
+My claim reference is CLM/2026/51 please check its status,claim_status
+Any update pls on the car claim from last month,claim_status
+I sent the missing paper yesterday has my case moved forward,claim_status
+What is the current outcome of my motor claim,claim_status
+Could I know if my submitted claim is under review,claim_status
+How does motor insurance work,general_information
+Can you give me a basic introduction to vehicle insurance,general_information
+Why do drivers need motor insurance,general_information
+What types of motor insurance are commonly available,general_information
+How do insurance claims generally work after an accident,general_information
+Where can I learn about car insurance,general_information
+What is the purpose of vehicle insurance,general_information
+Can you explain motor insurance in simple words,general_information
+How do insurers assess vehicle damage in general,general_information
+What usually happens after someone reports an accident,general_information
+What is a motor insurance claim,general_information
+How can a new driver learn about insurance basics,general_information
+What is the difference between insurance and a warranty,general_information
+Who is normally involved in handling a vehicle claim,general_information
+What does an insurance assessor generally do,general_information
+How are car insurance premiums generally calculated,general_information
+What is a claim reference number used for,general_information
+Can you describe the usual motor claim process,general_information
+What information is useful to record after a crash,general_information
+How should drivers prepare for an accident emergency,general_information
+What does a vehicle surveyor do,general_information
+Where should insurance documents normally be stored,general_information
+What is the role of an insurance company after a collision,general_information
+How can I learn common motor insurance terms,general_information
+What are the main stages of a typical insurance claim,general_information
+Why do insurers inspect damaged vehicles,general_information
+What is meant by risk in motor insurance,general_information
+How does a vehicle damage assessment usually happen,general_information
+Can you explain the idea of an insurance premium,general_information
+What should motorists generally do immediately after an accident,general_information
+How are insurance policies usually renewed,general_information
+What is the general purpose of an insurance certificate,general_information
+How can someone contact an insurer after a road incident,general_information
+What is an insurance claim form used for,general_information
+Can you explain why accurate accident details matter,general_information
+What are common reasons people buy comprehensive insurance,general_information
+How does insurance help vehicle owners manage risk,general_information
+What is a policyholder in simple terms,general_information
+What basic insurance words should a first-time car owner know,general_information
+Can you share general motor insurance guidance,general_information
+wana start motor clam after my van got hit,claim_submission
+need 2 lodge cliam for broken windscreen,claim_submission
+car ws stolen pls help me file claim,claim_submission
+I HIT A POLE n wana report damage,claim_submission
+accidnt happnd yday how do i submit,claim_submission
+plsss open a claim my bumper is smashed,claim_submission
+need claim help flood got into my car,claim_submission
+rear ended this mornin want to cliam,claim_submission
+sumone broke into vehicle need report,claim_submission
+my bike crashd can i file now,claim_submission
+tell me whats writen in my polcy,policy_question
+need help undrstanding my motor policy,policy_question
+what do these polcy terms mean,policy_question
+POLICY DETALS PLS,policy_question
+can u explain my insurance contract,policy_question
+wats the excess shown on my polcy,policy_question
+where can i find my policy conditons,policy_question
+explain the wording in my motr plan,policy_question
+i dont undrstand this policy section,policy_question
+wat does policy holder mean here,policy_question
+is flod dmg inclded in my cover,coverage_question
+am i covred if car gets stoln,coverage_question
+polcy cover a crackd windscreen?,coverage_question
+does insurence pay for rear bumper dmg,coverage_question
+is theft protecion part of my plan,coverage_question
+WILL MY COVER WORK FOR WATER DMG,coverage_question
+does my policy inclde break in damage,coverage_question
+am i insured for a hit n run,coverage_question
+covrage for side mirror?,coverage_question
+would this cover accidental car damge,coverage_question
+which documnts are reqd after crash,required_documents_question
+wat paprs should i send for a theft claim,required_documents_question
+docs needed if windscreen gets crackd,required_documents_question
+what proof do u need for flod damage,required_documents_question
+accidnt claim paperwork list pls,required_documents_question
+do i ned photos n police report,required_documents_question
+which forms are requird to make claim,required_documents_question
+tell me docs 2 bring after break in,required_documents_question
+WHAT PAPERS MUST I UPLOAD,required_documents_question
+need document cheklist for vehicle claim,required_documents_question
+chek progress of my cliam pls,claim_status
+any updat on the claim i sent,claim_status
+is my motr claim still pending,claim_status
+CLAIM STATAS PLS,claim_status
+wat stage is my accident case at,claim_status
+has my clam been aproved yet,claim_status
+track clm 9283 for me,claim_status
+why is my claim takin so long,claim_status
+did u review my damage claim,claim_status
+need latest update on filed cliam,claim_status
+how dose car insurence work,general_information
+new to motor insurance where do i start,general_information
+wat is a premium in simple words,general_information
+why do ppl insure their cars,general_information
+give me basic info abt vehicle insurance,general_information
+how do insurers handle accidnts generally,general_information
+MOTOR INSURANCE BASICS PLS,general_information
+can u explain how renewals usually work,general_information
+what is an insurer n policyholder,general_information
+general tips for first time car owner insurance,general_information
+Hi,greeting
+Hello,greeting
+Hey,greeting
+Good morning,greeting
+Good afternoon,greeting
+Good evening,greeting
+How are you,greeting
+Hello there,greeting
+Hi there,greeting
+Greetings,greeting
+Morning,greeting
+Afternoon,greeting
+Evening,greeting
+Hey there,greeting
+Hello support,greeting
+Hi support team,greeting
+Good day,greeting
+A very good morning,greeting
+Hope you are well,greeting
+How is it going,greeting
+Nice to meet you,greeting
+Hello can anyone help,greeting
+Hi is anyone there,greeting
+Hey how are things,greeting
+Good morning team,greeting
+Good afternoon support,greeting
+Good evening team,greeting
+Greetings to you,greeting
+Hello again,greeting
+Hi again,greeting
+Hey everyone,greeting
+Morning support team,greeting
+Afternoon everyone,greeting
+Evening all,greeting
+Warm greetings,greeting
+hellooo,greeting
+heyy there,greeting
+greetngs,greeting
+morningg,greeting
+afternon,greeting
+evenng,greeting
+hllo there,greeting
+good mornng,greeting
+good afternon,greeting
+good evenng,greeting
+HI!!!,greeting
+hello??,greeting
+hey...,greeting
+Gud day,greeting
+how r u,greeting
+Thank you,thanks
+Thanks,thanks
+Thank you very much,thanks
+Appreciate it,thanks
+Thank you for the help,thanks
+Thanks for your assistance,thanks
+Much appreciated,thanks
+Thanks a lot,thanks
+Thank you so much,thanks
+I appreciate your help,thanks
+Many thanks,thanks
+Thanks for the information,thanks
+Thank you for explaining,thanks
+Thanks for guiding me,thanks
+Really appreciate it,thanks
+Thank you kindly,thanks
+"Thanks, that was very helpful",thanks
+Thank you for answering my questions,thanks
+Thanks for clarifying that,thanks
+Appreciate the quick response,thanks
+Thank you for your support,thanks
+Thanks for the details,thanks
+Grateful for your assistance,thanks
+Thank you for your time,thanks
+"Thanks, you have been very helpful",thanks
+Appreciate your advice,thanks
+Thank you for the update,thanks
+Thanks for looking into this,thanks
+Thank you for resolving that,thanks
+Thanks for the great help,thanks
+Appreciate your patience,thanks
+Thank you for pointing that out,thanks
+Thanks for walking me through this,thanks
+Heartfelt thanks,thanks
+Thank you for everything,thanks
+thank u,thanks
+thx,thanks
+thx so much,thanks
+thanx,thanks
+tyvm,thanks
+thx a lot,thanks
+cheers,thanks
+THANK YOU!!!,thanks
+tnx,thanks
+thnk u,thanks
+thanks mate,thanks
+thx for help,thanks
+apreciate it,thanks
+thnks,thanks
+thanks alot,thanks
+Goodbye,goodbye
+Bye,goodbye
+Bye for now,goodbye
+See you later,goodbye
+Talk to you later,goodbye
+Good bye,goodbye
+Have a good day,goodbye
+Take care,goodbye
+See you soon,goodbye
+Catch you later,goodbye
+Have a nice day,goodbye
+Goodbye for now,goodbye
+Farewell,goodbye
+Signing off now,goodbye
+I will talk to you later,goodbye
+Have a great day,goodbye
+See ya later,goodbye
+Bye bye,goodbye
+Have a good evening,goodbye
+Goodnight,goodbye
+"I am leaving now, goodbye",goodbye
+Talk soon,goodbye
+Until next time,goodbye
+Have a good one,goodbye
+"I have to go now, bye",goodbye
+Goodbye support team,goodbye
+See you tomorrow,goodbye
+Take care of yourself,goodbye
+"Bye, talk later",goodbye
+Have a wonderful day,goodbye
+See you around,goodbye
+Catch you soon,goodbye
+"I will check back later, bye",goodbye
+"Leaving the chat, goodbye",goodbye
+Good day and goodbye,goodbye
+byeee,goodbye
+cya,goodbye
+c u later,goodbye
+byee,goodbye
+CYA,goodbye
+ttyl,goodbye
+bye!,goodbye
+gudbye,goodbye
+see yaaa,goodbye
+bbye,goodbye
+BYE BYE,goodbye
+talk ltr,goodbye
+c ya,goodbye
+seeyou,goodbye
+byeee for now,goodbye
+Okay,acknowledgement
+Ok,acknowledgement
+Got it,acknowledgement
+Alright,acknowledgement
+Understood,acknowledgement
+I understand,acknowledgement
+Noted,acknowledgement
+Sure,acknowledgement
+All right,acknowledgement
+Sounds good,acknowledgement
+That makes sense,acknowledgement
+I see,acknowledgement
+Fair enough,acknowledgement
+Clear enough,acknowledgement
+"Okay, got it",acknowledgement
+"Right, understood",acknowledgement
+Noted with thanks,acknowledgement
+I got that,acknowledgement
+"Okay, I see",acknowledgement
+Makes sense to me,acknowledgement
+That is clear,acknowledgement
+"Understood, thank you",acknowledgement
+"Okay, perfect",acknowledgement
+"Alright, I understand",acknowledgement
+Got you,acknowledgement
+"Okay, noted",acknowledgement
+"Certainly, understood",acknowledgement
+"Very clear, got it",acknowledgement
+"Alright, sounds good",acknowledgement
+"Okay, I will do that",acknowledgement
+Understood completely,acknowledgement
+"Got it, thanks",acknowledgement
+That works for me,acknowledgement
+"Okay, understood",acknowledgement
+"All right, noted",acknowledgement
+k,acknowledgement
+kk,acknowledgement
+okie,acknowledgement
+okies,acknowledgement
+alrigh,acknowledgement
+gotcha,acknowledgement
+OK!,acknowledgement
+okk,acknowledgement
+okkk,acknowledgement
+OOKK,acknowledgement
+undrstood,acknowledgement
+notedd,acknowledgement
+sunds good,acknowledgement
+got itt,acknowledgement
+makesense,acknowledgement

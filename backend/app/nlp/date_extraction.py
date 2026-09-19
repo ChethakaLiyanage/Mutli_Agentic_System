@@ -7,6 +7,8 @@ from datetime import date, datetime, timedelta
 
 
 _DATE_PATTERNS = (
+    re.compile(r"\bthis\s+(?:morning|afternoon|evening)\b", re.IGNORECASE),
+    re.compile(r"\bearlier\s+today\b", re.IGNORECASE),
     re.compile(r"\btwo\s+days\s+ago\b", re.IGNORECASE),
     re.compile(r"\blast\s+night\b", re.IGNORECASE),
     re.compile(r"\byesterday\b", re.IGNORECASE),
@@ -18,7 +20,7 @@ _DATE_PATTERNS = (
 
 def _normalize_date(date_text: str, reference_date: date) -> str | None:
     lowered = date_text.casefold()
-    if lowered == "today":
+    if lowered in {"today", "this morning", "this afternoon", "this evening", "earlier today"}:
         return reference_date.isoformat()
     if lowered in {"yesterday", "last night"}:
         return (reference_date - timedelta(days=1)).isoformat()
