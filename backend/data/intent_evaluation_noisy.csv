@@ -1,50 +1,71 @@
 text,label,noise_type
-"ih",greeting,transposition
-"hii",greeting,insertion
-"helo",greeting,deletion
-"god mornin",greeting,substitution_deletion
-"GOODMORNING",greeting,missing_space_casing
-"HEY!!!",greeting,punctuation_casing
-"greetiings",greeting,repeated_character
-"i wana mak a clam",claim_submission,deletion_informal
-"i ned to file cliam",claim_submission,transposition_deletion
-"my carr ws hitt need claim",claim_submission,repeated_character
-"wana reportaccident now",claim_submission,missing_space
-"PLS SUBMIT MY CLAM!!!",claim_submission,punctuation_casing
-"vehcle stoln i need 2 claim",claim_submission,deletion_informal
-"accidnet hapened file a cliam",claim_submission,transposition_deletion
-"tell me abt my polcy",policy_question,deletion_informal
-"wat dose my polciy say",policy_question,transposition_substitution
-"POLICYDETALS PLS",policy_question,missing_space_casing
-"explainnn my motor policy",policy_question,repeated_character
-"wheres the insurence terms?",policy_question,substitution_punctuation
-"need polisy wording",policy_question,substitution
-"what is writen in my contrct",policy_question,deletion
-"does my polciy covr flod dmg",coverage_question,transposition_deletion
-"am i covred for thefft",coverage_question,deletion_repeated_character
-"WINDSCREENCOVR?",coverage_question,missing_space_casing
-"does it ccover water damge",coverage_question,repeated_character_transposition
-"insurence inclde breakin dmg",coverage_question,deletion_missing_space
-"covrage for hit n run!!!",coverage_question,deletion_punctuation
-"is my carr protectd if stoln",coverage_question,repeated_character_deletion
-"wat documnts do i ned for theft",required_documents_question,deletion_informal
-"docsneeded after crash",required_documents_question,missing_space
-"PAPRS REQUIRD???",required_documents_question,deletion_punctuation_casing
-"which documentss for flod clam",required_documents_question,repeated_character
-"do i ned polic report",required_documents_question,deletion
-"formz n fotos to upload",required_documents_question,substitution_informal
-"documetns for windscreen claim",required_documents_question,transposition
-"chec my clam stats",claim_status,deletion_informal
-"cliam staus pls",claim_status,transposition
-"CLAIMUPDATE???",claim_status,missing_space_punctuation
-"any newz on my pendng clam",claim_status,substitution_deletion
-"trackk my claim",claim_status,repeated_character
-"has claim ben reviewd",claim_status,deletion
-"wat happend 2 my clm",claim_status,informal_deletion
-"how dose motr insurence work",general_information,substitution_deletion
-"MOTORINSURANCE BASICS",general_information,missing_space_casing
-"genral info pls!!!",general_information,deletion_punctuation
-"why ppl buy car insuranc",general_information,deletion_informal
-"explainnn premiums",general_information,repeated_character
-"wats an insurrer",general_information,substitution_repeated_character
-"how renevals work?",general_information,substitution_punctuation
+ih,greeting,transposition
+hii,greeting,insertion
+helo,greeting,deletion
+god mornin,greeting,substitution_deletion
+GOODMORNING,greeting,missing_space_casing
+HEY!!!,greeting,punctuation_casing
+greetiings,greeting,repeated_character
+i wana mak a clam,claim_submission,deletion_informal
+i ned to file cliam,claim_submission,transposition_deletion
+my carr ws hitt need claim,claim_submission,repeated_character
+wana reportaccident now,claim_submission,missing_space
+PLS SUBMIT MY CLAM!!!,claim_submission,punctuation_casing
+vehcle stoln i need 2 claim,claim_submission,deletion_informal
+accidnet hapened file a cliam,claim_submission,transposition_deletion
+tell me abt my polcy,policy_question,deletion_informal
+wat dose my polciy say,policy_question,transposition_substitution
+POLICYDETALS PLS,policy_question,missing_space_casing
+explainnn my motor policy,policy_question,repeated_character
+wheres the insurence terms?,policy_question,substitution_punctuation
+need polisy wording,policy_question,substitution
+what is writen in my contrct,policy_question,deletion
+does my polciy covr flod dmg,coverage_question,transposition_deletion
+am i covred for thefft,coverage_question,deletion_repeated_character
+WINDSCREENCOVR?,coverage_question,missing_space_casing
+does it ccover water damge,coverage_question,repeated_character_transposition
+insurence inclde breakin dmg,coverage_question,deletion_missing_space
+covrage for hit n run!!!,coverage_question,deletion_punctuation
+is my carr protectd if stoln,coverage_question,repeated_character_deletion
+wat documnts do i ned for theft,required_documents_question,deletion_informal
+docsneeded after crash,required_documents_question,missing_space
+PAPRS REQUIRD???,required_documents_question,deletion_punctuation_casing
+which documentss for flod clam,required_documents_question,repeated_character
+do i ned polic report,required_documents_question,deletion
+formz n fotos to upload,required_documents_question,substitution_informal
+documetns for windscreen claim,required_documents_question,transposition
+chec my clam stats,claim_status,deletion_informal
+cliam staus pls,claim_status,transposition
+CLAIMUPDATE???,claim_status,missing_space_punctuation
+any newz on my pendng clam,claim_status,substitution_deletion
+trackk my claim,claim_status,repeated_character
+has claim ben reviewd,claim_status,deletion
+wat happend 2 my clm,claim_status,informal_deletion
+how dose motr insurence work,general_information,substitution_deletion
+MOTORINSURANCE BASICS,general_information,missing_space_casing
+genral info pls!!!,general_information,deletion_punctuation
+why ppl buy car insuranc,general_information,deletion_informal
+explainnn premiums,general_information,repeated_character
+wats an insurrer,general_information,substitution_repeated_character
+how renevals work?,general_information,substitution_punctuation
+thxx a lot,thanks,deletion_informal
+THANKSS,thanks,repeated_character_casing
+apreciate it,thanks,deletion
+thnk u very much,thanks,deletion_substitution
+thankss!!,thanks,repeated_character_punctuation
+thx mate,thanks,informal
+tahnk you,thanks,transposition
+c u laterr,goodbye,informal_repeated_character
+BYEEE,goodbye,repeated_character_casing
+gud bye,goodbye,substitution
+see yaa,goodbye,informal_repeated_character
+byeee!!,goodbye,repeated_character_punctuation
+tak care,goodbye,deletion
+ttyl bye,goodbye,informal
+k thx,acknowledgement,informal_deletion
+OKKK,acknowledgement,repeated_character_casing
+alrigt,acknowledgement,deletion
+undrstood,acknowledgement,deletion
+gotcha!,acknowledgement,informal_punctuation
+okie dokie,acknowledgement,informal
+notd,acknowledgement,deletion

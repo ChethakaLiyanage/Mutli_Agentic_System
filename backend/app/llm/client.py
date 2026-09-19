@@ -58,12 +58,39 @@ class MockLLMClient(BaseLLMClient):
             r'<document[^>]*>\s*(.*?)\s*</document>', user_prompt, re.DOTALL
         )
 
-        if "TASK: Give a brief, friendly greeting" in user_prompt:
+        if "TASK: Give a brief, friendly" in user_prompt:
             return {
-                "message": (
-                    "Hi! I can help with claims, policy questions, coverage, "
-                    "required documents, or claim status. What can I help you with?"
-                ),
+                "message": "Good morning! How can I help with your motor insurance today?",
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Respond warmly to the customer's thanks" in user_prompt:
+            return {
+                "message": "You're welcome! Let me know if you need anything else.",
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Give a concise, friendly sign-off" in user_prompt:
+            return {
+                "message": "Goodbye! Take care.",
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Briefly" in user_prompt and "acknowledge" in user_prompt:
+            return {
+                "message": "Sure. What would you like to do next?",
                 "next_steps": [],
                 "evidence_used": [],
                 "requires_human_review": False,
@@ -225,18 +252,20 @@ class MockLLMClient(BaseLLMClient):
             evidence_text = " ".join(evidence_contents).strip()
             grounded_documents = [
                 label for label in (
-                    "Police report", "Repair estimate", "Driving license copy",
+                    "Police report", "Repair estimate", "Driving licence copy",
                     "Vehicle registration", "Claim form", "Damage photos",
                 )
                 if label.lower() in evidence_text.lower()
             ]
-            doc_text = ", ".join(missing_docs or grounded_documents)
+            docs = missing_docs or grounded_documents
+            doc_bullets = "\n".join(f"- {doc}" for doc in docs)
             return {
                 "message": (
-                    f"The retrieved claims guidance identifies these documents: {doc_text}."
+                    f"For your claim, you may be asked to provide:\n\n{doc_bullets}\n\n"
+                    "Additional documents may be requested depending on the circumstances."
                 ),
                 "next_steps": [
-                    f"Provide requested document: {doc}" for doc in (missing_docs or grounded_documents)
+                    f"Provide requested document: {doc}" for doc in docs
                 ],
                 "evidence_used": evidence_used,
                 "requires_human_review": False,
@@ -345,13 +374,28 @@ class MockLLMClient(BaseLLMClient):
             }
 
         generic_scope = "specific_policy_not_available" in user_prompt
-        evidence_summary = " ".join(evidence_contents).strip()
+        evidence_text = " ".join(evidence_contents).casefold()
+        if "flood" in evidence_text or "water" in evidence_text or "water ingress" in evidence_text:
+            message = (
+                "Some comprehensive motor policies may cover accidental flood or water-ingress "
+                "damage. However, coverage depends on your specific policy terms, exclusions, "
+                "excess, and endorsements, so the general guidance alone cannot confirm "
+                "whether your own policy covers it."
+            )
+        elif "exclusion" in evidence_text or "general exclusions" in evidence_text or "deliberate" in evidence_text:
+            message = (
+                "Common exclusions may include loss outside the policy period, use of the vehicle "
+                "outside permitted conditions, intentional damage, certain unauthorized commercial "
+                "use, driving without the required legal authorization, and some mechanical or "
+                "electrical failures. Exact exclusions depend on the customer's actual policy wording."
+            )
+        else:
+            message = (
+                "The available controlled policy material contains information relevant to your "
+                "question, but it does not by itself confirm the outcome for an individual claim."
+            )
         return {
-            "message": (
-                ("The available material provides general policy information and does not confirm coverage under your specific policy. " if generic_scope else "")
-                + "Based on the retrieved policy evidence: "
-                + evidence_summary
-            ),
+            "message": message,
             "next_steps": [
                 "Review the cited policy material and contact claims support if clarification is needed",
             ],

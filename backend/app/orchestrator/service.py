@@ -22,6 +22,7 @@ from backend.app.orchestrator.adapters import (
     build_guidance_request,
     intake_to_claim_context,
     merge_claim_intake_results,
+    select_relevant_evidence,
     retrieval_to_evidence_items,
     retrieval_to_document_facts,
     retrieval_to_policy_context,
@@ -72,6 +73,7 @@ _POLICY_LINK_REQUIRED_MESSAGE = (
     "linked to your account. A claims officer must link the correct policy "
     "before processing can continue."
 )
+_SOCIAL_INTENTS = frozenset({"greeting", "thanks", "goodbye", "acknowledgement"})
 
 
 class InvalidWorkflowTransition(ValueError):
@@ -398,8 +400,8 @@ class OrchestratorService:
             WorkflowStatus.ESCALATED,
         }:
             return "human_decision"
-        if intent == "greeting":
-            return "greeting"
+        if intent in _SOCIAL_INTENTS:
+            return intent
         if state.current_status is WorkflowStatus.AWAITING_CLARIFICATION:
             return "clarification_question"
         if state.workflow_type is WorkflowType.CLAIM_STATUS:
@@ -642,7 +644,7 @@ class OrchestratorService:
         state.missing_fields = list(dict.fromkeys(intake_response.data.missing_fields))
 
         if (
-            intake_response.data.intent.label == "greeting"
+            intake_response.data.intent.label in _SOCIAL_INTENTS
             and not intake_response.data.requires_clarification
         ):
             state.missing_fields = []
@@ -651,17 +653,17 @@ class OrchestratorService:
                 state,
                 step="workflow_routing",
                 status=AuditEventStatus.SUCCESS,
-                message="Greeting routed to Agent 4",
+                message="Social message routed to Agent 4",
             )
             self.update_status(
                 state,
                 WorkflowStatus.COMPLETED,
-                message="Greeting response completed",
-                step="greeting",
+                message="Social response completed",
+                step="social_response",
             )
             await self._run_customer_guidance(
                 state,
-                task_type="greeting",
+                task_type=intake_response.data.intent.label,
                 safe_customer_context={
                     "supported_topics": [
                         "claims",
@@ -759,7 +761,6 @@ class OrchestratorService:
                 standalone_intake.data.intent.label if standalone_intake.status == "success" else None
             )
             is_independent_intent = standalone_intent in {
-                "greeting",
                 "policy_question",
                 "coverage_question",
                 "required_documents_question",
@@ -777,7 +778,32 @@ class OrchestratorService:
                 if "location" in state.missing_fields and new_incident.location:
                     provides_missing_info = True
 
-            if is_independent_intent or not provides_missing_info:
+            # A short social response should not replace or erase a pending
+            # claim. It receives an Agent 4 reply while the same workflow
+            # remains available for the actual clarification answer.
+            # Only treat as a social act if it doesn't supply a missing claim fact.
+            is_valid_social = (
+                standalone_intent in _SOCIAL_INTENTS
+                and not provides_missing_info
+                and (
+                    standalone_intake.data.intent.confidence >= 0.40
+                    or request.text.strip().casefold() in _PURE_SOCIAL_INTENTS.get(standalone_intent, set())
+                )
+            )
+            if is_valid_social:
+                state.last_request_id = request.request_id
+                state.guidance_result = None
+                await self._run_customer_guidance(
+                    state,
+                    task_type=standalone_intent,
+                )
+                await self.workflow_repository.save(state)
+                return self._clarification_response(state)
+
+            # A real policy/coverage/status question begins its own workflow,
+            # unless this turn also concretely supplies a missing claim fact
+            # (for example, a bare place name while location is outstanding).
+            if not provides_missing_info:
                 logger.info(
                     "Clarification input '%s' identified as independent intent %s (provides_missing=%s); routing as new request",
                     request.text,
@@ -800,6 +826,16 @@ class OrchestratorService:
         state.last_request_id = request.request_id
         state.clarification_count += 1
         previous_intake_result = state.intake_result
+        if (
+            'standalone_intake' in locals()
+            and standalone_intake is not None
+            and getattr(standalone_intake, "status", None) == "success"
+            and provides_missing_info
+        ):
+            previous_intake_result = merge_claim_intake_results(
+                previous_intake_result,
+                standalone_intake,
+            )
         state.guidance_result = None
         state.accumulated_text = (
             f"{state.accumulated_text.rstrip()} {request.text.strip()}"
@@ -1084,7 +1120,10 @@ class OrchestratorService:
                 task_type=task_type,
                 claim=state.claim_context,
                 policy=retrieval_to_policy_context(retrieval_response),
-                evidence=retrieval_to_evidence_items(retrieval_response),
+                evidence=select_relevant_evidence(
+                    retrieval_to_evidence_items(retrieval_response),
+                    query=state.accumulated_text,
+                ),
                 intent=intent,
                 missing_fields=state.missing_fields,
                 retrieval_warnings=warnings,

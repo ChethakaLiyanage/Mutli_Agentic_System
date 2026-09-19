@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from backend.app.fraud.schemas import FraudAssessment
@@ -273,6 +274,60 @@ def retrieval_to_evidence_items(
         retrieval_evidence_to_canonical(item)
         for item in response.result.knowledge_evidence
     ]
+
+
+def select_relevant_evidence(
+    evidence: list[EvidenceItem],
+    *,
+    query: str,
+    limit: int = 3,
+) -> list[EvidenceItem]:
+    """Keep the small set of evidence items most relevant to a customer turn.
+
+    Agent 2 remains the retrieval authority. This pass filters out irrelevant
+    chunks (e.g. windscreen chunks when asking about flood damage) so Agent 4
+    narrates only genuinely relevant evidence.
+    """
+
+    if limit < 1:
+        raise ValueError("limit must be at least 1")
+
+    all_query_tokens = {
+        token.casefold()
+        for token in re.findall(r"[A-Za-z]{3,}", query)
+    }
+    generic_scaffolding = {
+        "about", "claim", "claims", "does", "have", "help", "insurance",
+        "motor", "please", "tell", "that", "the", "what", "with", "would",
+        "your", "can", "know", "policy", "cover", "coverage", "details",
+        "information", "question", "comprehensive", "need", "give", "want",
+        "much", "which", "when", "where", "how", "apply", "available",
+    }
+    topic_terms = all_query_tokens - generic_scaffolding
+
+    def get_terms_overlap(item: EvidenceItem, terms: set[str]) -> int:
+        if not terms:
+            return 0
+        searchable = " ".join(
+            (item.source_title, item.section or "", item.content)
+        ).casefold()
+        return sum(term in searchable for term in terms)
+
+    def rank(item: EvidenceItem) -> tuple[int, int, float]:
+        topic_overlap = get_terms_overlap(item, topic_terms)
+        generic_overlap = get_terms_overlap(item, all_query_tokens & generic_scaffolding)
+        return topic_overlap, generic_overlap, item.score or 0.0
+
+    ranked = sorted(evidence, key=rank, reverse=True)
+    if not topic_terms:
+        relevant = [item for item in ranked if rank(item)[1] > 0]
+        return (relevant or ranked[:1])[:limit]
+
+    topic_relevant = [item for item in ranked if rank(item)[0] > 0]
+    if topic_relevant:
+        return topic_relevant[:limit]
+
+    return ranked[:1]
 
 
 def retrieval_missing_evidence(response: RetrievalResponse) -> list[str]:

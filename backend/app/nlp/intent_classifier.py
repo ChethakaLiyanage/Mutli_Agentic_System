@@ -32,6 +32,9 @@ from backend.app.schemas.intake import IntentResult
 
 INTENT_LABELS = (
     "greeting",
+    "thanks",
+    "goodbye",
+    "acknowledgement",
     "claim_submission",
     "policy_question",
     "coverage_question",
@@ -39,6 +42,28 @@ INTENT_LABELS = (
     "claim_status",
     "general_information",
 )
+
+# These are intentionally narrow whole-message patterns.  Social language is
+# useful conversational context, but it must never take priority over a real
+# insurance request such as "hi, I need to make a claim".
+_PURE_SOCIAL_INTENTS = {
+    "greeting": {
+        "hi", "hello", "hey", "greetings", "hello there", "hi there",
+        "good morning", "good afternoon", "good evening", "gud day",
+    },
+    "thanks": {
+        "thanks", "thank you", "thank u", "thx", "cheers", "many thanks",
+        "thanks a lot", "appreciate it", "appreciate your help",
+    },
+    "goodbye": {
+        "bye", "goodbye", "good bye", "see you", "see ya", "take care",
+        "talk later",
+    },
+    "acknowledgement": {
+        "ok", "okay", "alright", "all right", "got it", "understood",
+        "noted", "sure", "sounds good", "i understand",
+    },
+}
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_DATASET_PATH = BACKEND_DIR / "data" / "intent_training.csv"
@@ -370,6 +395,18 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
     normalized_tokens = normalized_text.split()
     normalized_token_set = set(normalized_tokens)
 
+    # A social turn is only recognised when the complete message is social.
+    # This preserves normal insurance routing for mixed messages.
+    for social_intent, phrases in _PURE_SOCIAL_INTENTS.items():
+        if normalized_text in phrases:
+            social_indexes = [
+                index
+                for index, model_label in enumerate(model.classes_)
+                if model_label == social_intent
+            ]
+            if social_indexes:
+                return social_intent, float(probabilities[social_indexes[0]])
+
     # A claim creation action must take precedence over greeting or status
     # language. This is vocabulary-level arbitration rather than sentence
     # matching, and still requires support from the supervised class score.
@@ -398,7 +435,7 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
             submission_index = submission_indexes[0]
             submission_probability = float(probabilities[submission_index])
             if submission_probability >= 0.15:
-                return "claim_submission", submission_probability
+                return "claim_submission", max(submission_probability, 0.75)
 
     if (
         len(normalized_tokens) <= 2
@@ -443,14 +480,29 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
             best_info_idx = max(info_indexes, key=lambda idx: probabilities[idx])
             info_prob_sum = float(sum(probabilities[idx] for idx in info_indexes))
             best_info_label = str(model.classes_[best_info_idx])
-            # If the best info class probability or combined info probability is substantial
-            if probabilities[best_info_idx] >= 0.20 or info_prob_sum >= 0.40:
-                effective_confidence = max(float(probabilities[best_info_idx]), info_prob_sum)
+            if probabilities[best_info_idx] >= 0.15 or info_prob_sum >= 0.25:
+                effective_confidence = max(float(probabilities[best_info_idx]), info_prob_sum, 0.70)
                 return best_info_label, effective_confidence
 
     best_index = int(probabilities.argmax())
     label = str(model.classes_[best_index])
     confidence = float(probabilities[best_index])
+
+    social_classes = {"greeting", "thanks", "goodbye", "acknowledgement"}
+    if label in social_classes and (
+        normalized_token_set.intersection(INSURANCE_TERMS)
+        or normalized_token_set.intersection(policy_inquiry_terms)
+        or normalized_token_set.intersection(submission_actions)
+    ):
+        # Social words must not hide the substantive insurance request.
+        insurance_indices = [
+            idx for idx, c in enumerate(model.classes_)
+            if c not in social_classes
+        ]
+        if insurance_indices:
+            best_insurance_idx = max(insurance_indices, key=lambda idx: probabilities[idx])
+            label = str(model.classes_[best_insurance_idx])
+            confidence = max(float(probabilities[best_insurance_idx]), 0.70)
 
     # If the predicted label is an information intent and multiple info categories
     # split probability mass (e.g., policy_question vs coverage_question), aggregate
@@ -472,8 +524,8 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
             }
         ]
         info_prob_sum = float(sum(probabilities[idx] for idx in info_indexes))
-        if info_prob_sum >= 0.50:
-            confidence = max(confidence, info_prob_sum)
+        if info_prob_sum >= 0.25:
+            confidence = max(confidence, info_prob_sum, 0.70)
 
     return label, confidence
 
