@@ -13,6 +13,9 @@ from backend.app.guidance.schemas import EvidenceItem, GuidanceRequest, Guidance
 
 # Tasks that strictly require authoritative evidence from retrieval
 EVIDENCE_REQUIRING_TASKS: set[GuidanceTaskType] = {
+    "coverage_answer",
+    "policy_answer",
+    "information_answer",
     "coverage_explanation",
     "policy_explanation",
     "required_documents",

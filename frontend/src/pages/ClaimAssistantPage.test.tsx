@@ -122,8 +122,16 @@ const greetingResponse = workflowResponse({
     },
   },
   retrieval_status: null,
-  message: "Hi! How can I help with your motor insurance today?",
-  guidance_result: null,
+  message: "Hi! I can help with claims, policy questions, coverage, required documents, or claim status. What can I help you with?",
+  guidance_result: {
+    status: "success",
+    response_type: "greeting",
+    agent: "guidance_agent",
+    data: {
+      message: "Hi! I can help with claims, policy questions, coverage, required documents, or claim status. What can I help you with?",
+      grounded: true,
+    },
+  },
 });
 
 const clarificationResponse = (): ClarificationResponse => ({
@@ -146,12 +154,18 @@ const clarificationResponse = (): ClarificationResponse => ({
     },
   },
   missing_fields: ["incident_type", "incident_date", "location"],
-  questions: [
-    "What happened to your vehicle?",
-    "When did the incident happen?",
-    "Where did the incident happen?",
-  ],
-  reason: "Additional claim information is required",
+  questions: ["I need a few more details: What happened to your vehicle? When did the incident happen? Where did it happen?"],
+  reason: "I need a few more details: What happened to your vehicle? When did the incident happen? Where did it happen?",
+  message: "I need a few more details: What happened to your vehicle? When did the incident happen? Where did it happen?",
+  guidance_result: {
+    status: "success",
+    response_type: "clarification_question",
+    agent: "guidance_agent",
+    data: {
+      message: "I need a few more details: What happened to your vehicle? When did the incident happen? Where did it happen?",
+      grounded: true,
+    },
+  },
   requires_clarification: true,
   audit_trail: [],
 });
@@ -195,7 +209,7 @@ describe("ClaimAssistantPage", () => {
 
     await sendMessage("hi");
 
-    expect(await screen.findByText(/Hi! How can I help/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Hi! I can help/i)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
     expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBeNull();
     expect(screen.queryByText("WF-GREETING")).not.toBeInTheDocument();
@@ -247,7 +261,10 @@ describe("ClaimAssistantPage", () => {
     render(<ClaimAssistantPage />);
 
     await sendMessage("My car was damaged and I want to claim.");
-    expect(await screen.findByText("What happened to your vehicle?")).toBeInTheDocument();
+    expect(
+      await screen.findAllByText(/I need a few more details: What happened/),
+    ).toHaveLength(1);
+    expect(screen.queryByText("We need a little more information:")).not.toBeInTheDocument();
 
     await sendMessage("A bus hit it yesterday in Kandy.");
     expect(clarifyWorkflow).toHaveBeenCalledWith("WF-CLARIFY", {
@@ -265,7 +282,16 @@ describe("ClaimAssistantPage", () => {
       intake_result: clarificationResponse().intake_result,
       missing_fields: ["incident_type", "location"],
       requires_clarification: true,
-      message: null,
+      message: "A claims officer needs to help with the next step of your claim.",
+      guidance_result: {
+        status: "success",
+        response_type: "claim_progress",
+        agent: "guidance_agent",
+        data: {
+          message: "A claims officer needs to help with the next step of your claim.",
+          grounded: true,
+        },
+      },
       errors: [
         {
           code: "CLARIFICATION_LIMIT_REACHED",
@@ -279,7 +305,7 @@ describe("ClaimAssistantPage", () => {
     await sendMessage("I still need help with my damaged car.");
 
     expect(await screen.findByText("Manual Assistance Required")).toBeInTheDocument();
-    expect(screen.getByText(/contact a claims officer or start a new request/i)).toBeInTheDocument();
+    expect(screen.getByText(/claims officer needs to help/i)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
   });
 

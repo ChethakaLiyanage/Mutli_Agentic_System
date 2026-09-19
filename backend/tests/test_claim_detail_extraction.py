@@ -132,6 +132,8 @@ def test_entity_extractor_uses_original_text_offsets() -> None:
         ("the crash happened kandy", "kandy"),
         ("crashed yesterday kandy", "kandy"),
         ("the collision was close to Matara", "Matara"),
+        ("the accident happened at Nugegoda", "Nugegoda"),
+        ("my car crashed near nuggeoda", "nuggeoda"),
     ],
 )
 def test_layered_location_extraction_handles_customer_phrasing(

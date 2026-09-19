@@ -14,12 +14,23 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 Audience = Literal["customer", "reviewer"]
 
 GuidanceTaskType = Literal[
+    "greeting",
+    "claim_submission_start",
+    "information_answer",
+    "coverage_answer",
+    "policy_answer",
     "coverage_explanation",
     "policy_explanation",
     "required_documents",
     "claim_status",
     "next_steps",
     "clarification_question",
+    "claim_progress",
+    "awaiting_human_review",
+    "human_decision",
+    "insufficient_evidence",
+    "manual_assistance_required",
+    "safe_error",
     "reviewer_summary",
     "fraud_indicator_explanation",
     "final_decision_explanation",
@@ -100,6 +111,9 @@ class GuidanceRequest(_GuidanceContract):
     audience: Audience
     task_type: GuidanceTaskType
     intent: str | None = None
+    workflow_status: str | None = None
+    known_fields: dict[str, Any] = Field(default_factory=dict)
+    safe_customer_context: dict[str, Any] = Field(default_factory=dict)
     claim_data: dict[str, Any] | None = None
     retrieved_evidence: list[EvidenceItem] = Field(default_factory=list)
     fraud_assessment: FraudAssessmentContext | None = None
@@ -140,6 +154,14 @@ class GuidanceResponseData(_GuidanceContract):
     automated_decision: bool = False
     grounded: bool = False
     reviewer_summary: ReviewerSummarySection | None = None
+
+    @field_validator("message")
+    @classmethod
+    def validate_message(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Agent 4 customer message cannot be empty")
+        return value
 
 
 class GuidanceResponse(_GuidanceContract):

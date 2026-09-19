@@ -421,9 +421,61 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
             if greeting_similarity >= 0.75 and greeting_probability >= 0.20:
                 return "greeting", greeting_probability
 
+    # If the user is asking about policy or coverage and not explicitly
+    # asking for status/tracking, policy_question / coverage_question must
+    # take precedence over claim_status (e.g. "can i know about motor claim policy").
+    policy_inquiry_terms = {"policy", "coverage", "cover"}
+    if (
+        normalized_token_set.intersection(policy_inquiry_terms)
+        and not normalized_token_set.intersection(status_terms)
+    ):
+        info_indexes = [
+            index
+            for index, model_label in enumerate(model.classes_)
+            if model_label in {
+                "policy_question",
+                "coverage_question",
+                "required_documents_question",
+                "general_information",
+            }
+        ]
+        if info_indexes:
+            best_info_idx = max(info_indexes, key=lambda idx: probabilities[idx])
+            info_prob_sum = float(sum(probabilities[idx] for idx in info_indexes))
+            best_info_label = str(model.classes_[best_info_idx])
+            # If the best info class probability or combined info probability is substantial
+            if probabilities[best_info_idx] >= 0.20 or info_prob_sum >= 0.40:
+                effective_confidence = max(float(probabilities[best_info_idx]), info_prob_sum)
+                return best_info_label, effective_confidence
+
     best_index = int(probabilities.argmax())
     label = str(model.classes_[best_index])
-    return label, float(probabilities[best_index])
+    confidence = float(probabilities[best_index])
+
+    # If the predicted label is an information intent and multiple info categories
+    # split probability mass (e.g., policy_question vs coverage_question), aggregate
+    # the info mass so valid inquiries are not penalized by fine-grained class split.
+    if label in {
+        "policy_question",
+        "coverage_question",
+        "required_documents_question",
+        "general_information",
+    }:
+        info_indexes = [
+            index
+            for index, model_label in enumerate(model.classes_)
+            if model_label in {
+                "policy_question",
+                "coverage_question",
+                "required_documents_question",
+                "general_information",
+            }
+        ]
+        info_prob_sum = float(sum(probabilities[idx] for idx in info_indexes))
+        if info_prob_sum >= 0.50:
+            confidence = max(confidence, info_prob_sum)
+
+    return label, confidence
 
 
 class IntentClassifier:

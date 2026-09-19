@@ -58,8 +58,109 @@ class MockLLMClient(BaseLLMClient):
             r'<document[^>]*>\s*(.*?)\s*</document>', user_prompt, re.DOTALL
         )
 
+        if "TASK: Give a brief, friendly greeting" in user_prompt:
+            return {
+                "message": (
+                    "Hi! I can help with claims, policy questions, coverage, "
+                    "required documents, or claim status. What can I help you with?"
+                ),
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Confirm that the customer can begin a motor claim" in user_prompt:
+            return {
+                "message": (
+                    "Yes, you can report a motor claim here. Tell me what happened "
+                    "to your vehicle, when it happened, and where it happened."
+                ),
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Tell the customer that the claim is waiting" in user_prompt:
+            return {
+                "message": "Your claim is now waiting for review by a claims officer.",
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": True,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Explain that a claims officer must help" in user_prompt:
+            return {
+                "message": "A claims officer needs to help with the next step of your claim.",
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Give a short, customer-safe technical failure" in user_prompt:
+            return {
+                "message": "I'm sorry, I couldn't continue this request safely. Please try again.",
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Explain briefly that the available controlled documents do not contain enough information" in user_prompt:
+            return {
+                "message": (
+                    "I couldn't find enough information in the available policy documents "
+                    "to confirm the answer reliably."
+                ),
+                "next_steps": [
+                    "Try asking another motor insurance question",
+                    "Check your policy documents for more details",
+                ],
+                "evidence_used": [],
+                "requires_human_review": is_reviewer,
+                "insufficient_evidence": True,
+                "automated_decision": False,
+            }
+
+        if "TASK: Briefly explain the customer-safe workflow progress" in user_prompt:
+            status_match = re.search(
+                r"Authoritative Workflow Status:\s*([^\n]+)", user_prompt
+            )
+            status = status_match.group(1).strip() if status_match else ""
+            if status == "awaiting_human_review":
+                message = "Your claim is now waiting for review by a claims officer."
+            elif status == "manual_assistance_required":
+                message = (
+                    "Your claim details were saved, but a claims officer needs "
+                    "to help with the next step."
+                )
+            else:
+                message = (
+                    "Thanks, I have the main incident details and your claim can "
+                    "now continue for review."
+                )
+            return {
+                "message": message,
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": status == "awaiting_human_review",
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
         # Scenario: final_decision_explanation
-        if "TASK: Explain the final decision" in user_prompt:
+        if (
+            "TASK: Explain the final decision" in user_prompt
+            or "TASK: Explain exactly the verified human decision" in user_prompt
+        ):
             if "APPROVED" in user_prompt:
                 return {
                     "message": (
@@ -166,15 +267,34 @@ class MockLLMClient(BaseLLMClient):
         if "TASK: Formulate polite, targeted clarification questions" in user_prompt:
             missing_info_match = re.search(r"Missing Claim Information:\s*([^\n]+)", user_prompt)
             missing_info = missing_info_match.group(1).strip() if missing_info_match else "incident location"
+            missing_fields = [
+                field.strip() for field in missing_info.split(",") if field.strip()
+            ]
+            date_match = re.search(
+                r'"date_text":\s*"([^"]+)"', user_prompt
+            )
+            if missing_fields == ["location"]:
+                prefix = (
+                    f"I've got that the accident happened {date_match.group(1)}. "
+                    if date_match
+                    else "I've got the incident details. "
+                )
+                message = prefix + "Where did it happen?"
+            else:
+                labels = {
+                    "incident_type": "what happened to your vehicle",
+                    "incident_date": "when it happened",
+                    "location": "where it happened",
+                }
+                requested = [labels[item] for item in missing_fields if item in labels]
+                message = (
+                    "Could you tell me " + ", and ".join(requested) + "?"
+                    if requested
+                    else "Could you clarify what you need help with?"
+                )
             return {
-                "message": (
-                    f"Thank you for submitting your claim details. To assist us in reviewing your request, "
-                    f"could you please clarify the following missing details: {missing_info}?"
-                ),
-                "next_steps": [
-                    f"Provide clarification on: {missing_info}",
-                    "Submit response through the claims portal",
-                ],
+                "message": message,
+                "next_steps": [],
                 "evidence_used": evidence_used,
                 "requires_human_review": False,
                 "insufficient_evidence": False,
@@ -245,15 +365,32 @@ class MockLLMClient(BaseLLMClient):
 class GeminiLLMClient(BaseLLMClient):
     """Direct HTTP client for Google Gemini API."""
 
-    def __init__(self, settings: LLMSettings) -> None:
+    _FALLBACK_STATUS_CODES = frozenset({429, 503})
+
+    def __init__(
+        self,
+        settings: LLMSettings,
+        *,
+        grounded_fallback: BaseLLMClient | None = None,
+    ) -> None:
         super().__init__(settings)
         self.api_key = os.getenv("GEMINI_API_KEY", "")
+        self.grounded_fallback = grounded_fallback or MockLLMClient(
+            settings.model_copy(update={"provider": "mock"})
+        )
 
     def generate_json(self, system_instruction: str, user_prompt: str) -> dict[str, Any]:
         if not self.api_key:
             raise LLMClientError("GEMINI_API_KEY environment variable is not configured.")
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.settings.model_name}:generateContent?key={self.api_key}"
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.settings.model_name}:generateContent"
+        )
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.api_key,
+        }
         payload = {
             "contents": [{"parts": [{"text": user_prompt}]}],
             "systemInstruction": {"parts": [{"text": system_instruction}]},
@@ -265,14 +402,28 @@ class GeminiLLMClient(BaseLLMClient):
 
         try:
             with httpx.Client(timeout=self.settings.timeout_seconds) as client:
-                response = client.post(url, json=payload)
+                response = client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
                 raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
                 return json.loads(raw_text)
+        except httpx.HTTPStatusError as err:
+            status_code = err.response.status_code
+            if status_code in self._FALLBACK_STATUS_CODES:
+                logger.warning(
+                    "Gemini temporarily unavailable (HTTP %s); using grounded fallback",
+                    status_code,
+                )
+                return self.grounded_fallback.generate_json(
+                    system_instruction, user_prompt
+                )
+            logger.error("Gemini API returned HTTP %s", status_code)
+            raise LLMClientError(
+                f"Gemini API generation failed with HTTP {status_code}"
+            ) from err
         except Exception as err:
-            logger.error("Gemini API call failed: %s", err)
-            raise LLMClientError(f"Gemini API generation error: {err}") from err
+            logger.error("Gemini API generation failed: %s", type(err).__name__)
+            raise LLMClientError("Gemini API generation failed") from err
 
 
 class OpenAILLMClient(BaseLLMClient):

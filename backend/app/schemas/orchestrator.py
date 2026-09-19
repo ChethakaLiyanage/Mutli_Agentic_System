@@ -81,6 +81,8 @@ class ClarificationResponse(_OrchestratorContract):
     missing_fields: list[str] = Field(default_factory=list)
     questions: list[str] = Field(default_factory=list)
     reason: str | None = None
+    message: str | None = None
+    guidance_result: dict[str, Any] | None = None
     requires_clarification: Literal[True] = True
     audit_trail: list[AuditEvent] = Field(default_factory=list)
 

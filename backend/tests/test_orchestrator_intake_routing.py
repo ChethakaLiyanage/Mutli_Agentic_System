@@ -8,7 +8,6 @@ import pytest
 
 from backend.app.orchestrator.constants import (
     AuditEventStatus,
-    LOW_CONFIDENCE_CLARIFICATION_MESSAGE,
     WorkflowStatus,
     WorkflowType,
 )
@@ -129,7 +128,11 @@ def test_successful_intents_are_ready_for_future_routing(
     assert client.requests[0].text == text
     assert result.retrieval_result is None
     assert result.fraud_result is None
-    assert result.guidance_result is None
+    if label == "claim_submission":
+        assert result.guidance_result is not None
+        assert result.guidance_result["response_type"] == "claim_progress"
+    else:
+        assert result.guidance_result is None
 
 
 def test_incomplete_claim_returns_deterministic_field_questions() -> None:
@@ -150,14 +153,20 @@ def test_incomplete_claim_returns_deterministic_field_questions() -> None:
     assert result.workflow_type is WorkflowType.CLARIFICATION
     assert result.requires_clarification is True
     assert result.missing_fields == missing
-    assert result.questions == [
-        "What happened to your vehicle?",
-        "When did the incident happen?",
-        "Where did the incident happen?",
-    ]
+    assert result.questions == [result.message]
+    assert result.message is not None
+    assert "What happened to your vehicle?" in result.message
+    assert "When did the incident happen?" in result.message
+    assert "Where did it happen?" in result.message
+    assert result.guidance_result is not None
+    assert result.guidance_result["response_type"] == "clarification_question"
     assert result.intake_result is not None
-    assert result.audit_trail[-1].status is AuditEventStatus.AWAITING_INPUT
-    assert "Clarification required" in result.audit_trail[-1].message
+    assert any(
+        event.status is AuditEventStatus.AWAITING_INPUT
+        and "Clarification required" in event.message
+        for event in result.audit_trail
+    )
+    assert result.audit_trail[-1].step == "guidance"
 
 
 def test_claim_missing_fields_trigger_clarification_even_if_agent_flag_is_false() -> None:
@@ -173,7 +182,7 @@ def test_claim_missing_fields_trigger_clarification_even_if_agent_flag_is_false(
     )
 
     assert isinstance(result, ClarificationResponse)
-    assert result.questions == ["Where did the incident happen?"]
+    assert result.questions == ["Where did it happen?"]
 
 
 def test_low_confidence_clarification_uses_generic_message() -> None:
@@ -189,8 +198,9 @@ def test_low_confidence_clarification_uses_generic_message() -> None:
 
     assert isinstance(result, ClarificationResponse)
     assert result.missing_fields == []
-    assert result.reason == LOW_CONFIDENCE_CLARIFICATION_MESSAGE
-    assert result.questions == [LOW_CONFIDENCE_CLARIFICATION_MESSAGE]
+    assert result.message is not None
+    assert result.reason == result.message
+    assert result.questions == [result.message]
 
 
 def test_missing_or_unknown_intent_stops_for_clarification() -> None:
@@ -202,7 +212,8 @@ def test_missing_or_unknown_intent_stops_for_clarification() -> None:
     assert isinstance(result, ClarificationResponse)
     assert result.workflow_type is WorkflowType.CLARIFICATION
     assert result.status is WorkflowStatus.AWAITING_CLARIFICATION
-    assert result.questions == [LOW_CONFIDENCE_CLARIFICATION_MESSAGE]
+    assert result.message is not None
+    assert result.questions == [result.message]
 
 
 def test_client_exception_returns_controlled_failure_without_leaking_details() -> None:

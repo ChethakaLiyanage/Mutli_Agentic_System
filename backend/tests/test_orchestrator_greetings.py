@@ -1,4 +1,4 @@
-"""Tests for the Orchestrator's deterministic pure-greeting response."""
+"""Tests for pure greetings routed from Agent 1 to Agent 4."""
 
 from __future__ import annotations
 
@@ -7,10 +7,9 @@ import asyncio
 import pytest
 
 from backend.app.orchestrator.constants import WorkflowStatus, WorkflowType
-from backend.app.orchestrator.greetings import (
-    GREETING_RESPONSE_MESSAGE,
-    is_pure_greeting,
-)
+from backend.app.guidance.fallbacks import build_deterministic_guidance_response
+from backend.app.guidance.schemas import GuidanceRequest
+from backend.app.orchestrator.greetings import is_pure_greeting
 from backend.app.orchestrator.repository import InMemoryWorkflowRepository
 from backend.app.orchestrator.service import OrchestratorService
 from backend.app.schemas.intake import (
@@ -45,9 +44,6 @@ class ForbiddenDownstreamComponent:
     async def assess(self, *_args: object, **_kwargs: object) -> object:
         raise AssertionError("Agent 3 must not run for a pure greeting")
 
-    async def generate(self, *_args: object, **_kwargs: object) -> object:
-        raise AssertionError("Agent 4 must not run for a pure greeting")
-
     def save_for_workflow(self, *_args: object, **_kwargs: object) -> object:
         raise AssertionError("A claim must not be created for a pure greeting")
 
@@ -55,6 +51,15 @@ class ForbiddenDownstreamComponent:
         self, *_args: object, **_kwargs: object
     ) -> None:
         raise AssertionError("Fraud persistence must not run for a pure greeting")
+
+
+class RecordingGuidanceClient:
+    def __init__(self) -> None:
+        self.requests: list[GuidanceRequest] = []
+
+    async def generate(self, request: GuidanceRequest):
+        self.requests.append(request)
+        return build_deterministic_guidance_response(request)
 
 
 def intake_response(
@@ -115,6 +120,7 @@ def test_greeting_runs_agent_one_skips_downstream_and_persists_completed() -> No
     repository = InMemoryWorkflowRepository()
     intake_client = RecordingIntakeClient(intake_response("greeting"))
     forbidden = ForbiddenDownstreamComponent()
+    guidance = RecordingGuidanceClient()
     service = OrchestratorService(
         claim_intake_client=intake_client,
         workflow_repository=repository,
@@ -122,7 +128,7 @@ def test_greeting_runs_agent_one_skips_downstream_and_persists_completed() -> No
         fraud_client=forbidden,  # type: ignore[arg-type]
         claim_repository=forbidden,  # type: ignore[arg-type]
         fraud_repository=forbidden,  # type: ignore[arg-type]
-        guidance_client=forbidden,  # type: ignore[arg-type]
+        guidance_client=guidance,  # type: ignore[arg-type]
     )
 
     response = asyncio.run(
@@ -137,14 +143,18 @@ def test_greeting_runs_agent_one_skips_downstream_and_persists_completed() -> No
     assert isinstance(response, OrchestratorResponse)
     assert response.status is WorkflowStatus.COMPLETED
     assert response.workflow_type is WorkflowType.UNKNOWN
-    assert response.message == GREETING_RESPONSE_MESSAGE
+    assert response.message is not None
+    assert "claims" in response.message
     assert response.requires_clarification is False
     assert response.intake_result is not None
     assert response.intake_result.data.intent.label == "greeting"
     assert response.retrieval_result is None
     assert response.fraud_result is None
     assert response.human_review_result is None
-    assert response.guidance_result is None
+    assert response.guidance_result is not None
+    assert response.guidance_result["response_type"] == "greeting"
+    assert len(guidance.requests) == 1
+    assert guidance.requests[0].task_type == "greeting"
     assert len(intake_client.requests) == 1
     assert intake_client.requests[0].text == "Hello!"
     assert stored is not None
@@ -156,6 +166,7 @@ def test_greeting_runs_agent_one_skips_downstream_and_persists_completed() -> No
         "claim_intake",
         "workflow_routing",
         "greeting",
+        "guidance",
     ]
 
 
@@ -222,13 +233,14 @@ def test_ambiguous_insurance_request_keeps_existing_clarification_behavior() -> 
 
 def test_real_agent_handles_transposed_short_greeting_without_downstream_calls() -> None:
     forbidden = ForbiddenDownstreamComponent()
+    guidance = RecordingGuidanceClient()
     response = asyncio.run(
         OrchestratorService(
             retrieval_client=forbidden,  # type: ignore[arg-type]
             fraud_client=forbidden,  # type: ignore[arg-type]
             claim_repository=forbidden,  # type: ignore[arg-type]
             fraud_repository=forbidden,  # type: ignore[arg-type]
-            guidance_client=forbidden,  # type: ignore[arg-type]
+            guidance_client=guidance,  # type: ignore[arg-type]
         ).process_request(
             OrchestratorRequest(request_id="REQ-IH", text="ih")
         )
@@ -240,7 +252,9 @@ def test_real_agent_handles_transposed_short_greeting_without_downstream_calls()
     assert response.intake_result.data.intent.label == "greeting"
     assert response.missing_fields == []
     assert response.requires_clarification is False
-    assert response.message == GREETING_RESPONSE_MESSAGE
+    assert response.guidance_result is not None
+    assert response.guidance_result["response_type"] == "greeting"
+    assert len(guidance.requests) == 1
 
 
 def test_ambiguous_short_help_still_requires_clarification() -> None:

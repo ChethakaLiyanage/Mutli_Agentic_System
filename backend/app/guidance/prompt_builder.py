@@ -43,6 +43,21 @@ def format_claim_context(request: GuidanceRequest) -> str:
     """Format claim details, missing items, and status."""
     parts = []
 
+    if request.workflow_status:
+        parts.append(f"Authoritative Workflow Status: {request.workflow_status}")
+
+    if request.known_fields:
+        parts.append(
+            "Known Customer Fields:\n"
+            + json.dumps(request.known_fields, indent=2, default=str)
+        )
+
+    if request.safe_customer_context:
+        parts.append(
+            "Safe Customer Context:\n"
+            + json.dumps(request.safe_customer_context, indent=2, default=str)
+        )
+
     if request.claim_data:
         parts.append(f"Claim Details:\n{json.dumps(request.claim_data, indent=2, default=str)}")
 
@@ -80,10 +95,8 @@ def format_claim_context(request: GuidanceRequest) -> str:
                 f"  Recommended Action: {request.fraud_assessment.recommended_action}\n"
                 f"  Risk Indicators:\n" + ("\n".join(indicators_desc) if indicators_desc else "    None")
             )
-        else:
-            # Customer mode: Only mention that additional verification may be pending, never leak scores
-            if request.fraud_assessment.risk_level in ("medium", "high"):
-                parts.append("Verification Note: Standard claims officer review is required.")
+        # Customer prompts never receive fraud or risk details. Their safe status
+        # comes only from workflow_status and safe_customer_context above.
 
     return "\n\n".join(parts) if parts else "No claim context provided."
 

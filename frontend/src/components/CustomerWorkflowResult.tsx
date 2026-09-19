@@ -77,10 +77,7 @@ export const CustomerWorkflowResult = ({
       <section className="customer-result customer-result-review" aria-live="polite">
         <p className="eyebrow">Claim submitted</p>
         <h2>Your claim is awaiting human review</h2>
-        <p>
-          {responseMessage ||
-            "A claims officer will review your claim before a final decision is made."}
-        </p>
+        {responseMessage && <p>{responseMessage}</p>}
         <button
           className="button button-primary"
           type="button"
@@ -125,16 +122,16 @@ export const CustomerWorkflowResult = ({
       {insufficientEvidence ? (
         <div className="insufficient-evidence" role="status">
           <strong>Limited information available</strong>
-          <p>
-            {guidanceMessage ||
-              responseMessage ||
-              "We couldn't find enough policy information to answer this reliably."}
-          </p>
+          {(guidanceMessage || responseMessage) && (
+            <p>{guidanceMessage || responseMessage}</p>
+          )}
         </div>
       ) : (
-        <p className="guidance-message">
-          {guidanceMessage || responseMessage || "Your request has been completed."}
-        </p>
+        (guidanceMessage || responseMessage) && (
+          <p className="guidance-message">
+            {guidanceMessage || responseMessage}
+          </p>
+        )
       )}
 
       {nextSteps.length > 0 && (
