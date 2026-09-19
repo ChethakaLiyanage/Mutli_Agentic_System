@@ -484,16 +484,30 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
                 effective_confidence = max(float(probabilities[best_info_idx]), info_prob_sum, 0.70)
                 return best_info_label, effective_confidence
 
+    has_insurance_topic = bool(
+        normalized_token_set.intersection(INSURANCE_TERMS)
+        or normalized_token_set.intersection(policy_inquiry_terms)
+        or normalized_token_set.intersection(submission_actions)
+    )
+
+    is_pure_social = False
+    for s_intent, s_phrases in _PURE_SOCIAL_INTENTS.items():
+        if normalized_text in s_phrases:
+            is_pure_social = True
+            break
+
+    # If the user message has no insurance terms and is not a recognized pure social
+    # turn (e.g. out-of-domain words like "panda", "dog", "cat"), route it to general
+    # information so it can proceed through retrieval and be naturally answered by the LLM.
+    if not has_insurance_topic and not is_pure_social:
+        return "general_information", 0.50
+
     best_index = int(probabilities.argmax())
     label = str(model.classes_[best_index])
     confidence = float(probabilities[best_index])
 
     social_classes = {"greeting", "thanks", "goodbye", "acknowledgement"}
-    if label in social_classes and (
-        normalized_token_set.intersection(INSURANCE_TERMS)
-        or normalized_token_set.intersection(policy_inquiry_terms)
-        or normalized_token_set.intersection(submission_actions)
-    ):
+    if label in social_classes and has_insurance_topic:
         # Social words must not hide the substantive insurance request.
         insurance_indices = [
             idx for idx, c in enumerate(model.classes_)

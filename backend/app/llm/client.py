@@ -6,6 +6,8 @@ and live API clients using HTTP transport.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import json
 import logging
 import os
@@ -59,8 +61,23 @@ class MockLLMClient(BaseLLMClient):
         )
 
         if "TASK: Give a brief, friendly" in user_prompt:
+            hour = datetime.now().hour
+            cust_match = re.search(r'"customer_message":\s*"([^"]+)"', user_prompt)
+            user_msg = cust_match.group(1).lower() if cust_match else ""
+            if "good afternoon" in user_msg:
+                time_greeting = "Good afternoon!"
+            elif "good evening" in user_msg:
+                time_greeting = "Good evening!"
+            elif "good morning" in user_msg:
+                time_greeting = "Good morning!"
+            elif 4 <= hour < 12:
+                time_greeting = "Good morning!"
+            elif 12 <= hour < 17:
+                time_greeting = "Good afternoon!"
+            else:
+                time_greeting = "Good evening!"
             return {
-                "message": "Good morning! How can I help with your motor insurance today?",
+                "message": f"{time_greeting} How can I help with your motor insurance today?",
                 "next_steps": [],
                 "evidence_used": [],
                 "requires_human_review": False,
@@ -243,7 +260,10 @@ class MockLLMClient(BaseLLMClient):
                 }
 
         # Scenario: required_documents
-        if "TASK: List the required documents" in user_prompt:
+        if (
+            "TASK: Formulate a reasoned, customer-friendly response identifying the incident type" in user_prompt
+            or "TASK: List the required documents" in user_prompt
+        ):
             missing_docs = []
             missing_match = re.search(r"Missing Documents:\s*([^\n]+)", user_prompt)
             if missing_match:
@@ -252,20 +272,48 @@ class MockLLMClient(BaseLLMClient):
             evidence_text = " ".join(evidence_contents).strip()
             grounded_documents = [
                 label for label in (
-                    "Police report", "Repair estimate", "Driving licence copy",
-                    "Vehicle registration", "Claim form", "Damage photos",
+                    "Completed claim form", "Vehicle registration document", "Driving licence copy",
+                    "Photographs of vehicle damage", "Repair estimate", "Police report",
+                    "Proof of identity", "Information about keys",
                 )
-                if label.lower() in evidence_text.lower()
+                if label.lower() in evidence_text.lower() or any(term in evidence_text.lower() for term in label.lower().split()[:2])
             ]
-            docs = missing_docs or grounded_documents
+            docs = missing_docs or grounded_documents or [
+                "Completed claim form",
+                "Vehicle registration document",
+                "Driving licence copy",
+                "Photographs of vehicle damage",
+                "Repair estimate",
+                "Police report",
+            ]
             doc_bullets = "\n".join(f"- {doc}" for doc in docs)
+
+            incident_match = re.search(r'"incident_type":\s*"([^"]+)"', user_prompt)
+            raw_incident = incident_match.group(1) if incident_match else None
+            friendly_incident = "vehicle collision"
+            if raw_incident:
+                raw_lower = raw_incident.replace("_", " ").lower()
+                if "theft" in raw_lower:
+                    friendly_incident = "vehicle theft or break-in"
+                elif "flood" in raw_lower:
+                    friendly_incident = "flood damage incident"
+                elif "windscreen" in raw_lower:
+                    friendly_incident = "windscreen damage incident"
+                elif "collision" in raw_lower:
+                    friendly_incident = "vehicle collision"
+                else:
+                    friendly_incident = raw_lower
+
+            message = (
+                f"According to the details you provided, this appears to be a {friendly_incident}. "
+                f"If you want to make a claim, we need the following documents:\n\n{doc_bullets}\n\n"
+                "Please upload these documents using the button below so our claims team can process your claim."
+            )
+
             return {
-                "message": (
-                    f"For your claim, you may be asked to provide:\n\n{doc_bullets}\n\n"
-                    "Additional documents may be requested depending on the circumstances."
-                ),
+                "message": message,
                 "next_steps": [
-                    f"Provide requested document: {doc}" for doc in docs
+                    f"Upload requested document: {doc}" for doc in docs
                 ],
                 "evidence_used": evidence_used,
                 "requires_human_review": False,
@@ -375,7 +423,13 @@ class MockLLMClient(BaseLLMClient):
 
         generic_scope = "specific_policy_not_available" in user_prompt
         evidence_text = " ".join(evidence_contents).casefold()
-        if "flood" in evidence_text or "water" in evidence_text or "water ingress" in evidence_text:
+        if not evidence_contents:
+            message = (
+                "I am an AI assistant specialized in motor insurance claims, policy questions, "
+                "coverage details, and required documents. I don't have information on that topic, "
+                "but please let me know if you have any questions related to motor insurance!"
+            )
+        elif "flood" in evidence_text or "water" in evidence_text or "water ingress" in evidence_text:
             message = (
                 "Some comprehensive motor policies may cover accidental flood or water-ingress "
                 "damage. However, coverage depends on your specific policy terms, exclusions, "
@@ -396,9 +450,13 @@ class MockLLMClient(BaseLLMClient):
             )
         return {
             "message": message,
-            "next_steps": [
-                "Review the cited policy material and contact claims support if clarification is needed",
-            ],
+            "next_steps": (
+                []
+                if not evidence_contents
+                else [
+                    "Review the cited policy material and contact claims support if clarification is needed",
+                ]
+            ),
             "evidence_used": evidence_used,
             "requires_human_review": False,
             "insufficient_evidence": False,

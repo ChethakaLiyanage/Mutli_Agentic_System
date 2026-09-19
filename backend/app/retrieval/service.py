@@ -89,68 +89,67 @@ class RetrievalService:
             result.missing_evidence.append(
                 "policy_not_found"
             )
-            return result
+        else:
+            result.policy_data = self._coerce_policy(policy)
 
-        result.policy_data = self._coerce_policy(policy)
-
-        claim_id = (
-            request.claim_lookup.claim_id
-            if request.claim_lookup is not None
-            else None
-        )
-        if claim_id:
-            claim_record = self.repository.get_claim_by_id(
-                claim_id=claim_id,
-                user_id=user_id,
+            claim_id = (
+                request.claim_lookup.claim_id
+                if request.claim_lookup is not None
+                else None
             )
-            if claim_record is not None:
-                result.claim_record = self._coerce_claim(claim_record)
-
-        claim_history = self.repository.get_policy_claim_history(
-            policy_id=result.policy_data.policy_id,
-            user_id=user_id,
-            exclude_claim_id=claim_id,
-        )
-
-        result.historical_claims = [
-            row if isinstance(row, HistoricalClaim) else HistoricalClaim(
-                claim_id=row.get("claim_id", row.get("id")),
-                claim_reference=row["claim_reference"],
-                claim_type=row.get("incident_type", row.get("claim_type")),
-                incident_date=str(row["incident_date"]),
-                claimed_amount=row.get("claimed_amount"),
-                status=row.get("claim_status", row.get("status")),
-                police_report_number=row.get("police_report_number"),
-            )
-            for row in claim_history
-        ]
-
-        if request.claim_lookup:
             if claim_id:
-                documents = (
-                    self.repository.get_claim_documents(
-                        claim_id=claim_id,
-                        user_id=user_id,
-                    )
+                claim_record = self.repository.get_claim_by_id(
+                    claim_id=claim_id,
+                    user_id=user_id,
                 )
+                if claim_record is not None:
+                    result.claim_record = self._coerce_claim(claim_record)
 
-                result.document_facts = [
-                    row if isinstance(row, DocumentEvidence) else DocumentEvidence(
-                        document_id=row.get("document_id", row.get("id")),
-                        document_type=row["document_type"],
-                        file_name=row.get("file_name"),
-                        incident_date=row.get("incident_date"),
-                        claim_amount=row.get("claim_amount"),
-                        incident_type=row.get("incident_type"),
-                        police_report_number=row.get(
-                            "police_report_number"
-                        ),
-                        extracted_text=row.get(
-                            "extracted_text"
-                        ),
+            claim_history = self.repository.get_policy_claim_history(
+                policy_id=result.policy_data.policy_id,
+                user_id=user_id,
+                exclude_claim_id=claim_id,
+            )
+
+            result.historical_claims = [
+                row if isinstance(row, HistoricalClaim) else HistoricalClaim(
+                    claim_id=row.get("claim_id", row.get("id")),
+                    claim_reference=row["claim_reference"],
+                    claim_type=row.get("incident_type", row.get("claim_type")),
+                    incident_date=str(row["incident_date"]),
+                    claimed_amount=row.get("claimed_amount"),
+                    status=row.get("claim_status", row.get("status")),
+                    police_report_number=row.get("police_report_number"),
+                )
+                for row in claim_history
+            ]
+
+            if request.claim_lookup:
+                if claim_id:
+                    documents = (
+                        self.repository.get_claim_documents(
+                            claim_id=claim_id,
+                            user_id=user_id,
+                        )
                     )
-                    for row in documents
-                ]
+
+                    result.document_facts = [
+                        row if isinstance(row, DocumentEvidence) else DocumentEvidence(
+                            document_id=row.get("document_id", row.get("id")),
+                            document_type=row["document_type"],
+                            file_name=row.get("file_name"),
+                            incident_date=row.get("incident_date"),
+                            claim_amount=row.get("claim_amount"),
+                            incident_type=row.get("incident_type"),
+                            police_report_number=row.get(
+                                "police_report_number"
+                            ),
+                            extracted_text=row.get(
+                                "extracted_text"
+                            ),
+                        )
+                        for row in documents
+                    ]
 
         # Add optional knowledge retrieval for claim_submission
         # For example, get relevant claim processing knowledge
@@ -323,25 +322,18 @@ class RetrievalService:
         )
 
     def _build_claim_submission_knowledge_query(self, request: RetrievalRequest) -> Optional[str]:
-        """Build a knowledge query for claim_submission intent."""
-        if request.query:
-            return request.query
+        """Build a knowledge query for claim_submission intent focusing on required supporting documents."""
         parts = []
 
-        if request.claim_context:
-            if request.claim_context.incident_type:
-                parts.append(request.claim_context.incident_type.replace("_", " "))
-            if request.claim_context.incident_location:
-                parts.append(request.claim_context.incident_location)
-            if request.claim_context.damage_areas:
-                parts.extend(request.claim_context.damage_areas)
+        if request.claim_context and request.claim_context.incident_type:
+            incident_type_str = request.claim_context.incident_type.replace("_", " ")
+            parts.append(f"required documents supporting documents for {incident_type_str} claim")
+        elif request.query:
+            parts.append(f"required documents supporting documents {request.query}")
+        else:
+            parts.append("required documents supporting documents motor insurance claim")
 
-        # Add insurance context
-        parts.append("motor insurance claim process")
-
-        if parts:
-            return " ".join(parts)
-        return None
+        return " ".join(parts)
 
     def _build_policy_knowledge_query(self, request: RetrievalRequest) -> Optional[str]:
         """Build a knowledge query for policy-related intents."""

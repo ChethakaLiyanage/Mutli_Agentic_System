@@ -43,6 +43,7 @@ Highlight discrepancies, missing verification documents, and relevant policy cla
 
 TASK_PROMPTS = {
     "greeting": """TASK: Give a brief, friendly, natural greeting and ask how you can help with motor insurance today.
+If the customer greeted with "good morning", "good afternoon", or "good evening", match their greeting. If they said "hi" or "hello", greet them using the appropriate current time of day (morning before 12pm, afternoon 12pm-5pm, evening after 5pm) or a natural "Hello! How can I help you with your motor insurance today?". Never say "Good morning" if it is afternoon or evening.
 Mention only the supported areas (claims, policy questions, coverage, required documents, claim status). Do not infer a claim or ask for claim details.
 """,
     "thanks": """TASK: Respond warmly to the customer's thanks (e.g., "You're welcome! Let me know if you need anything else."). Keep it brief and friendly.
@@ -54,9 +55,10 @@ Mention only the supported areas (claims, policy questions, coverage, required d
     "claim_submission_start": """TASK: Confirm that the customer can begin a motor claim here, then naturally ask for only the required intake fields supplied as missing.
 Do not imply that a claim has already been created, saved, assessed, or accepted.
 """,
-    "information_answer": """TASK: Answer the customer's general motor-insurance question using only the relevant retrieved evidence.
-Synthesize the key points in your own concise, natural words. Never paste raw chunks or expose document XML.
-If the evidence is insufficient, state that clearly rather than inventing facts.
+    "information_answer": """TASK: Answer the customer's question.
+If the customer's query is unrelated to motor insurance (for example asking about animals like dogs, cats, pandas, general trivia, weather, or jokes) or if no relevant policy evidence exists:
+Politely explain that you are an AI assistant specialized in motor insurance (vehicle claims, policy coverage, required documents, and claim status) and do not have information on that topic, but warmly invite them to ask any motor-insurance related questions.
+If relevant motor insurance policy evidence is supplied, synthesize the key points in your own concise, natural words. Never paste raw chunks or expose document XML.
 """,
     "coverage_answer": """TASK: Explain coverage concisely using only the relevant retrieved policy evidence.
 Provide a natural-language summary explaining what is covered and note that coverage depends on specific policy terms, exclusions, excess, and endorsements.
@@ -73,10 +75,12 @@ Do not guarantee coverage or promise payments.
     "policy_explanation": """TASK: Explain the retrieved policy clause in clear, simple language that the user can understand.
 Stay strictly grounded in the supplied text.
 """,
-    "required_documents": """TASK: List the required documents for the claim based on the retrieved guidelines.
-Format the items as a clean, natural bullet list preceded by a polite conversational introduction.
-Mention only document names supported by the evidence, and note that additional documents may be requested depending on the circumstances.
-Do NOT use formulaic prefixes like "The retrieved claims guidance identifies these documents:".
+    "required_documents": """TASK: Formulate a reasoned, customer-friendly response identifying the incident type and listing the required supporting documents for the claim based on the retrieved evidence.
+If the customer has provided incident details (e.g. for vehicle collision, theft, flood damage, windscreen damage), begin your message clearly identifying the incident type in natural language:
+"According to the details you provided, this appears to be a [incident type, e.g. vehicle collision]. If you want to make a claim, we need the following documents:"
+Then format the required documents as a clean, natural bullet list grounded in the retrieved policy guidelines (e.g. claim form, driving licence copy, vehicle registration, damage photographs, repair estimate, police report).
+Conclude by politely inviting the customer to upload these documents using the upload button below to proceed with their claim.
+Do NOT guarantee claim approval, promise settlement amounts, or determine liability.
 """,
     "claim_status": """TASK: Formulate a neutral and informative claim status message.
 Reassure the customer that their claim is being handled and clearly describe what happens next in the workflow.
