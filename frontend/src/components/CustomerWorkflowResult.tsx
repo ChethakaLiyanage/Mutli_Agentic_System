@@ -48,12 +48,14 @@ interface CustomerWorkflowResultProps {
   workflow: OrchestratorResponse;
   refreshing: boolean;
   onRefresh: () => void;
+  onUploadClick?: () => void;
 }
 
 export const CustomerWorkflowResult = ({
   workflow,
   refreshing,
   onRefresh,
+  onUploadClick,
 }: CustomerWorkflowResultProps) => {
   const headingSuffix = workflow.workflow_id.replace(/[^a-zA-Z0-9_-]/g, "-");
   const resultHeadingId = `customer-result-heading-${headingSuffix}`;
@@ -78,14 +80,26 @@ export const CustomerWorkflowResult = ({
         <p className="eyebrow">Claim submitted</p>
         <h2>Your claim is awaiting human review</h2>
         {responseMessage && <p>{responseMessage}</p>}
-        <button
-          className="button button-primary"
-          type="button"
-          onClick={onRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? "Checking status…" : "Check status"}
-        </button>
+        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
+          {onUploadClick && (
+            <button
+              className="upload-docs-btn"
+              type="button"
+              onClick={onUploadClick}
+            >
+              <span className="upload-icon">📤</span>
+              Upload Documents
+            </button>
+          )}
+          <button
+            className="button button-primary"
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? "Checking status…" : "Check status"}
+          </button>
+        </div>
       </section>
     );
   }

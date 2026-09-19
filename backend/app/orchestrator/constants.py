@@ -111,7 +111,11 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
         }
     ),
     WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL: frozenset(
-        {WorkflowStatus.FRAUD_TRIAGE, WorkflowStatus.FAILED}
+        {
+            WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
+            WorkflowStatus.FAILED,
+        }
     ),
     WorkflowStatus.RETRIEVAL_COMPLETE: frozenset(
         {

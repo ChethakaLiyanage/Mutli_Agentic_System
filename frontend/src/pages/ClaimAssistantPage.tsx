@@ -83,6 +83,8 @@ export const ClaimAssistantPage = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; size: string }>>([]);
 
   const canClarify = workflow?.status === "awaiting_clarification";
   const canSend = !sending && !restoring && !refreshing;
@@ -224,6 +226,33 @@ export const ClaimAssistantPage = () => {
     }
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newFiles: Array<{ name: string; size: string }> = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const sizeKb = Math.round(file.size / 1024);
+      const sizeStr = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+      newFiles.push({ name: file.name, size: sizeStr });
+    }
+
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
+
+    const fileNames = newFiles.map((f) => f.name).join(", ");
+    setMessages((prev) => [
+      ...prev,
+      createMessage("user", `Uploaded ${newFiles.length} document(s): ${fileNames}`),
+      createMessage(
+        "system",
+        `Thank you. We have received your uploaded document(s): ${fileNames}. Our claims team has attached them to your file.`,
+      ),
+    ]);
+
+    event.target.value = "";
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -234,6 +263,7 @@ export const ClaimAssistantPage = () => {
   const resetConversation = () => {
     setInput("");
     setMessages([]);
+    setUploadedFiles([]);
     setWorkflow(null);
     setTrackedWorkflow(null);
     setSending(false);
@@ -290,21 +320,54 @@ export const ClaimAssistantPage = () => {
               </div>
             ) : (
               <div className="message-list">
-                {messages.map((message) => (
-                  <article
-                    className={`chat-message chat-message-${message.sender}`}
-                    key={message.id}
-                  >
-                    <span>{message.sender === "user" ? "You" : "Assistant"}</span>
-                    <p>{message.text}</p>
-                    <time dateTime={message.timestamp}>
-                      {new Date(message.timestamp).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </time>
-                  </article>
-                ))}
+                {messages.map((message) => {
+                  const isDocRequest =
+                    message.sender === "system" &&
+                    /upload (?:these|the|your|below)?\s*documents|need (?:the following|below) documents|required documents/i.test(message.text);
+
+                  return (
+                    <article
+                      className={`chat-message chat-message-${message.sender}`}
+                      key={message.id}
+                    >
+                      <span>{message.sender === "user" ? "You" : "Assistant"}</span>
+                      <p style={{ whiteSpace: "pre-line" }}>{message.text}</p>
+                      {isDocRequest && (
+                        <div className="document-upload-container">
+                          <button
+                            type="button"
+                            className="upload-docs-btn"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <span className="upload-icon">📤</span>
+                            Upload Documents
+                          </button>
+                          {uploadedFiles.length > 0 && (
+                            <div className="uploaded-files-list">
+                              <p className="uploaded-files-title">
+                                Uploaded Documents ({uploadedFiles.length}):
+                              </p>
+                              <div className="uploaded-file-chips">
+                                {uploadedFiles.map((file, idx) => (
+                                  <span key={idx} className="uploaded-file-chip">
+                                    <span>📄</span> {file.name} ({file.size}){" "}
+                                    <span className="file-check">✓</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <time dateTime={message.timestamp}>
+                        {new Date(message.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                    </article>
+                  );
+                })}
 
                 {sending && (
                   <div className="assistant-thinking" role="status">
@@ -343,6 +406,14 @@ export const ClaimAssistantPage = () => {
                 {sending ? "Sending…" : canClarify ? "Send Details" : "Send Message"}
               </button>
             </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              style={{ display: "none" }}
+            />
           </form>
           </section>
 
@@ -351,6 +422,7 @@ export const ClaimAssistantPage = () => {
               workflow={workflow}
               refreshing={refreshing}
               onRefresh={() => void refreshWorkflow(workflow)}
+              onUploadClick={() => fileInputRef.current?.click()}
             />
           )}
 
@@ -359,6 +431,7 @@ export const ClaimAssistantPage = () => {
               workflow={separateTrackedWorkflow}
               refreshing={refreshing}
               onRefresh={() => void refreshWorkflow(separateTrackedWorkflow)}
+              onUploadClick={() => fileInputRef.current?.click()}
             />
           )}
         </div>

@@ -2,11 +2,55 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
     GuidanceResponseData,
 )
+
+
+def _format_friendly_incident_type(incident_type: str | None) -> str:
+    if not incident_type:
+        return "motor insurance incident"
+    raw = str(incident_type).replace("_", " ").lower().strip()
+    mapping = {
+        "vehicle collision": "vehicle collision",
+        "collision": "vehicle collision",
+        "theft or break in": "vehicle theft or break-in",
+        "theft": "vehicle theft",
+        "flood damage": "flood damage",
+        "flood": "flood damage",
+        "windscreen damage": "windscreen damage",
+        "windscreen": "windscreen damage",
+        "vandalism or malicious damage": "vandalism",
+        "fire damage": "fire damage",
+        "animal strike": "animal collision",
+        "weather damage": "weather damage",
+    }
+    return mapping.get(raw, raw)
+
+
+def _get_time_aware_greeting(user_text: str | None = None) -> str:
+    """Return a natural, time-aware or time-matched greeting."""
+    if user_text:
+        lowered = user_text.casefold()
+        if "good afternoon" in lowered:
+            return "Good afternoon! How can I help with your motor insurance today?"
+        if "good evening" in lowered:
+            return "Good evening! How can I help with your motor insurance today?"
+        if "good morning" in lowered:
+            return "Good morning! How can I help with your motor insurance today?"
+
+    current_hour = datetime.now().hour
+    if 4 <= current_hour < 12:
+        salutation = "Good morning!"
+    elif 12 <= current_hour < 17:
+        salutation = "Good afternoon!"
+    else:
+        salutation = "Good evening!"
+    return f"{salutation} How can I help with your motor insurance today?"
 
 
 _MISSING_FIELD_QUESTIONS = {
@@ -97,7 +141,10 @@ def build_deterministic_guidance_response(
     """Return safe language without changing any authoritative input state."""
 
     if request.task_type == "greeting":
-        message = "Good morning! How can I help with your motor insurance today?"
+        user_text = None
+        if request.safe_customer_context:
+            user_text = request.safe_customer_context.get("customer_message")
+        message = _get_time_aware_greeting(user_text)
     elif request.task_type == "thanks":
         message = "You're welcome! Let me know if you need anything else."
     elif request.task_type == "goodbye":
@@ -165,19 +212,36 @@ def build_deterministic_guidance_response(
         possible_docs = [
             "Completed claim form",
             "Police report or police reference",
-            "Vehicle registration",
+            "Vehicle registration document",
             "Driving licence copy",
             "Repair estimate",
-            "Relevant photographs",
-            "Information about the vehicle keys",
+            "Photographs of vehicle damage",
+            "Information about keys",
         ]
-        supported = [doc for doc in possible_docs if any(w in evidence_text.lower() for w in doc.lower().split()[:2])]
-        docs = supported or possible_docs[:4]
+        supported = [
+            doc for doc in possible_docs
+            if any(w in evidence_text.lower() for w in doc.lower().split()[:2])
+        ]
+        docs = supported or possible_docs[:5]
         doc_bullets = "\n".join(f"- {d}" for d in docs)
-        message = (
-            f"You may be asked to provide:\n\n{doc_bullets}\n\n"
-            "Additional documents may be requested depending on the circumstances."
+
+        raw_incident = (
+            (request.safe_customer_context or {}).get("incident_type")
+            or (request.known_fields or {}).get("incident_type")
+            or ((request.claim_data or {}).get("incident_type"))
         )
+        if raw_incident:
+            friendly_incident = _format_friendly_incident_type(str(raw_incident))
+            message = (
+                f"According to the details you provided, this appears to be a {friendly_incident}. "
+                f"If you want to make a claim, we need the following documents:\n\n{doc_bullets}\n\n"
+                "Please upload these documents using the button below so our claims team can process your claim."
+            )
+        else:
+            message = (
+                f"To make a motor claim, we need the following documents:\n\n{doc_bullets}\n\n"
+                "Please upload these documents using the button below so our claims team can proceed."
+            )
     elif request.retrieved_evidence:
         message = (
             "I found relevant controlled policy information, but I couldn't "
@@ -185,8 +249,9 @@ def build_deterministic_guidance_response(
         )
     else:
         message = (
-            "I couldn't find enough controlled policy information to answer "
-            "that reliably."
+            "I am an AI assistant specialized in motor insurance claims, policy questions, "
+            "coverage details, and required documents. I don't have information on that topic, "
+            "but please let me know if you have any questions related to motor insurance!"
         )
 
     grounded = bool(
@@ -196,7 +261,7 @@ def build_deterministic_guidance_response(
         or request.known_fields
         or request.task_type in {
             "greeting", "thanks", "goodbye", "acknowledgement",
-            "claim_submission_start",
+            "claim_submission_start", "information_answer",
         }
     )
     return GuidanceResponse(
