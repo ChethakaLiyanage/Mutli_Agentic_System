@@ -1,36 +1,51 @@
 text,label
 "Hello, I hope your day is going well",greeting
-"A pleasant morning to you",greeting
+A pleasant morning to you,greeting
 "Hey, nice to meet you",greeting
-"Good evening to everyone",greeting
+Good evening to everyone,greeting
 "Greetings, support team",greeting
-"A lorry struck my parked car and I need to open a claim",claim_submission
-"I need to report damage after a collision this afternoon",claim_submission
-"Please help me submit a theft claim for my vehicle",claim_submission
-"Flood water damaged my van and I want to claim",claim_submission
-"I would like to file a claim for a broken windscreen",claim_submission
-"Please explain the conditions written in my motor policy",policy_question
-"What does the excess section of my policy mean",policy_question
-"Where can I read the terms of my vehicle insurance policy",policy_question
-"Help me understand the wording in my insurance contract",policy_question
-"Can you describe the details listed on my motor policy",policy_question
-"Would my insurance cover damage caused by rising water",coverage_question
-"Am I covered when somebody steals my vehicle",coverage_question
-"Does this plan include accidental windscreen damage",coverage_question
-"Is damage from a break-in included in my cover",coverage_question
-"Will insurance cover repairs after a hit and run",coverage_question
-"Which records should I provide for a stolen vehicle claim",required_documents_question
-"What paperwork is required when reporting collision damage",required_documents_question
-"Please list the documents needed for a windscreen claim",required_documents_question
-"Should I upload photographs for a flood-damage claim",required_documents_question
-"What evidence must accompany my motor claim form",required_documents_question
-"Please show the latest progress on the claim I submitted",claim_status
-"Has an assessor reviewed my vehicle claim yet",claim_status
-"I want to know whether my claim is still pending",claim_status
-"Can I track the current stage of my accident claim",claim_status
-"Was a decision made on my submitted claim",claim_status
-"Explain the basic purpose of motor insurance",general_information
-"How do vehicle insurers normally assess damage",general_information
-"What should a first-time driver know about insurance",general_information
-"Why do motorists purchase insurance for their vehicles",general_information
-"How does the motor-insurance process generally work",general_information
+A lorry struck my parked car and I need to open a claim,claim_submission
+I need to report damage after a collision this afternoon,claim_submission
+Please help me submit a theft claim for my vehicle,claim_submission
+Flood water damaged my van and I want to claim,claim_submission
+I would like to file a claim for a broken windscreen,claim_submission
+Please explain the conditions written in my motor policy,policy_question
+What does the excess section of my policy mean,policy_question
+Where can I read the terms of my vehicle insurance policy,policy_question
+Help me understand the wording in my insurance contract,policy_question
+Can you describe the details listed on my motor policy,policy_question
+Would my insurance cover damage caused by rising water,coverage_question
+Am I covered when somebody steals my vehicle,coverage_question
+Does this plan include accidental windscreen damage,coverage_question
+Is damage from a break-in included in my cover,coverage_question
+Will insurance cover repairs after a hit and run,coverage_question
+Which records should I provide for a stolen vehicle claim,required_documents_question
+What paperwork is required when reporting collision damage,required_documents_question
+Please list the documents needed for a windscreen claim,required_documents_question
+Should I upload photographs for a flood-damage claim,required_documents_question
+What evidence must accompany my motor claim form,required_documents_question
+Please show the latest progress on the claim I submitted,claim_status
+Has an assessor reviewed my vehicle claim yet,claim_status
+I want to know whether my claim is still pending,claim_status
+Can I track the current stage of my accident claim,claim_status
+Was a decision made on my submitted claim,claim_status
+Explain the basic purpose of motor insurance,general_information
+How do vehicle insurers normally assess damage,general_information
+What should a first-time driver know about insurance,general_information
+Why do motorists purchase insurance for their vehicles,general_information
+How does the motor-insurance process generally work,general_information
+Thank you for all your help,thanks
+I appreciate your prompt response,thanks
+Many thanks for guiding me through this,thanks
+Thanks very much for the assistance,thanks
+I truly appreciate your support today,thanks
+Goodbye and have a pleasant afternoon,goodbye
+Take care and see you soon,goodbye
+"I will speak with you later, goodbye",goodbye
+"Have a good day ahead, bye",goodbye
+Farewell and thank you,goodbye
+"Alright, that is completely clear to me",acknowledgement
+"Understood, I will keep that in mind",acknowledgement
+"Got it, I follow your explanation",acknowledgement
+"Okay, that makes sense now",acknowledgement
+"Noted, I have recorded those details",acknowledgement

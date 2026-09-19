@@ -35,7 +35,8 @@ _INCIDENT_PATTERNS: tuple[tuple[IncidentType, re.Pattern[str]], ...] = (
         "vehicle_collision",
         re.compile(
             r"\b(?:collision|collided|crash(?:ed)?|rear[\s-]?ended|"
-            r"hit\s+(?:my|our|the)\s+(?:car|vehicle|van|motorcycle)|"
+            r"hit\s+(?:my|our|the|a)\s+(?:car|vehicle|van|motorcycle)|"
+            r"(?:was|got)\s+hit|hit\s+by|"
             r"sideswiped)\b",
             flags=re.IGNORECASE,
         ),

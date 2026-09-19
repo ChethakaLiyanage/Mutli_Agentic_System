@@ -97,10 +97,13 @@ def build_deterministic_guidance_response(
     """Return safe language without changing any authoritative input state."""
 
     if request.task_type == "greeting":
-        message = (
-            "Hi! I can help with claims, policy questions, coverage, required "
-            "documents, or claim status. What can I help you with?"
-        )
+        message = "Good morning! How can I help with your motor insurance today?"
+    elif request.task_type == "thanks":
+        message = "You're welcome! Let me know if you need anything else."
+    elif request.task_type == "goodbye":
+        message = "Goodbye! Take care."
+    elif request.task_type == "acknowledgement":
+        message = "Sure. What would you like to do next?"
     elif request.task_type == "claim_submission_start":
         message = (
             "Yes, you can report a motor claim here. Tell me what happened to "
@@ -121,6 +124,60 @@ def build_deterministic_guidance_response(
             "I couldn't find enough information in the available documents to "
             "answer that confidently."
         )
+    elif request.task_type == "coverage_answer":
+        evidence_text = " ".join(item.content for item in request.retrieved_evidence).casefold()
+        if "flood" in evidence_text or "water" in evidence_text:
+            message = (
+                "Some comprehensive motor policies may cover accidental flood or water-ingress "
+                "damage. However, coverage depends on your specific policy terms, exclusions, "
+                "excess, and endorsements, so the general guidance alone cannot confirm "
+                "whether your own policy covers it."
+            )
+        elif "windscreen" in evidence_text or "glass" in evidence_text:
+            message = (
+                "Windscreen and window glass damage is often covered under comprehensive motor "
+                "policies, subject to specific excess and repair conditions. Please refer to "
+                "your policy schedule for exact limits."
+            )
+        else:
+            message = (
+                "Coverage depends on your specific policy terms, exclusions, and endorsements. "
+                "Please check your policy schedule or contact a claims officer to verify "
+                "your individual cover."
+            )
+    elif request.task_type == "policy_answer":
+        evidence_text = " ".join(item.content for item in request.retrieved_evidence).casefold()
+        if "exclusion" in evidence_text or "deliberate" in evidence_text:
+            message = (
+                "Common exclusions may include loss outside the policy period, use of the "
+                "vehicle outside permitted conditions, intentional damage, certain unauthorized "
+                "commercial use, driving without the required legal authorization, and some "
+                "mechanical or electrical failures. Exact exclusions depend on the customer's "
+                "actual policy wording."
+            )
+        else:
+            message = (
+                "Policy terms, excesses, and limits are set out in your policy schedule. "
+                "Please review the relevant section or contact support for assistance with your wording."
+            )
+    elif request.task_type == "required_documents":
+        evidence_text = " ".join(item.content for item in request.retrieved_evidence)
+        possible_docs = [
+            "Completed claim form",
+            "Police report or police reference",
+            "Vehicle registration",
+            "Driving licence copy",
+            "Repair estimate",
+            "Relevant photographs",
+            "Information about the vehicle keys",
+        ]
+        supported = [doc for doc in possible_docs if any(w in evidence_text.lower() for w in doc.lower().split()[:2])]
+        docs = supported or possible_docs[:4]
+        doc_bullets = "\n".join(f"- {d}" for d in docs)
+        message = (
+            f"You may be asked to provide:\n\n{doc_bullets}\n\n"
+            "Additional documents may be requested depending on the circumstances."
+        )
     elif request.retrieved_evidence:
         message = (
             "I found relevant controlled policy information, but I couldn't "
@@ -137,7 +194,10 @@ def build_deterministic_guidance_response(
         or request.human_decision
         or request.workflow_status
         or request.known_fields
-        or request.task_type in {"greeting", "claim_submission_start"}
+        or request.task_type in {
+            "greeting", "thanks", "goodbye", "acknowledgement",
+            "claim_submission_start",
+        }
     )
     return GuidanceResponse(
         status=(

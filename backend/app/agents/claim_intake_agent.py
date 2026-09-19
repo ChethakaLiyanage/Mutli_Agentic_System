@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 INTENT_CONFIDENCE_THRESHOLD = 0.50
 _CLAIM_REQUIRED_FIELDS = ("incident_type", "incident_date", "location")
+_SOCIAL_INTENTS = {"greeting", "thanks", "goodbye", "acknowledgement"}
 
 
 def _select_location(entities: list[ExtractedEntity]) -> str | None:
@@ -95,8 +96,12 @@ class ClaimIntakeAgent:
                 if intent_label == "claim_submission"
                 else []
             )
-            requires_clarification = bool(missing_fields) or (
-                intent_confidence < self.confidence_threshold
+            requires_clarification = (
+                False
+                if intent_label in _SOCIAL_INTENTS
+                else bool(missing_fields) or (
+                    intent_confidence < self.confidence_threshold
+                )
             )
 
             return IntakeResponse(

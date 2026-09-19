@@ -15,6 +15,9 @@ Audience = Literal["customer", "reviewer"]
 
 GuidanceTaskType = Literal[
     "greeting",
+    "thanks",
+    "goodbye",
+    "acknowledgement",
     "claim_submission_start",
     "information_answer",
     "coverage_answer",
