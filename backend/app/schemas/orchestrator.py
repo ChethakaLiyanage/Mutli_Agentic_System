@@ -75,6 +75,7 @@ class ClarificationResponse(_OrchestratorContract):
 
     request_id: str
     workflow_id: str
+    claim_id: str | None = None
     status: WorkflowStatus = WorkflowStatus.AWAITING_CLARIFICATION
     workflow_type: WorkflowType = WorkflowType.CLARIFICATION
     intake_result: IntakeResponse | None = None
@@ -92,6 +93,7 @@ class OrchestratorResponse(_OrchestratorContract):
 
     request_id: str
     workflow_id: str
+    claim_id: str | None = None
     status: WorkflowStatus
     workflow_type: WorkflowType
     intake_result: IntakeResponse | None = None

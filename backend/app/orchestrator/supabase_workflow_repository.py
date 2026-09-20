@@ -92,6 +92,10 @@ class SupabaseWorkflowRepository:
     @staticmethod
     def state_to_row(state: WorkflowState) -> dict[str, Any]:
         data = state.model_dump(mode="json")
+        # Ensure compatibility with remote DB check constraint while preserving awaiting_documents
+        db_status = data["current_status"]
+        if db_status == "awaiting_documents":
+            db_status = "awaiting_human_review"
         return {
             "workflow_id": data["workflow_id"],
             "request_id": data["request_id"],
@@ -109,7 +113,7 @@ class SupabaseWorkflowRepository:
             "human_review_result": data["human_review_result"],
             "guidance_result": data["guidance_result"],
             "workflow_type": data["workflow_type"],
-            "current_status": data["current_status"],
+            "current_status": db_status,
             "missing_fields": data["missing_fields"],
             "requires_clarification": data["requires_clarification"],
             "errors": data["errors"],
@@ -121,7 +125,12 @@ class SupabaseWorkflowRepository:
     @staticmethod
     def row_to_state(row: dict[str, Any]) -> WorkflowState:
         try:
-            return WorkflowState.model_validate(row)
+            state_dict = dict(row)
+            if state_dict.get("current_status") == "awaiting_human_review":
+                audit = state_dict.get("audit_trail") or []
+                if audit and any(isinstance(a, dict) and a.get("step") == "awaiting_documents" for a in audit):
+                    state_dict["current_status"] = "awaiting_documents"
+            return WorkflowState.model_validate(state_dict)
         except Exception as error:
             raise WorkflowPersistenceError(
                 "Stored workflow data is invalid"

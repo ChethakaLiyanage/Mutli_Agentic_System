@@ -18,6 +18,8 @@ EVIDENCE_REQUIRING_TASKS: set[GuidanceTaskType] = {
     "coverage_explanation",
     "policy_explanation",
     "required_documents",
+    "required_documents_information",
+    "claim_document_requirements",
 }
 
 # Suspicious prompt injection patterns that may be embedded in documents or inputs

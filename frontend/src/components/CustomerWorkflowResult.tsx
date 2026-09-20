@@ -7,6 +7,7 @@ const OUTCOME_HEADINGS = {
   approved: "Your claim has been approved",
   rejected: "Your claim review is complete",
   more_information_required: "More information is required",
+  awaiting_documents: "Supporting documents required",
   escalated: "Your claim needs additional review",
 } as const;
 
@@ -73,6 +74,31 @@ export const CustomerWorkflowResult = ({
     /insufficient evidence|not enough (?:policy )?information/i.test(
       guidanceMessage || responseMessage || "",
     );
+
+  if (workflow.status === "awaiting_documents") {
+    const isEligibleClaim =
+      workflow.workflow_type === "claim_submission" && Boolean(workflow.claim_id);
+
+    return (
+      <section className="customer-result customer-result-review" aria-live="polite">
+        <p className="eyebrow">Claim draft created</p>
+        <h2>Supporting documents required</h2>
+        {responseMessage && <p style={{ whiteSpace: "pre-line" }}>{responseMessage}</p>}
+        {isEligibleClaim && onUploadClick && (
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
+            <button
+              className="upload-docs-btn"
+              type="button"
+              onClick={onUploadClick}
+            >
+              <span className="upload-icon">📤</span>
+              Upload Documents
+            </button>
+          </div>
+        )}
+      </section>
+    );
+  }
 
   if (workflow.status === "awaiting_human_review") {
     return (

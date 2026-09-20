@@ -22,6 +22,7 @@ class WorkflowStatus(str, Enum):
     ESCALATED = "escalated"
     GUIDANCE_PROCESSING = "guidance_processing"
     GUIDANCE_GENERATION = "guidance_generation"
+    AWAITING_DOCUMENTS = "awaiting_documents"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -92,6 +93,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
             WorkflowStatus.INFORMATION_RETRIEVAL,
             WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL,
             WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.AWAITING_DOCUMENTS,
             WorkflowStatus.GUIDANCE_PROCESSING,
             WorkflowStatus.COMPLETED,
             WorkflowStatus.FAILED,
@@ -113,6 +115,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.CLAIM_INFORMATION_RETRIEVAL: frozenset(
         {
             WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.AWAITING_DOCUMENTS,
             WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
             WorkflowStatus.FAILED,
         }
@@ -128,7 +131,16 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.FRAUD_TRIAGE: frozenset(
         {
             WorkflowStatus.AWAITING_HUMAN_REVIEW,
+            WorkflowStatus.AWAITING_DOCUMENTS,
             WorkflowStatus.GUIDANCE_PROCESSING,
+            WorkflowStatus.COMPLETED,
+            WorkflowStatus.FAILED,
+        }
+    ),
+    WorkflowStatus.AWAITING_DOCUMENTS: frozenset(
+        {
+            WorkflowStatus.AWAITING_HUMAN_REVIEW,
+            WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
             WorkflowStatus.COMPLETED,
             WorkflowStatus.FAILED,
         }

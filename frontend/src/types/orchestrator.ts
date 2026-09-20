@@ -2,6 +2,7 @@ export type WorkflowStatus =
   | "received"
   | "intake_processing"
   | "awaiting_clarification"
+  | "awaiting_documents"
   | "manual_assistance_required"
   | "intake_complete"
   | "information_retrieval"
@@ -122,6 +123,8 @@ export type GuidanceResponseType =
   | "coverage_explanation"
   | "policy_explanation"
   | "required_documents"
+  | "required_documents_information"
+  | "claim_document_requirements"
   | "claim_status"
   | "next_steps"
   | "clarification_question"
@@ -157,6 +160,7 @@ export interface CustomerEvidence {
 interface WorkflowResponseBase {
   request_id: string;
   workflow_id: string;
+  claim_id?: string | null;
   status: WorkflowStatus;
   workflow_type: WorkflowType;
   intake_result: IntakeResult | null;

@@ -259,10 +259,62 @@ class MockLLMClient(BaseLLMClient):
                     "automated_decision": False,
                 }
 
-        # Scenario: required_documents
+        # Scenario: required_documents_information
         if (
-            "TASK: Formulate a reasoned, customer-friendly response identifying the incident type" in user_prompt
-            or "TASK: List the required documents" in user_prompt
+            "TASK: Explain the required supporting documents for an informational query" in user_prompt
+            or ("TASK: List the required documents" in user_prompt and '"has_claim": true' not in user_prompt and '"claim_submission": true' not in user_prompt)
+        ):
+            evidence_text = " ".join(evidence_contents).strip()
+            grounded_documents = [
+                label for label in (
+                    "Completed claim form", "Vehicle registration document", "Driving licence copy",
+                    "Photographs of vehicle damage", "Repair estimate", "Police report",
+                    "Proof of identity", "Information about keys",
+                )
+                if label.lower() in evidence_text.lower() or any(term in evidence_text.lower() for term in label.lower().split()[:2])
+            ]
+            docs = grounded_documents or [
+                "Completed claim form",
+                "Vehicle registration document",
+                "Driving licence copy",
+                "Repair estimate",
+                "Police report",
+            ]
+            doc_bullets = "\n".join(f"- {doc}" for doc in docs)
+
+            incident_match = re.search(r'"incident_type":\s*"([^"]+)"', user_prompt)
+            raw_incident = incident_match.group(1) if incident_match else None
+            if raw_incident:
+                raw_lower = raw_incident.replace("_", " ").lower()
+                friendly = "vehicle collision" if "collision" in raw_lower else raw_lower
+                message = (
+                    f"For a {friendly} claim, the documents required depend on the terms of your policy. "
+                    f"According to the available claim information, the following documents may be required:\n\n{doc_bullets}\n\n"
+                    "If you want to submit a claim, tell me what happened to your vehicle, when it happened, and where it happened."
+                )
+            else:
+                message = (
+                    f"For a motor claim, the documents required depend on the type of incident and your policy. "
+                    f"According to the available claim information, the following documents may be required:\n\n{doc_bullets}\n\n"
+                    "If you want to submit a claim, tell me what happened to your vehicle, when it happened, and where it happened."
+                )
+
+            return {
+                "message": message,
+                "next_steps": [
+                    "Tell the assistant what happened to your vehicle, when it happened, and where it happened to submit a claim",
+                ],
+                "evidence_used": evidence_used,
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        # Scenario: claim_document_requirements
+        if (
+            "TASK: Formulate a reasoned, customer-friendly response identifying the incident type and listing the required supporting documents for an active claim submission" in user_prompt
+            or "TASK: Formulate a reasoned, customer-friendly response identifying the incident type" in user_prompt
+            or ("TASK: List the required documents" in user_prompt and ('"has_claim": true' in user_prompt or '"claim_submission": true' in user_prompt))
         ):
             missing_docs = []
             missing_match = re.search(r"Missing Documents:\s*([^\n]+)", user_prompt)
@@ -321,7 +373,7 @@ class MockLLMClient(BaseLLMClient):
                 "automated_decision": False,
             }
 
-        # Scenario: claim_status
+        # Scenario: claim_status        # Scenario: claim_status
         if "TASK: Formulate a neutral and informative claim status message" in user_prompt:
             status_match = re.search(r"Verified Claim Status:\s*([^\n]+)", user_prompt)
             status = status_match.group(1).strip() if status_match else "under_review"

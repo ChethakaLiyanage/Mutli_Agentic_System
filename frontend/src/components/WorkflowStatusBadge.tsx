@@ -4,6 +4,7 @@ const STATUS_LABELS = {
   received: "Received",
   intake_processing: "Processing Intake",
   awaiting_clarification: "Needs More Information",
+  awaiting_documents: "Awaiting Documents",
   manual_assistance_required: "Manual Assistance Required",
   intake_complete: "Intake Complete",
   information_retrieval: "Retrieving Information",
