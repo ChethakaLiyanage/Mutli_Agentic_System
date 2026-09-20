@@ -448,26 +448,30 @@ clarification turns. Agents 2–4 are not executed yet.
   not implemented yet.
 
 
-  ##Fraud Detection Agent
+  ## Fraud Detection Agent
+
 The Fraud Detection Agent is an explainable decision-support component that analyses insurance claims for suspicious patterns, inconsistencies, and unusual behaviour. It does not determine that a customer has committed fraud and does not automatically approve or reject claims.
 
 The agent receives structured claim details, policy information, uploaded-document facts, and authorized historical claim data. It performs rule-based checks for issues such as inactive policies, duplicate claims, reused police-report numbers, missing required documents, inconsistent incident dates, and mismatches between the claimed amount and repair estimate.
 
 It also uses an Isolation Forest anomaly-detection model to identify unusual claim patterns based on features such as claim amount, policy age, reporting delay, previous claim count, document count, missing documents, and detected inconsistencies. Isolation Forest identifies observations that differ from the normal patterns in its training data.
 
-##The final hybrid assessment combines:
+## Final Hybrid Assessment
 
+The final hybrid assessment combines:
 
-75% Rule-based risk score
-25% ML anomaly score
+- **75%** Rule-based risk score
+- **25%** ML anomaly score
 
-##The agent produces:
+## Agent Output
 
-- Risk score: 0.00–1.00
-- Risk level: Low, Medium, or High
-- Triggered risk indicators with evidence
-- Missing required documents
-- ML anomaly score
-- Recommended action: continue processing, request documents,
-  manual review, or escalate
+The agent produces:
+
+- **Risk score:** 0.00–1.00
+- **Risk level:** Low, Medium, or High
+- **Triggered risk indicators** with evidence
+- **Missing required documents**
+- **ML anomaly score**
+- **Recommended action:** continue processing, request documents, manual review, or escalate
+
 All fraud-risk results are stored in Supabase for traceability and are forwarded to the Reviewer Support Agent. Medium- and high-risk claims are routed for human review. The final claim decision remains the responsibility of an authorized human reviewer.
