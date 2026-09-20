@@ -257,9 +257,11 @@ class OrchestratorService:
         message = self._public_message(state, retrieval_status)
         public_guidance = self._public_guidance_result(state.guidance_result)
 
+        claim_id = state.claim_context.claim_id if state.claim_context else None
         return OrchestratorResponse(
             request_id=state.last_request_id,
             workflow_id=state.workflow_id,
+            claim_id=claim_id,
             status=state.current_status,
             workflow_type=state.workflow_type,
             intake_result=state.intake_result,
@@ -1069,11 +1071,25 @@ class OrchestratorService:
                     if retrieval_response
                     else []
                 )
+                if not claim.claim_id:
+                    from uuid import NAMESPACE_URL, uuid5
+                    claim_id = f"CLM-{uuid5(NAMESPACE_URL, state.workflow_id).hex.upper()}"
+                    claim = claim.model_copy(update={"claim_id": claim_id, "claim_reference": f"REF-{claim_id[4:20]}"})
+                    state.claim_context = claim
+
+                self.update_status(
+                    state,
+                    WorkflowStatus.AWAITING_DOCUMENTS,
+                    message="Claim awaiting documents",
+                    step="awaiting_documents",
+                    audit_status=AuditEventStatus.AWAITING_INPUT,
+                )
+
                 guidance_req = build_guidance_request(
                     request_id=state.last_request_id,
                     audience="customer",
-                    task_type="required_documents",
-                    claim=claim,
+                    task_type="claim_document_requirements",
+                    claim=state.claim_context,
                     intent="claim_submission",
                     workflow_status=state.current_status.value,
                     known_fields=self._known_customer_fields(state),
@@ -1083,6 +1099,8 @@ class OrchestratorService:
                         "customer_message": state.accumulated_text,
                         "incident_type": incident_type_str,
                         "claim_submission": True,
+                        "has_claim": True,
+                        "claim_id": state.claim_context.claim_id,
                     },
                 )
                 resp = await self.guidance_client.generate(guidance_req)
@@ -1195,7 +1213,7 @@ class OrchestratorService:
         task_type = {
             "coverage_question": "coverage_answer",
             "policy_question": "policy_answer",
-            "required_documents_question": "required_documents",
+            "required_documents_question": "required_documents_information",
             "general_information": "information_answer",
         }.get(intent or "", "information_answer")
         self.update_status(
@@ -1222,7 +1240,16 @@ class OrchestratorService:
                 intent=intent,
                 missing_fields=state.missing_fields,
                 retrieval_warnings=warnings,
-                safe_customer_context={"customer_message": state.accumulated_text},
+                safe_customer_context={
+                    "customer_message": state.accumulated_text,
+                    "has_claim": False,
+                    "claim_id": None,
+                    "incident_type": (
+                        state.intake_result.data.incident.type
+                        if state.intake_result and state.intake_result.data.incident
+                        else None
+                    ),
+                },
             )
             response = await self.guidance_client.generate(request)
             if (
@@ -1365,43 +1392,37 @@ class OrchestratorService:
             query=state.accumulated_text,
         )
 
-        if not claim.policy_id:
-            state.errors.append(
-                OrchestratorError(
-                    code="POLICY_LINK_REQUIRED",
-                    message=_POLICY_LINK_REQUIRED_MESSAGE,
-                    step="claim_persistence",
-                )
+        self.update_status(
+            state,
+            WorkflowStatus.AWAITING_DOCUMENTS,
+            message="Claim draft created, awaiting supporting documents",
+            step="awaiting_documents",
+            audit_status=AuditEventStatus.AWAITING_INPUT,
+        )
+        if self.guidance_client is not None:
+            guidance_req = build_guidance_request(
+                request_id=state.last_request_id,
+                audience="customer",
+                task_type="claim_document_requirements",
+                claim=state.claim_context,
+                intent="claim_submission",
+                workflow_status=state.current_status.value,
+                known_fields=self._known_customer_fields(state),
+                missing_fields=[],
+                evidence=evidence_items,
+                safe_customer_context={
+                    "customer_message": state.accumulated_text,
+                    "incident_type": incident_type_str,
+                    "claim_submission": True,
+                    "has_claim": True,
+                    "claim_id": state.claim_context.claim_id,
+                    "policy_link_required": not bool(claim.policy_id),
+                },
             )
-            self.update_status(
-                state,
-                WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
-                message="Claim draft requires policy linkage",
-                step="claim_persistence",
-                audit_status=AuditEventStatus.AWAITING_INPUT,
-            )
-            if self.guidance_client is not None:
-                guidance_req = build_guidance_request(
-                    request_id=state.last_request_id,
-                    audience="customer",
-                    task_type="required_documents",
-                    claim=state.claim_context,
-                    intent="claim_submission",
-                    workflow_status=state.current_status.value,
-                    known_fields=self._known_customer_fields(state),
-                    missing_fields=[],
-                    evidence=evidence_items,
-                    safe_customer_context={
-                        "customer_message": state.accumulated_text,
-                        "incident_type": incident_type_str,
-                        "claim_submission": True,
-                        "policy_link_required": True,
-                    },
-                )
-                resp = await self.guidance_client.generate(guidance_req)
-                state.guidance_result = resp.model_dump(mode="json")
-            await self.workflow_repository.save(state)
-            return
+            resp = await self.guidance_client.generate(guidance_req)
+            state.guidance_result = resp.model_dump(mode="json")
+        await self.workflow_repository.save(state)
+        return
 
         policy = retrieval_to_policy_context(retrieval_response)
         if policy is None:

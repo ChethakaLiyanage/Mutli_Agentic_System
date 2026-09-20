@@ -207,7 +207,42 @@ def build_deterministic_guidance_response(
                 "Policy terms, excesses, and limits are set out in your policy schedule. "
                 "Please review the relevant section or contact support for assistance with your wording."
             )
-    elif request.task_type == "required_documents":
+    elif request.task_type in {"required_documents_information", "required_documents"} and not (request.safe_customer_context or {}).get("has_claim"):
+        evidence_text = " ".join(item.content for item in request.retrieved_evidence)
+        possible_docs = [
+            "Completed claim form",
+            "Police report or police reference",
+            "Vehicle registration document",
+            "Driving licence copy",
+            "Repair estimate",
+            "Photographs of vehicle damage",
+            "Information about keys",
+        ]
+        supported = [
+            doc for doc in possible_docs
+            if any(w in evidence_text.lower() for w in doc.lower().split()[:2])
+        ]
+        docs = supported or possible_docs[:5]
+        doc_bullets = "\n".join(f"- {d}" for d in docs)
+
+        raw_incident = (
+            (request.safe_customer_context or {}).get("incident_type")
+            or (request.known_fields or {}).get("incident_type")
+        )
+        if raw_incident:
+            friendly_incident = _format_friendly_incident_type(str(raw_incident))
+            message = (
+                f"For a {friendly_incident} claim, the documents required depend on the terms of your policy. "
+                f"According to the available claim information, the following documents may be required:\n\n{doc_bullets}\n\n"
+                "If you want to submit a claim, tell me what happened to your vehicle, when it happened, and where it happened."
+            )
+        else:
+            message = (
+                f"For a motor claim, the documents required depend on the type of incident and your policy. "
+                f"According to the available claim information, the following documents may be required:\n\n{doc_bullets}\n\n"
+                "If you want to submit a claim, tell me what happened to your vehicle, when it happened, and where it happened."
+            )
+    elif request.task_type in {"claim_document_requirements", "required_documents"}:
         evidence_text = " ".join(item.content for item in request.retrieved_evidence)
         possible_docs = [
             "Completed claim form",
@@ -230,18 +265,12 @@ def build_deterministic_guidance_response(
             or (request.known_fields or {}).get("incident_type")
             or ((request.claim_data or {}).get("incident_type"))
         )
-        if raw_incident:
-            friendly_incident = _format_friendly_incident_type(str(raw_incident))
-            message = (
-                f"According to the details you provided, this appears to be a {friendly_incident}. "
-                f"If you want to make a claim, we need the following documents:\n\n{doc_bullets}\n\n"
-                "Please upload these documents using the button below so our claims team can process your claim."
-            )
-        else:
-            message = (
-                f"To make a motor claim, we need the following documents:\n\n{doc_bullets}\n\n"
-                "Please upload these documents using the button below so our claims team can proceed."
-            )
+        friendly_incident = _format_friendly_incident_type(str(raw_incident)) if raw_incident else "vehicle collision"
+        message = (
+            f"According to the details you provided, this appears to be a {friendly_incident}. "
+            f"If you want to make a claim, we need the following documents:\n\n{doc_bullets}\n\n"
+            "Please upload these documents using the button below so our claims team can process your claim."
+        )
     elif request.retrieved_evidence:
         message = (
             "I found relevant controlled policy information, but I couldn't "

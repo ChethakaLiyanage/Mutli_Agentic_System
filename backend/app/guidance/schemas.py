@@ -25,6 +25,8 @@ GuidanceTaskType = Literal[
     "coverage_explanation",
     "policy_explanation",
     "required_documents",
+    "required_documents_information",
+    "claim_document_requirements",
     "claim_status",
     "next_steps",
     "clarification_question",

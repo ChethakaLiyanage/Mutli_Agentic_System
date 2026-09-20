@@ -32,6 +32,7 @@ export const ACTIVE_WORKFLOW_KEY = "motor_insurance_active_workflow_id";
 
 const TRACKED_WORKFLOW_STATUSES = new Set<WorkflowStatus>([
   "awaiting_clarification",
+  "awaiting_documents",
   "awaiting_human_review",
   "more_information_required",
 ]);
@@ -88,6 +89,12 @@ export const ClaimAssistantPage = () => {
 
   const canClarify = workflow?.status === "awaiting_clarification";
   const canSend = !sending && !restoring && !refreshing;
+  const canUploadDocuments =
+    workflow !== null &&
+    isOrchestratorResponse(workflow) &&
+    workflow.status === "awaiting_documents" &&
+    workflow.workflow_type === "claim_submission" &&
+    Boolean(workflow.claim_id);
   const latestIntake = workflow?.intake_result ?? null;
   const hasConversation = messages.length > 0 || workflow !== null;
   const separateTrackedWorkflow =
@@ -320,10 +327,10 @@ export const ClaimAssistantPage = () => {
               </div>
             ) : (
               <div className="message-list">
-                {messages.map((message) => {
-                  const isDocRequest =
-                    message.sender === "system" &&
-                    /upload (?:these|the|your|below)?\s*documents|need (?:the following|below) documents|required documents/i.test(message.text);
+                {messages.map((message, index) => {
+                  const isLatestSystemMessage =
+                    message.sender === "system" && index === messages.length - 1;
+                  const showUploadOnMessage = isLatestSystemMessage && canUploadDocuments;
 
                   return (
                     <article
@@ -332,7 +339,7 @@ export const ClaimAssistantPage = () => {
                     >
                       <span>{message.sender === "user" ? "You" : "Assistant"}</span>
                       <p style={{ whiteSpace: "pre-line" }}>{message.text}</p>
-                      {isDocRequest && (
+                      {showUploadOnMessage && (
                         <div className="document-upload-container">
                           <button
                             type="button"

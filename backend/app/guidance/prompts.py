@@ -82,6 +82,28 @@ Then format the required documents as a clean, natural bullet list grounded in t
 Conclude by politely inviting the customer to upload these documents using the upload button below to proceed with their claim.
 Do NOT guarantee claim approval, promise settlement amounts, or determine liability.
 """,
+    "required_documents_information": """TASK: Explain the required supporting documents for an informational query based on the retrieved evidence.
+Explain that the documents required for a motor claim depend on the type of incident and the terms of the policy.
+If the customer did NOT provide a specific incident context, explain:
+"For a motor claim, the documents required depend on the type of incident and your policy. According to the available claim information, the following documents may be required:"
+If the customer asked about a specific incident type (e.g. collision, theft, windscreen, flood), explain:
+"For a [incident type] claim, the documents required depend on the terms of your policy. According to the available claim information, the following documents may be required:"
+Format the retrieved required documents in clean bullet points.
+Conclude by explaining how to submit a claim when ready:
+"If you want to submit a claim, tell me what happened to your vehicle, when it happened, and where it happened."
+IMPORTANT:
+- Do NOT claim that an incident was identified or that a claim has been submitted.
+- Do NOT mention an upload button or instruct the customer to upload documents.
+- Do NOT guarantee claim approval, promise settlement amounts, or determine liability.
+""",
+    "claim_document_requirements": """TASK: Formulate a reasoned, customer-friendly response identifying the incident type and listing the required supporting documents for an active claim submission based on the retrieved evidence.
+Begin your message clearly identifying the incident type in natural language from the details provided:
+"According to the details you provided, this appears to be a [incident type, e.g. vehicle collision]. If you want to make a claim, we need the following documents:"
+Format the required documents as a clean bullet list grounded in the retrieved policy evidence (e.g. Completed claim form, Vehicle registration document, Driving licence copy, Photographs of vehicle damage, Repair estimate, Police report).
+Conclude by politely instructing the customer:
+"Please upload these documents using the button below so our claims team can process your claim."
+Do NOT guarantee claim approval, promise settlement amounts, or determine liability.
+""",
     "claim_status": """TASK: Formulate a neutral and informative claim status message.
 Reassure the customer that their claim is being handled and clearly describe what happens next in the workflow.
 """,
