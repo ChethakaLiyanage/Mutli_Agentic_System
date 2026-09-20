@@ -97,6 +97,17 @@ def test_returns_probability_confidence() -> None:
             "required_documents_question",
         ),
         ("hey chek my clam stats", "claim_status"),
+        ("im accidented just now what shoul i do?", "claim_submission"),
+        ("What should I do if I have an accident?", "general_information"),
+        ("I just had an accident, what should I do?", "claim_submission"),
+        ("i just had accident", "claim_submission"),
+        ("had an accident just now", "claim_submission"),
+        ("i got accident few mins ago", "claim_submission"),
+        ("someone hit my car just now", "claim_submission"),
+        ("my car got hit today", "claim_submission"),
+        ("i crashed my car what should i do", "claim_submission"),
+        ("just got into accident", "claim_submission"),
+        ("accident happened few minutes ago", "claim_submission"),
     ],
 )
 def test_predicts_noisy_customer_intents(text: str, expected_label: str) -> None:
@@ -143,7 +154,7 @@ def test_training_dataset_remains_balanced() -> None:
     with DEFAULT_DATASET_PATH.open(encoding="utf-8", newline="") as dataset:
         rows = list(csv.DictReader(dataset))
 
-    assert len(rows) == 350
+    assert len(rows) == 500
     assert Counter(row["label"] for row in rows) == {
         label: 50 for label in INTENT_LABELS
     }

@@ -8,6 +8,7 @@ from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
     GuidanceResponseData,
+    ReviewerSummarySection,
 )
 
 
@@ -63,6 +64,40 @@ _MISSING_FIELD_QUESTIONS = {
 def _clarification_message(request: GuidanceRequest) -> str:
     missing = list(dict.fromkeys(request.missing_fields))
     known = request.known_fields
+    intent = request.intent
+
+    if intent == "claim_submission" or any(f in missing for f in ("incident_type", "location", "incident_date")):
+        date_text = known.get("date_text") or known.get("incident_date")
+        date_missing = "incident_date" in missing
+        type_missing = "incident_type" in missing
+        loc_missing = "location" in missing
+        incident_type = known.get("incident_type")
+        friendly_type = _format_friendly_incident_type(str(incident_type)) if incident_type else None
+
+        if not date_missing and type_missing and loc_missing:
+            return (
+                "I can help you start a claim. Please tell me what happened, "
+                "where it happened, and what damage occurred to your vehicle."
+            )
+        if date_missing and type_missing and loc_missing:
+            return (
+                "I can help you start a claim. Please tell me what happened, "
+                "when and where it happened, and what damage occurred to your vehicle."
+            )
+        if type_missing and not loc_missing and not date_missing:
+            return (
+                "I can help you start a claim. Please tell me what happened to "
+                "your vehicle and what damage occurred."
+            )
+        if loc_missing and not type_missing and not date_missing:
+            type_mention = f" for the {friendly_type}" if friendly_type else ""
+            return f"I can help you start a claim{type_mention}. Please tell me where it happened."
+        if loc_missing and date_missing and not type_missing:
+            type_mention = f" for the {friendly_type}" if friendly_type else ""
+            return f"I can help you start a claim{type_mention}. Please tell me when and where it happened."
+        if date_missing and not type_missing and not loc_missing:
+            return "I can help you start a claim. Please tell me when the incident happened."
+
     questions = [
         _MISSING_FIELD_QUESTIONS[field]
         for field in missing
@@ -145,7 +180,15 @@ def _reviewer_summary_message(request: GuidanceRequest) -> str:
     risk_level = (fraud.risk_level if hasattr(fraud, "risk_level") else "Unknown") if fraud else "Unknown"
     if hasattr(risk_level, "value"):
         risk_level = risk_level.value
-    indicators = [ind.title for ind in (fraud.indicators if fraud else [])]
+    raw_indicators = []
+    if fraud:
+        if hasattr(fraud, "indicators") and fraud.indicators:
+            raw_indicators = fraud.indicators
+        elif hasattr(fraud, "risk_indicators") and fraud.risk_indicators:
+            raw_indicators = fraud.risk_indicators
+        elif isinstance(fraud, dict):
+            raw_indicators = fraud.get("indicators") or fraud.get("risk_indicators") or []
+    indicators = [getattr(ind, "title", str(ind)) for ind in raw_indicators]
     ind_str = ", ".join(indicators) if indicators else "None"
 
     return (
@@ -339,14 +382,28 @@ def build_deterministic_guidance_response(
         incident = claim.get("incident_type") or "Not specified"
         date_val = claim.get("incident_date") or "Not specified"
         fraud = request.fraud_assessment
-        obs = [ind.title for ind in (fraud.indicators if fraud else [])]
+        raw_indicators = []
+        if fraud:
+            if hasattr(fraud, "indicators") and fraud.indicators:
+                raw_indicators = fraud.indicators
+            elif hasattr(fraud, "risk_indicators") and fraud.risk_indicators:
+                raw_indicators = fraud.risk_indicators
+            elif isinstance(fraud, dict):
+                raw_indicators = fraud.get("indicators") or fraud.get("risk_indicators") or []
+        obs = [getattr(ind, "title", str(ind)) for ind in raw_indicators]
+        raw_missing = []
+        if fraud:
+            if hasattr(fraud, "missing_documents") and fraud.missing_documents:
+                raw_missing = fraud.missing_documents
+            elif isinstance(fraud, dict):
+                raw_missing = fraud.get("missing_documents") or []
         summary_sec = ReviewerSummarySection(
             claim_overview=f"Reported {incident} on {date_val}",
             policy_findings=[],
             risk_observations=obs,
             missing_items=[
                 item.value if hasattr(item, "value") else str(item)
-                for item in (fraud.missing_documents if fraud else [])
+                for item in raw_missing
             ],
             reviewer_action_points=["Claims officer review required"],
         )

@@ -55,10 +55,15 @@ def _customer_status_explanation(wf_status: str | None, claim_status: str | None
     return "Your claim is currently being processed by our team."
 
 
+def get_workflow_repository() -> WorkflowRepository:
+    return get_application_repositories().workflows
+
+
 @router.get("/my-claims", response_model=MyClaimsResponse)
 async def list_my_claims(
     current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     claim_repo: Annotated[ClaimRepository, Depends(get_claim_repository)],
+    workflows: Annotated[WorkflowRepository, Depends(get_workflow_repository)],
 ) -> MyClaimsResponse:
     """Retrieve all claims submitted by or accessible to the current customer."""
     try:
@@ -68,8 +73,6 @@ async def list_my_claims(
         except Exception as e:
             logger.warning("Failed to list claims from claim_repo: %s", e)
             claims = []
-
-        workflows = get_application_repositories().workflows
 
         # Check user workflows in case active draft claims exist that are not yet in claims table
         known_claim_ids = {c.claim_id for c in claims if c.claim_id}
@@ -160,6 +163,7 @@ async def get_claim_detail(
     claim_id: str,
     current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     claim_repo: Annotated[ClaimRepository, Depends(get_claim_repository)],
+    workflows: Annotated[WorkflowRepository, Depends(get_workflow_repository)],
 ) -> ClaimDetailCustomerResponse:
     """Get customer-safe claim details including documents and authoritative human decision.
 
@@ -173,7 +177,6 @@ async def get_claim_detail(
         except Exception:
             claim = None
 
-        workflows = get_application_repositories().workflows
         wf: WorkflowState | None = None
 
         if claim is None:

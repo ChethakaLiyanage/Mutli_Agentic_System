@@ -26,7 +26,7 @@ class LLMSettings(BaseModel):
     @classmethod
     def from_env(cls) -> LLMSettings:
         """Create settings automatically from environment variables."""
-        provider_env = os.getenv("LLM_PROVIDER")
+        provider_env = os.getenv("GUIDANCE_LLM_PROVIDER") or os.getenv("LLM_PROVIDER")
         if provider_env in ("gemini", "openai", "mock"):
             provider = provider_env
         elif os.getenv("GEMINI_API_KEY"):

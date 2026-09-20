@@ -481,6 +481,17 @@ class MockLLMClient(BaseLLMClient):
                 "coverage details, and required documents. I don't have information on that topic, "
                 "but please let me know if you have any questions related to motor insurance!"
             )
+        elif generic_scope:
+            message = (
+                "This response is based on general policy information and does not "
+                "confirm coverage under your specific policy. Please check your "
+                "policy schedule for exact coverage terms."
+            )
+        elif "windscreen" in evidence_text or "glass" in evidence_text:
+            message = (
+                "Based on the provided policy terms, comprehensive coverage includes "
+                "windscreen, collision, and third-party liabilities subject to policy conditions."
+            )
         elif "flood" in evidence_text or "water" in evidence_text or "water ingress" in evidence_text:
             message = (
                 "Some comprehensive motor policies may cover accidental flood or water-ingress "
@@ -625,8 +636,11 @@ def get_llm_client(settings: LLMSettings | None = None) -> BaseLLMClient:
         settings = LLMSettings.from_env()
 
     if settings.provider == "gemini":
-        return GeminiLLMClient(settings)
+        client = GeminiLLMClient(settings)
     elif settings.provider == "openai":
-        return OpenAILLMClient(settings)
+        client = OpenAILLMClient(settings)
     else:
-        return MockLLMClient(settings)
+        client = MockLLMClient(settings)
+
+    logger.info("Agent 4 LLM provider: %s", client.__class__.__name__)
+    return client

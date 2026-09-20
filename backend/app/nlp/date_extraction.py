@@ -7,6 +7,11 @@ from datetime import date, datetime, timedelta
 
 
 _DATE_PATTERNS = (
+    re.compile(r"\b(?:just\s+now|right\s+now)\b", re.IGNORECASE),
+    re.compile(r"\b(?:a\s+)?few\s+(?:mins?|minutes?)\s+ago\b", re.IGNORECASE),
+    re.compile(r"\b(?:a\s+)?moment\s+ago\b", re.IGNORECASE),
+    re.compile(r"\b(?:an?\s+)?hour\s+ago\b", re.IGNORECASE),
+    re.compile(r"\bjust\s+(?:had|got\s+into)\b", re.IGNORECASE),
     re.compile(r"\bthis\s+(?:morning|afternoon|evening)\b", re.IGNORECASE),
     re.compile(r"\bearlier\s+today\b", re.IGNORECASE),
     re.compile(r"\btwo\s+days\s+ago\b", re.IGNORECASE),
@@ -19,13 +24,25 @@ _DATE_PATTERNS = (
 
 
 def _normalize_date(date_text: str, reference_date: date) -> str | None:
-    lowered = date_text.casefold()
-    if lowered in {"today", "this morning", "this afternoon", "this evening", "earlier today"}:
+    lowered = date_text.casefold().strip()
+    if (
+        lowered in {
+            "today",
+            "this morning",
+            "this afternoon",
+            "this evening",
+            "earlier today",
+            "just now",
+            "right now",
+        }
+        or "ago" in lowered
+        or lowered.startswith("just ")
+    ):
+        if lowered == "two days ago":
+            return (reference_date - timedelta(days=2)).isoformat()
         return reference_date.isoformat()
     if lowered in {"yesterday", "last night"}:
         return (reference_date - timedelta(days=1)).isoformat()
-    if lowered == "two days ago":
-        return (reference_date - timedelta(days=2)).isoformat()
 
     date_format = "%d/%m/%Y" if "/" in date_text else "%Y-%m-%d"
     try:

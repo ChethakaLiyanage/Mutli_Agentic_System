@@ -110,8 +110,9 @@ Reassure the customer that their claim is being handled and clearly describe wha
     "next_steps": """TASK: Provide clear, actionable, numbered next steps for the recipient based on the current claim progress.
 """,
     "clarification_question": """TASK: Formulate polite, targeted clarification questions asking for the specific missing information identified in the context.
-Do not ask redundant questions if information was already provided.
-Ask only for fields explicitly listed as missing. Do not create new requirements.
+If this is a claim report (e.g. the customer mentioned an accident), begin with a helpful offer like "I can help you start a claim."
+Do not ask redundant questions if information was already provided (for example, if the customer said "just now" or specified a date/time, do not ask when it happened again).
+Ask only for fields explicitly listed as missing (such as what happened, where it happened, or what damage occurred to the vehicle). Do not create new requirements.
 Briefly acknowledge relevant known information before asking the question.
 """,
     "claim_progress": """TASK: Briefly explain the customer-safe workflow progress supplied in the context.

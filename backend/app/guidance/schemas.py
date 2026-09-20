@@ -110,6 +110,10 @@ class FraudAssessmentContext(_GuidanceContract):
     rules_version: str | None = None
     model_version: str | None = None
 
+    @property
+    def indicators(self) -> list[RiskIndicatorContext]:
+        return self.risk_indicators
+
 
 class GuidanceRequest(_GuidanceContract):
     """Structured input received by Agent 4."""

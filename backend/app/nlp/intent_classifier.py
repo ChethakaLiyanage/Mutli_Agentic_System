@@ -434,8 +434,79 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
         if submission_indexes:
             submission_index = submission_indexes[0]
             submission_probability = float(probabilities[submission_index])
-            if submission_probability >= 0.15:
+            if submission_probability >= 0.10:
                 return "claim_submission", max(submission_probability, 0.75)
+
+    policy_inquiry_terms = {"policy", "coverage", "cover"}
+
+    # Active accident reporting (e.g. "im accidented just now what shoul i do?",
+    # "someone hit my car just now", "i crashed my car what should i do") represents
+    # a claim submission even if phrased as a question. In contrast, hypothetical
+    # questions (e.g. "what should i do if i have an accident", "in case of an accident what to do")
+    # are general information inquiries.
+    active_incident_indicators = {
+        "accident",
+        "accidented",
+        "crash",
+        "crashed",
+        "hit",
+        "collided",
+        "collision",
+        "sideswiped",
+        "vandalised",
+    }
+    active_temporal_or_subject = {
+        "just",
+        "now",
+        "today",
+        "yesterday",
+        "ago",
+        "happened",
+        "occurred",
+        "got",
+        "had",
+        "was",
+        "were",
+        "someone",
+        "im",
+        "my",
+        "our",
+        "mins",
+        "minutes",
+    }
+    hypothetical_markers = {"if", "suppose", "whether", "generally", "normally", "usually"}
+    is_hypothetical = (
+        bool(normalized_token_set.intersection(hypothetical_markers))
+        or ("case" in normalized_token_set and "in" in normalized_token_set)
+    )
+
+    if (
+        normalized_token_set.intersection(active_incident_indicators)
+        and not is_hypothetical
+        and not normalized_token_set.intersection(status_terms)
+        and not normalized_token_set.intersection(policy_inquiry_terms)
+    ):
+        has_active_marker = bool(normalized_token_set.intersection(active_temporal_or_subject))
+        submission_indexes = [
+            index
+            for index, model_label in enumerate(model.classes_)
+            if model_label == "claim_submission"
+        ]
+        if submission_indexes and has_active_marker:
+            submission_index = submission_indexes[0]
+            submission_probability = float(probabilities[submission_index])
+            return "claim_submission", max(submission_probability, 0.85)
+
+    if is_hypothetical and normalized_token_set.intersection(active_incident_indicators):
+        gen_info_indexes = [
+            index
+            for index, model_label in enumerate(model.classes_)
+            if model_label == "general_information"
+        ]
+        if gen_info_indexes:
+            gen_idx = gen_info_indexes[0]
+            gen_prob = float(probabilities[gen_idx])
+            return "general_information", max(gen_prob, 0.75)
 
     if (
         len(normalized_tokens) <= 2

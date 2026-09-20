@@ -1,4 +1,4 @@
-"""FastAPI entry point for the motor-insurance multi-agent backend."""
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,12 +10,23 @@ from backend.app.api.intake import router as intake_router
 from backend.app.api.notifications import router as notifications_router
 from backend.app.api.orchestrator import router as orchestrator_router
 from backend.app.api.reviewer import router as reviewer_router
+from backend.app.llm.client import get_llm_client
+
+logger = logging.getLogger(__name__)
 
 
 app = FastAPI(
     title="Claim Intake Agent API",
     version="1.0.0",
 )
+
+
+@app.on_event("startup")
+def log_agent4_startup():
+    client = get_llm_client()
+    logging.getLogger("uvicorn").info("Agent 4 LLM provider: %s", client.__class__.__name__)
+    logger.info("Agent 4 LLM provider: %s", client.__class__.__name__)
+
 
 app.add_middleware(
     CORSMiddleware,

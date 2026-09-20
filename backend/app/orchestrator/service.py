@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import logging
 from typing import Iterable
 from uuid import NAMESPACE_URL, uuid4, uuid5
@@ -57,6 +57,7 @@ from backend.app.schemas.domain import (
     FraudAssessmentContext,
     HumanDecision,
     HumanDecisionContext,
+    IncidentType,
     PolicyContext,
 )
 from backend.app.schemas.orchestrator import (
@@ -586,33 +587,72 @@ class OrchestratorService:
         if self.guidance_client is None or state.claim_context is None:
             return
 
-        retrieval = (
-            RetrievalResponse.model_validate(state.retrieval_result)
-            if state.retrieval_result
-            else None
-        )
-        request = build_guidance_request(
-            request_id=state.last_request_id,
-            audience="reviewer",
-            task_type="reviewer_summary",
-            claim=state.claim_context,
-            policy=policy,
-            evidence=(retrieval_to_evidence_items(retrieval) if retrieval else []),
-            fraud_assessment=FraudAssessmentContext.model_validate(
-                state.fraud_result or {}
-            ),
-            intent="claim_submission",
-            workflow_status=state.current_status.value,
-        )
+        retrieval = None
+        if state.retrieval_result:
+            try:
+                retrieval = RetrievalResponse.model_validate(state.retrieval_result)
+            except Exception:
+                retrieval = None
+
+        evidence_items = []
+        if retrieval:
+            try:
+                evidence_items = retrieval_to_evidence_items(retrieval)
+            except Exception:
+                evidence_items = []
+
+        fraud_context = None
+        if state.fraud_result:
+            try:
+                fraud_context = FraudAssessmentContext.model_validate(state.fraud_result)
+            except Exception:
+                fraud_context = None
+
         try:
-            response = await self.guidance_client.generate(request)
-            if not isinstance(response, GuidanceResponse):
-                raise TypeError("Guidance client returned an invalid response")
+            request = build_guidance_request(
+                request_id=state.last_request_id,
+                audience="reviewer",
+                task_type="reviewer_summary",
+                claim=state.claim_context,
+                policy=policy,
+                evidence=evidence_items,
+                fraud_assessment=fraud_context,
+                intent="claim_submission",
+                workflow_status=state.current_status.value,
+            )
+            try:
+                response = await self.guidance_client.generate(request)
+                if not isinstance(response, GuidanceResponse):
+                    raise TypeError("Guidance client returned an invalid response")
+            except Exception:
+                logger.exception("Reviewer guidance failed for workflow %s", state.workflow_id)
+                response = build_deterministic_guidance_response(
+                    request,
+                    warning="Reviewer guidance provider failed; deterministic fallback used",
+                )
         except Exception:
-            logger.exception("Reviewer guidance failed for workflow %s", state.workflow_id)
-            response = build_deterministic_guidance_response(
-                request,
-                warning="Reviewer guidance provider failed; deterministic fallback used",
+            logger.exception("Reviewer guidance fallback also failed for workflow %s", state.workflow_id)
+            from backend.app.guidance.schemas import GuidanceResponseData, ReviewerSummarySection
+            response = GuidanceResponse(
+                status="success",
+                response_type="reviewer_summary",
+                data=GuidanceResponseData(
+                    message="Claim review summary awaiting officer inspection.",
+                    next_steps=["A claims officer must inspect the claim and attached documents."],
+                    evidence_used=[],
+                    requires_human_review=True,
+                    insufficient_evidence=False,
+                    automated_decision=False,
+                    reviewer_summary=ReviewerSummarySection(
+                        claim_overview=f"Claim {state.claim_context.claim_reference or state.claim_context.claim_id}",
+                        policy_findings=[],
+                        risk_observations=[],
+                        missing_items=[],
+                        reviewer_action_points=["Claims officer review required"],
+                    ),
+                ),
+                warnings=["Guidance provider failed; basic fallback used"],
+                provider="deterministic_fallback",
             )
         state.reviewer_guidance_result = response.model_dump(mode="json")
 
@@ -1896,6 +1936,7 @@ class OrchestratorService:
                     assessment_id=f"FRA-{uuid5(NAMESPACE_URL, state.workflow_id).hex.upper()}",
                     claim_id=claim.claim_id,
                     risk_score=0.15,
+                    rule_score=0.15,
                     risk_level=RiskLevel.LOW,
                     indicators=[],
                     recommended_action=RecommendedAction.CONTINUE_PROCESSING,
