@@ -13,7 +13,7 @@ const modules = [
     name: "My Claims",
     description: "Review submitted claims and their current progress.",
     accent: "indigo",
-    href: null,
+    href: "/dashboard/claims",
   },
   {
     name: "Policy Support",

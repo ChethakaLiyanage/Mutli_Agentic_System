@@ -9,6 +9,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { AdminLoginPage } from "./pages/AdminLoginPage";
+import { MyClaimsPage } from "./pages/MyClaimsPage";
+import { ClaimDetailPage } from "./pages/ClaimDetailPage";
 
 const PublicOnlyRoute = () => {
   const { user, loading } = useAuth();
@@ -70,6 +72,8 @@ export default function App() {
           <Route element={<NonAdminRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/claim-assistant" element={<ClaimAssistantPage />} />
+            <Route path="/dashboard/claims" element={<MyClaimsPage />} />
+            <Route path="/dashboard/claims/:claimId" element={<ClaimDetailPage />} />
           </Route>
           <Route element={<AdminRoute />}>
             <Route path="/admin-dashboard" element={<AdminDashboard />} />

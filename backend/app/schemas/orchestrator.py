@@ -110,6 +110,7 @@ class OrchestratorResponse(_OrchestratorContract):
     human_review_result: dict[str, Any] | None = None
     guidance_result: dict[str, Any] | None = None
     missing_fields: list[str] = Field(default_factory=list)
+    missing_required_documents: list[str] = Field(default_factory=list)
     requires_clarification: bool = False
     errors: list[OrchestratorError] = Field(default_factory=list)
     audit_trail: list[AuditEvent] = Field(default_factory=list)

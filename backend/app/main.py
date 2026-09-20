@@ -4,7 +4,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.auth import router as auth_router
+from backend.app.api.claims import router as claims_router
+from backend.app.api.documents import router as documents_router
 from backend.app.api.intake import router as intake_router
+from backend.app.api.notifications import router as notifications_router
 from backend.app.api.orchestrator import router as orchestrator_router
 from backend.app.api.reviewer import router as reviewer_router
 
@@ -21,13 +24,16 @@ app.add_middleware(
         "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(intake_router)
 app.include_router(auth_router)
 app.include_router(orchestrator_router)
+app.include_router(documents_router)
+app.include_router(claims_router)
+app.include_router(notifications_router)
 app.include_router(reviewer_router)
 
 

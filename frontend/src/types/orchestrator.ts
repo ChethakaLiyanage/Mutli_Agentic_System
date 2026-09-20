@@ -3,12 +3,17 @@ export type WorkflowStatus =
   | "intake_processing"
   | "awaiting_clarification"
   | "awaiting_documents"
+  | "documents_submitted"
   | "manual_assistance_required"
   | "intake_complete"
   | "information_retrieval"
   | "retrieval_complete"
   | "claim_information_retrieval"
   | "fraud_triage"
+  | "fraud_triage_complete"
+  | "review_summary_generation"
+  | "awaiting_assignment"
+  | "under_human_review"
   | "awaiting_human_review"
   | "guidance_processing"
   | "guidance_generation"
@@ -175,6 +180,7 @@ export interface OrchestratorResponse extends WorkflowResponseBase {
   evidence_summary: CustomerEvidence[];
   message: string | null;
   guidance_result: CustomerGuidanceResult | null;
+  missing_required_documents?: string[];
   errors: OrchestratorError[];
 }
 

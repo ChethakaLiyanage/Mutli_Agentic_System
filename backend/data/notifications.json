@@ -1,0 +1,54 @@
+[
+  {
+    "id": "NOTIF-BACKFILL-01",
+    "user_id": "USR-A79517080A224D748A6C0D128C72B0ED",
+    "workflow_id": "WF-DC3FD2543A2D470F92CE88CE3C646F6F",
+    "claim_id": "CLM-8087C4EDCFD85028A98A47008852EC37",
+    "type": "claim_approved",
+    "title": "Claim Approved",
+    "message": "Your motor insurance claim has been approved by a claims officer.",
+    "is_read": true,
+    "created_at": "2026-09-20T13:21:10.000000+00:00",
+    "read_at": "2026-09-20T14:05:10.640032+00:00",
+    "notification_type": "claim_approved"
+  },
+  {
+    "id": "NOTIF-BACKFILL-02",
+    "user_id": "USR-A79517080A224D748A6C0D128C72B0ED",
+    "workflow_id": "WF-78373CEC8D1643FCAD781E1DCB5B7A5A",
+    "claim_id": "CLM-948E573F6F8050C2A620BD1CFC20854B",
+    "type": "claim_rejected",
+    "title": "Claim Rejected",
+    "message": "Your claim has been reviewed and rejected. Reason: Police report was missing and damage inconsistent.",
+    "is_read": true,
+    "created_at": "2026-09-20T13:17:55.000000+00:00",
+    "read_at": "2026-09-20T14:04:49.442492+00:00",
+    "notification_type": "claim_rejected"
+  },
+  {
+    "id": "NOTIF-E8E291D35AAD478D9B83481D3D192F0A",
+    "user_id": "USR-A79517080A224D748A6C0D128C72B0ED",
+    "workflow_id": "WF-AC84617F8D5445D5AB59FF2DF817CE1E",
+    "claim_id": "CLM-9A1C3B1C3DBB55DFA31471E6D0B226CF",
+    "type": "claim_approved",
+    "notification_type": "claim_approved",
+    "title": "Claim Approved",
+    "message": "Your motor insurance claim has been approved by a claims officer.",
+    "is_read": true,
+    "created_at": "2026-09-20T14:04:15.264194+00:00",
+    "read_at": "2026-09-20T14:09:11.802104+00:00"
+  },
+  {
+    "id": "NOTIF-34BBEF3D87D44B559369FA26965E318E",
+    "user_id": "USR-A79517080A224D748A6C0D128C72B0ED",
+    "workflow_id": "WF-6EB96163E6C848C4B088FC31E2C9D779",
+    "claim_id": "CLM-BBA730177E065868957D804817D712D4",
+    "type": "claim_rejected",
+    "notification_type": "claim_rejected",
+    "title": "Claim Rejected",
+    "message": "Your claim has been reviewed and rejected. Reason: not required documentss",
+    "is_read": true,
+    "created_at": "2026-09-20T14:16:21.603794+00:00",
+    "read_at": "2026-09-20T14:17:03.035995+00:00"
+  }
+]

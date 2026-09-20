@@ -16,10 +16,12 @@ from backend.app.config import get_settings
 from backend.app.orchestrator.claim_repository import (
     InMemoryClaimRepository,
     SupabaseClaimRepository,
+    get_claim_repository,
 )
 from backend.app.fraud.repository import FraudRepository, InMemoryFraudRepository
 from backend.app.orchestrator.agent_clients import LocalRetrievalClient
 from backend.app.orchestrator.service import (
+    InvalidWorkflowTransition,
     OrchestratorService,
     WorkflowAccessDeniedError,
     WorkflowNotFoundError,
@@ -42,13 +44,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
 _workflow_repository = get_application_repositories().workflows
 _settings = get_settings()
+_claim_repository = get_claim_repository()
 if _settings.persistence_backend == "supabase":
     _supabase_client = get_supabase_client(_settings)
-    _claim_repository = SupabaseClaimRepository(_supabase_client)
     _fraud_repository = FraudRepository(_supabase_client)
     _retrieval_client = LocalRetrievalClient()
 else:
-    _claim_repository = InMemoryClaimRepository()
     _fraud_repository = InMemoryFraudRepository()
     _retrieval_client = None
 _orchestrator_service = OrchestratorService(
@@ -203,3 +204,45 @@ async def clarify_orchestrator_workflow(
         response.status.value,
     )
     return response
+
+
+@router.post(
+    "/workflows/{workflow_id}/submit-claim",
+    response_model=OrchestratorResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Submit claim documents for fraud triage and review",
+    description=(
+        "Validate customer documents, run Agent 3 fraud triage, generate internal review summary, and transition to awaiting_assignment."
+    ),
+)
+async def submit_claim(
+    workflow_id: str,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_customer)],
+    service: OrchestratorService = Depends(get_orchestrator_service),
+) -> OrchestratorResponse:
+    logger.info("Workflow %s submit-claim received for customer %s", workflow_id, current_user.user_id)
+    try:
+        response = await service.submit_claim(
+            workflow_id,
+            authenticated_user_id=current_user.user_id,
+        )
+        return response
+    except WorkflowNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Workflow not found") from error
+    except WorkflowAccessDeniedError as error:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You are not authorized to access this workflow",
+        ) from error
+    except InvalidWorkflowTransition as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            str(error),
+        ) from error
+    except Exception as error:
+        logger.exception("Submit claim failed for workflow %s", workflow_id)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Claim submission failed",
+        ) from error
+

@@ -21,12 +21,14 @@ from backend.app.review.service import (
 from backend.app.schemas.auth import AuthenticatedUser
 from backend.app.schemas.domain import IncidentType, RiskLevel
 from backend.app.schemas.review import (
+    ClaimAssignmentRequest,
+    ClaimAssignmentResponse,
     HumanDecisionRequest,
     HumanDecisionResponse,
     ReviewDetailResponse,
     ReviewQueueResponse,
 )
-from backend.app.security.dependencies import get_current_reviewer
+from backend.app.security.dependencies import get_current_admin, get_current_reviewer
 from backend.app.services.persistence import get_application_repositories
 from backend.app.services.supabase_service import get_supabase_client
 
@@ -84,6 +86,27 @@ async def get_review_detail(
     except ReviewRepositoryError as error:
         logger.exception("Review detail repository failed")
         raise HTTPException(500, "Review detail is temporarily unavailable") from error
+
+
+@router.post(
+    "/workflows/{workflow_id}/assign",
+    response_model=ClaimAssignmentResponse,
+)
+async def assign_claim(
+    workflow_id: str,
+    request: ClaimAssignmentRequest,
+    admin: Annotated[AuthenticatedUser, Depends(get_current_admin)],
+    service: Annotated[HumanReviewService, Depends(get_review_service)],
+) -> ClaimAssignmentResponse:
+    try:
+        return await service.assign_claim(workflow_id, request, admin)
+    except ReviewWorkflowNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Workflow not found") from error
+    except ReviewWorkflowConflictError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
+    except ReviewRepositoryError as error:
+        logger.exception("Claim assignment repository failed")
+        raise HTTPException(500, "Claim assignment could not be stored") from error
 
 
 @router.post(

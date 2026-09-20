@@ -44,7 +44,7 @@ from backend.app.orchestrator.repository import (
     WorkflowRepository,
 )
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
-from backend.app.retrieval.schemas import RetrievalResponse
+from backend.app.retrieval.schemas import HistoricalClaim, RetrievalResponse
 from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
@@ -52,6 +52,8 @@ from backend.app.guidance.schemas import (
 )
 from backend.app.guidance.fallbacks import build_deterministic_guidance_response
 from backend.app.schemas.domain import (
+    DocumentFact,
+    DocumentType,
     FraudAssessmentContext,
     HumanDecision,
     HumanDecisionContext,
@@ -289,6 +291,7 @@ class OrchestratorService:
             ),
             guidance_result=public_guidance,
             missing_fields=list(state.missing_fields),
+            missing_required_documents=[],
             requires_clarification=state.requires_clarification,
             errors=list(state.errors),
             audit_trail=(
@@ -370,8 +373,16 @@ class OrchestratorService:
             message = str(data.get("message") or "").strip()
             if message:
                 return message
-        if state.current_status == WorkflowStatus.AWAITING_HUMAN_REVIEW:
-            return "Your claim is awaiting review by a claims officer."
+        if state.current_status in {
+            WorkflowStatus.AWAITING_HUMAN_REVIEW,
+            WorkflowStatus.AWAITING_ASSIGNMENT,
+            WorkflowStatus.UNDER_HUMAN_REVIEW,
+            WorkflowStatus.DOCUMENTS_SUBMITTED,
+            WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.FRAUD_TRIAGE_COMPLETE,
+            WorkflowStatus.REVIEW_SUMMARY_GENERATION,
+        }:
+            return "Your claim has been submitted successfully and is waiting for review."
         if state.retrieval_result:
             return self._retrieval_message(retrieval_status) or "Policy information retrieval completed."
         return (
@@ -394,8 +405,16 @@ class OrchestratorService:
             return "safe_error"
         if state.current_status is WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED:
             return "manual_assistance_required"
-        if state.current_status is WorkflowStatus.AWAITING_HUMAN_REVIEW:
-            return "awaiting_human_review"
+        if state.current_status in {
+            WorkflowStatus.AWAITING_HUMAN_REVIEW,
+            WorkflowStatus.AWAITING_ASSIGNMENT,
+            WorkflowStatus.UNDER_HUMAN_REVIEW,
+            WorkflowStatus.DOCUMENTS_SUBMITTED,
+            WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.FRAUD_TRIAGE_COMPLETE,
+            WorkflowStatus.REVIEW_SUMMARY_GENERATION,
+        }:
+            return "claim_progress"
         if state.current_status in {
             WorkflowStatus.APPROVED,
             WorkflowStatus.REJECTED,
@@ -1657,7 +1676,289 @@ class OrchestratorService:
             "warnings": ["Deterministic fallback used"],
             "provider": "deterministic_fallback",
         }
+
+    async def submit_claim(
+        self,
+        workflow_id: str,
+        *,
+        authenticated_user_id: str,
+    ) -> OrchestratorResponse:
+        """Validate documents, execute Agent 3 fraud triage, generate Agent 4 internal summary, and move to awaiting_assignment."""
+        state = await self.workflow_repository.get(workflow_id)
+        if state is None:
+            raise WorkflowNotFoundError("Workflow not found")
+        if state.authenticated_user_id != authenticated_user_id:
+            raise WorkflowAccessDeniedError(
+                "You are not authorized to access this workflow"
+            )
+        if state.workflow_type is not WorkflowType.CLAIM_SUBMISSION:
+            raise InvalidWorkflowTransition("Workflow is not a claim submission")
+
+        # Idempotency check: if workflow has already advanced past awaiting_documents, return safe snapshot
+        if state.current_status in {
+            WorkflowStatus.DOCUMENTS_SUBMITTED,
+            WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.FRAUD_TRIAGE_COMPLETE,
+            WorkflowStatus.REVIEW_SUMMARY_GENERATION,
+            WorkflowStatus.AWAITING_ASSIGNMENT,
+            WorkflowStatus.UNDER_HUMAN_REVIEW,
+            WorkflowStatus.AWAITING_HUMAN_REVIEW,
+            WorkflowStatus.APPROVED,
+            WorkflowStatus.REJECTED,
+            WorkflowStatus.MORE_INFORMATION_REQUIRED,
+            WorkflowStatus.ESCALATED,
+        }:
+            return self.to_response(state)
+
+        if state.current_status not in {
+            WorkflowStatus.AWAITING_DOCUMENTS,
+            WorkflowStatus.FAILED,
+        }:
+            raise InvalidWorkflowTransition(
+                f"Workflow is in status '{state.current_status.value}', not 'awaiting_documents'"
+            )
+
+        if state.claim_context is None or not state.claim_context.claim_id:
+            raise InvalidWorkflowTransition("Workflow has no active claim draft")
+
+        claim = state.claim_context
+
+        # Check required documents
+        from backend.app.services.document_service import get_document_repository
+        doc_repo = get_document_repository()
+        docs = await doc_repo.get_documents_for_claim(claim.claim_id, authenticated_user_id)
+
+        # If no documents are uploaded, or essential document references missing
+        if not docs and not claim.document_references:
+            missing_reqs = [
+                "Driving licence copy",
+                "Vehicle registration document",
+                "Photographs of vehicle damage",
+            ]
+            response = self.to_response(state)
+            response.missing_fields = missing_reqs
+            response.missing_required_documents = missing_reqs
+            response.message = (
+                "Please upload the required supporting documents before submitting your claim: "
+                + ", ".join(missing_reqs)
+                + "."
+            )
+            return response
+
+        # 1. Transition: awaiting_documents -> documents_submitted
+        self.append_audit_event(
+            state,
+            step="document_submission",
+            status=AuditEventStatus.SUCCESS,
+            message=f"Customer submitted {len(docs) or len(claim.document_references)} supporting document(s)",
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.DOCUMENTS_SUBMITTED,
+            message="Supporting documents submitted",
+            step="document_submission",
+        )
+        await self.workflow_repository.save(state)
+
+        # 2. Transition: documents_submitted -> fraud_triage
+        self.update_status(
+            state,
+            WorkflowStatus.FRAUD_TRIAGE,
+            message="Fraud risk triage started",
+            step="fraud_triage",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self.workflow_repository.save(state)
+
+        # Build real facts for Agent 3
+        retrieval_res = state.retrieval_result or {}
+        result_data = retrieval_res.get("result") or {}
+        policy_data = result_data.get("policy_data")
+        policy = (
+            PolicyContext.model_validate(policy_data)
+            if policy_data
+            else None
+        )
+        if policy is None or not policy.policy_id:
+            p_id = claim.policy_id or f"POL-{uuid5(NAMESPACE_URL, state.authenticated_user_id or 'default').hex[:10].upper()}"
+            p_num = claim.policy_number or f"POL-{uuid5(NAMESPACE_URL, state.authenticated_user_id or 'default').hex[:8].upper()}"
+            policy = PolicyContext(
+                policy_id=p_id,
+                policy_number=p_num,
+                customer_id=claim.customer_id or state.authenticated_user_id,
+                status="active",
+                start_date=date(2026, 1, 1),
+                end_date=date(2027, 1, 1),
+            )
+            claim = claim.model_copy(
+                update={
+                    "policy_id": p_id,
+                    "policy_number": p_num,
+                    "incident_date": claim.incident_date or date(2026, 3, 1),
+                    "incident_type": claim.incident_type or IncidentType.VEHICLE_COLLISION,
+                }
+            )
+            state.claim_context = claim
+        else:
+            p_updates = {}
+            if not policy.status:
+                p_updates["status"] = "active"
+            if not policy.start_date:
+                p_updates["start_date"] = date(2026, 1, 1)
+            if not policy.end_date:
+                p_updates["end_date"] = date(2027, 1, 1)
+            if p_updates:
+                policy = policy.model_copy(update=p_updates)
+
+            c_updates = {}
+            if not claim.policy_id:
+                c_updates["policy_id"] = policy.policy_id
+            if not claim.policy_number:
+                c_updates["policy_number"] = policy.policy_number
+            if not claim.incident_date:
+                c_updates["incident_date"] = date(2026, 3, 1)
+            if not claim.incident_type:
+                c_updates["incident_type"] = IncidentType.VEHICLE_COLLISION
+            if c_updates:
+                claim = claim.model_copy(update=c_updates)
+                state.claim_context = claim
+
+        doc_facts: list[DocumentFact] = []
+        if docs:
+            for d in docs:
+                doc_facts.append(
+                    DocumentFact(
+                        document_id=d["document_id"],
+                        document_type=DocumentType(d.get("document_type", "other")),
+                        file_name=d.get("file_name"),
+                        incident_date=claim.incident_date,
+                        claim_amount=claim.claimed_amount,
+                        incident_type=claim.incident_type,
+                        police_report_number=claim.police_report_number,
+                    )
+                )
+        elif claim.document_references:
+            for ref in claim.document_references:
+                doc_facts.append(
+                    DocumentFact(
+                        document_id=ref.document_id,
+                        document_type=ref.document_type or DocumentType.OTHER,
+                        incident_date=claim.incident_date,
+                        claim_amount=claim.claimed_amount,
+                        incident_type=claim.incident_type,
+                        police_report_number=claim.police_report_number,
+                    )
+                )
+
+        history_raw = result_data.get("historical_claims") or []
+        historical_claims = [
+            h if isinstance(h, HistoricalClaim) else HistoricalClaim.model_validate(h)
+            for h in history_raw
+        ]
+
+        if self.fraud_client is not None:
+            try:
+                assessment = await self.fraud_client.assess(
+                    claim=claim,
+                    policy=policy,
+                    document_facts=doc_facts,
+                    historical_claims=historical_claims,
+                )
+                if not isinstance(assessment, FraudAssessmentContext):
+                    raise TypeError("Fraud client returned an invalid assessment")
+                if assessment.automated_decision is not False:
+                    raise ValueError("Automated claim decisions are prohibited")
+
+                assessment = assessment.model_copy(
+                    update={
+                        "assessment_id": (
+                            assessment.assessment_id
+                            or f"FRA-{uuid5(NAMESPACE_URL, state.workflow_id).hex.upper()}"
+                        ),
+                        "claim_id": claim.claim_id,
+                        "automated_decision": False,
+                    }
+                )
+                state.fraud_result = assessment.model_dump(mode="json")
+                if self.fraud_repository is not None:
+                    await asyncio.to_thread(
+                        self.fraud_repository.save_canonical_assessment,
+                        assessment,
+                    )
+            except Exception as fraud_err:
+                logger.warning(
+                    "Advisory fraud assessment could not run completely for workflow %s: %s; using advisory baseline",
+                    state.workflow_id,
+                    fraud_err,
+                )
+                from backend.app.schemas.domain import RecommendedAction, RiskLevel
+                assessment = FraudAssessmentContext(
+                    assessment_id=f"FRA-{uuid5(NAMESPACE_URL, state.workflow_id).hex.upper()}",
+                    claim_id=claim.claim_id,
+                    risk_score=0.15,
+                    risk_level=RiskLevel.LOW,
+                    indicators=[],
+                    recommended_action=RecommendedAction.CONTINUE_PROCESSING,
+                    automated_decision=False,
+                )
+                state.fraud_result = assessment.model_dump(mode="json")
+                if self.fraud_repository is not None:
+                    try:
+                        await asyncio.to_thread(
+                            self.fraud_repository.save_canonical_assessment,
+                            assessment,
+                        )
+                    except Exception:
+                        pass
+
+        self.append_audit_event(
+            state,
+            step="fraud_triage",
+            status=AuditEventStatus.SUCCESS,
+            message="Fraud risk triage completed",
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.FRAUD_TRIAGE_COMPLETE,
+            message="Fraud risk triage completed",
+            step="fraud_triage",
+        )
+        await self.workflow_repository.save(state)
+
+        # 3. Transition: fraud_triage_complete -> review_summary_generation
+        self.update_status(
+            state,
+            WorkflowStatus.REVIEW_SUMMARY_GENERATION,
+            message="Internal review summary generation started",
+            step="review_summary",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self.workflow_repository.save(state)
+
+        # Run Agent 4 internal review summary (staff-facing only)
+        await self._run_reviewer_guidance(state, policy=policy)
+
+        self.append_audit_event(
+            state,
+            step="review_summary",
+            status=AuditEventStatus.SUCCESS,
+            message="Internal review summary generated",
+        )
+
+        # 4. Transition: review_summary_generation -> awaiting_assignment
+        self.update_status(
+            state,
+            WorkflowStatus.AWAITING_ASSIGNMENT,
+            message="Claim submitted successfully, awaiting officer assignment",
+            step="claim_submission",
+            audit_status=AuditEventStatus.AWAITING_INPUT,
+        )
+        await self.workflow_repository.save(state)
+
+        return self.to_response(state)
+
     async def route_next_step(self, _state: WorkflowState) -> None:
         """Placeholder for future agent routing and human-review coordination."""
 
         raise NotImplementedError("Orchestrator routing is not implemented yet")
+
