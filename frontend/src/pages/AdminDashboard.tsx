@@ -811,7 +811,12 @@ function Claims({
                         {reviewDetail.fraud_assessment.indicators.map((ind, i) => (
                           <li key={i} className="flex items-center gap-1.5">
                             <span className="text-[#bd3e2b]">•</span>
-                            <span>{ind.description || ind.rule_name || ""}</span>
+                            <span>
+                              {ind.title || ind.rule_name || ind.description || "Risk indicator"}
+                              {ind.explanation && (
+                                <span className="text-[#8b9a9f]">: {ind.explanation}</span>
+                              )}
+                            </span>
                           </li>
                         ))}
                       </ul>
