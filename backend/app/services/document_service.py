@@ -48,8 +48,24 @@ DOCUMENT_TYPE_MAP = {
 def normalize_document_type(raw_type: str | None) -> DocumentType:
     if not raw_type:
         return DocumentType.OTHER
-    cleaned = raw_type.strip().lower().replace("-", "_").replace(" ", "_")
-    return DOCUMENT_TYPE_MAP.get(cleaned, DocumentType.OTHER)
+    cleaned = Path(raw_type).stem.strip().lower().replace("-", "_").replace(" ", "_")
+    normalized = DOCUMENT_TYPE_MAP.get(cleaned)
+    if normalized is not None:
+        return normalized
+
+    filename_hints = (
+        ("repair_estimate", DocumentType.REPAIR_ESTIMATE),
+        ("vehicle_registration", DocumentType.VEHICLE_REGISTRATION),
+        ("damage_photo", DocumentType.DAMAGE_PHOTO),
+        ("damage_photos", DocumentType.DAMAGE_PHOTO),
+        ("police_report", DocumentType.POLICE_REPORT),
+        ("driving_licence", DocumentType.IDENTITY_DOCUMENT),
+        ("driving_license", DocumentType.IDENTITY_DOCUMENT),
+    )
+    return next(
+        (document_type for hint, document_type in filename_hints if hint in cleaned),
+        DocumentType.OTHER,
+    )
 
 
 def sanitize_filename(filename: str) -> str:
@@ -165,7 +181,7 @@ class DocumentService:
         if len(content) == 0:
             raise ValueError("Uploaded file is empty")
 
-        doc_type = normalize_document_type(document_type_str)
+        doc_type = normalize_document_type(document_type_str or original_name)
         doc_id = f"DOC-{uuid4().hex.upper()}"
         storage_ref = f"claims/{claim_id}/{doc_id}_{sanitized_name}"
 

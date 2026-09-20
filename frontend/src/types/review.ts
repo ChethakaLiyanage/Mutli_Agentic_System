@@ -105,9 +105,14 @@ export interface PolicyContextDetails {
 }
 
 export interface FraudIndicatorDetails {
+  rule_id?: string;
+  severity?: string;
+  weight?: number;
+  title?: string;
+  explanation?: string;
   rule_name?: string;
   description?: string;
-  severity?: string;
+  evidence?: Record<string, unknown>;
 }
 
 export interface FraudAssessmentDetails {
