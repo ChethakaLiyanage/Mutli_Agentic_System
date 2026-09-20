@@ -11,11 +11,20 @@ from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-ENV_FILE_PATH = PROJECT_ROOT / ".env"
+ENV_FILE_PATHS = (
+    PROJECT_ROOT / ".env",
+    PROJECT_ROOT / "backend" / ".env",
+)
+ENV_FILE_PATH = next(
+    (path for path in ENV_FILE_PATHS if path.exists()),
+    ENV_FILE_PATHS[0],
+)
 
-# Resolve the backend environment from the repository root instead of relying on
-# the process working directory. Existing operating-system variables still win.
-load_dotenv(dotenv_path=ENV_FILE_PATH, override=False)
+# Resolve the backend environment from the repository or backend directory
+# instead of relying on the process working directory. Existing operating-system
+# variables still win.
+for env_file_path in ENV_FILE_PATHS:
+    load_dotenv(dotenv_path=env_file_path, override=False)
 
 _DEVELOPMENT_JWT_SECRET = (
     "development-only-jwt-secret-change-before-production-32-chars"

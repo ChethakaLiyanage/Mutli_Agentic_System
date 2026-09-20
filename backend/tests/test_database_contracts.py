@@ -143,7 +143,8 @@ def test_workflow_row_serialization_matches_schema_contract():
             "authenticated_user_id", "authenticated_user_role", "intake_result",
             "claim_context",
         "retrieval_result", "fraud_result", "human_review_result",
-        "guidance_result", "workflow_type", "current_status", "missing_fields",
+            "guidance_result", "reviewer_guidance_result", "workflow_type",
+            "current_status", "missing_fields",
         "requires_clarification", "errors", "audit_trail", "created_at",
         "updated_at",
     }

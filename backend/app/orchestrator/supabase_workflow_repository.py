@@ -108,6 +108,7 @@ class SupabaseWorkflowRepository:
             "fraud_result": data["fraud_result"],
             "human_review_result": data["human_review_result"],
             "guidance_result": data["guidance_result"],
+            "reviewer_guidance_result": data["reviewer_guidance_result"],
             "workflow_type": data["workflow_type"],
             "current_status": data["current_status"],
             "missing_fields": data["missing_fields"],

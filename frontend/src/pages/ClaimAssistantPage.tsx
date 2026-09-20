@@ -383,18 +383,43 @@ export const ClaimAssistantPage = () => {
 
           <form className="message-composer" onSubmit={submitMessage}>
             <label htmlFor="claim-message">Your message</label>
-            <textarea
-              ref={messageInputRef}
-              id="claim-message"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              minLength={2}
-              maxLength={MAX_MESSAGE_LENGTH}
-              rows={3}
-              placeholder={canClarify ? "Add the missing details…" : "Describe your claim or policy question…"}
-              disabled={!canSend}
-            />
+            <div className="composer-input-row">
+              <textarea
+                ref={messageInputRef}
+                id="claim-message"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={handleKeyDown}
+                minLength={2}
+                maxLength={MAX_MESSAGE_LENGTH}
+                rows={3}
+                placeholder={canClarify ? "Add the missing details…" : "Describe your claim or policy question…"}
+                disabled={!canSend}
+              />
+              <button
+                className="attachment-button"
+                type="button"
+                aria-label="Attach documents"
+                title="Attach documents"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!canSend}
+              >
+                <span aria-hidden="true">+</span>
+              </button>
+            </div>
+            {uploadedFiles.length > 0 && (
+              <div className="composer-attachments" aria-live="polite">
+                <span className="composer-attachments-label">Attached documents</span>
+                <div className="uploaded-file-chips">
+                  {uploadedFiles.map((file, index) => (
+                    <span key={`${file.name}-${index}`} className="uploaded-file-chip">
+                      <span aria-hidden="true">📄</span> {file.name} ({file.size})
+                      <span className="file-check" aria-label="Attached">✓</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="composer-footer">
               <span>{input.length} / {MAX_MESSAGE_LENGTH}</span>
               <span>Enter to send · Shift+Enter for a new line</span>

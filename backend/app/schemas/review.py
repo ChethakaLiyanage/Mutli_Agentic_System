@@ -58,6 +58,7 @@ class ReviewQueueItem(_ReviewContract):
     recommended_action: str | None = None
     risk_indicator_count: int = 0
     missing_documents: list[str] = Field(default_factory=list)
+    reviewer_summary: dict[str, Any] | None = None
 
 
 class ReviewQueueResponse(_ReviewContract):
@@ -74,6 +75,7 @@ class ReviewDetailResponse(_ReviewContract):
     policy: PolicyContext | None = None
     retrieval_context: dict[str, Any] | None = None
     fraud_assessment: FraudAssessmentContext
+    reviewer_guidance_result: dict[str, Any] | None = None
     audit_timeline: list[AuditEvent] = Field(default_factory=list)
     human_decision: HumanDecisionContext | None = None
 

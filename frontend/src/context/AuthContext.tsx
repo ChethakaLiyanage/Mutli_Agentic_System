@@ -72,8 +72,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(response.access_token);
 
       try {
-        setUser(await getCurrentUser());
-        navigate("/dashboard", { replace: true });
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+        navigate(
+          currentUser.role === "admin" ? "/admin-dashboard" : "/dashboard",
+          {
+          replace: true,
+          },
+        );
       } catch (error) {
         clearSession();
         throw error;

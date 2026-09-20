@@ -101,6 +101,9 @@ export const LoginPage = () => {
         <p className="auth-switch">
           New to the portal? <Link to="/register">Create an account</Link>
         </p>
+        <p className="auth-switch">
+          Staff member? <Link to="/admin-login">Admin sign in</Link>
+        </p>
       </section>
     </main>
   );

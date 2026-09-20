@@ -28,6 +28,7 @@ create table if not exists public.workflows (
     fraud_result jsonb,
     human_review_result jsonb,
     guidance_result jsonb,
+    reviewer_guidance_result jsonb,
     workflow_type text not null check (workflow_type in (
         'information_request', 'claim_submission', 'claim_status', 'clarification', 'unknown'
     )),
