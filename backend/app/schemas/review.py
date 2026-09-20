@@ -57,7 +57,9 @@ class ReviewQueueItem(_ReviewContract):
     risk_score: float | None = Field(default=None, ge=0, le=1)
     recommended_action: str | None = None
     risk_indicator_count: int = 0
-    missing_documents: list[str] = Field(default_factory=list)
+    status: str | None = None
+    assigned_to: str | None = None
+    assigned_at: datetime | None = None
     reviewer_summary: dict[str, Any] | None = None
 
 
@@ -78,6 +80,9 @@ class ReviewDetailResponse(_ReviewContract):
     reviewer_guidance_result: dict[str, Any] | None = None
     audit_timeline: list[AuditEvent] = Field(default_factory=list)
     human_decision: HumanDecisionContext | None = None
+    documents: list[dict[str, Any]] = Field(default_factory=list)
+    assigned_to: str | None = None
+    assigned_at: datetime | None = None
 
 
 class HumanDecisionResponse(_ReviewContract):
@@ -86,3 +91,19 @@ class HumanDecisionResponse(_ReviewContract):
     status: WorkflowStatus
     decision: HumanDecisionContext
     message: str
+
+
+class ClaimAssignmentRequest(_ReviewContract):
+    assigned_to: str = Field(min_length=1)
+
+
+class ClaimAssignmentResponse(_ReviewContract):
+    assignment_id: str
+    workflow_id: str
+    claim_id: str
+    assigned_to: str
+    assigned_by: str
+    assigned_at: datetime
+    status: WorkflowStatus
+    message: str
+

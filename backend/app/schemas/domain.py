@@ -124,6 +124,7 @@ class ClaimContext(_DomainContract):
 
     claim_id: str | None = None
     claim_reference: str | None = None
+    workflow_id: str | None = None
     customer_id: str | None = None
     policy_id: str | None = None
     policy_number: str | None = None

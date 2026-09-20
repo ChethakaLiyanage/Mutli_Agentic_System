@@ -89,9 +89,8 @@ def _clarification_message(request: GuidanceRequest) -> str:
 def _claim_progress_message(request: GuidanceRequest) -> str:
     status = request.workflow_status
     location = request.known_fields.get("location")
-    if status == "awaiting_human_review":
-        prefix = f"Thanks, I've recorded {location} as the incident location. " if location else ""
-        return prefix + "Your claim is now waiting for review by a claims officer."
+    if status in {"awaiting_human_review", "awaiting_assignment", "under_human_review", "documents_submitted", "fraud_triage_complete", "review_summary_generation"}:
+        return "Your claim has been submitted successfully and is waiting for review."
     if status == "manual_assistance_required":
         if request.safe_customer_context.get("policy_link_required"):
             return (
@@ -133,6 +132,37 @@ def _decision_message(request: GuidanceRequest) -> str:
     )
 
 
+def _reviewer_summary_message(request: GuidanceRequest) -> str:
+    claim = request.claim_data or {}
+    incident = claim.get("incident_type") or "Not specified"
+    date_val = claim.get("incident_date") or "Not specified"
+    loc = claim.get("incident_location") or "Not specified"
+    desc = claim.get("incident_description") or ""
+    damage = claim.get("damage_areas") or []
+    damage_str = ", ".join(damage) if damage else "Not specified"
+
+    fraud = request.fraud_assessment
+    risk_level = (fraud.risk_level if hasattr(fraud, "risk_level") else "Unknown") if fraud else "Unknown"
+    if hasattr(risk_level, "value"):
+        risk_level = risk_level.value
+    indicators = [ind.title for ind in (fraud.indicators if fraud else [])]
+    ind_str = ", ".join(indicators) if indicators else "None"
+
+    return (
+        "Claim Review Summary\n\n"
+        f"Incident:\nCustomer reported {incident} on {date_val} in {loc}.\n"
+        + (f"Description: {desc}\n" if desc else "")
+        + f"\nReported Damage:\n- {damage_str}\n\n"
+        "Fraud Triage:\n"
+        f"Automated fraud triage classified the case as {risk_level} risk.\n"
+        f"Relevant indicators: {ind_str}\n\n"
+        "Important:\n"
+        "This assessment is advisory only. No automated claim decision has been made.\n\n"
+        "Human Action:\n"
+        "A claims officer must review the claim and make the final decision."
+    )
+
+
 def build_deterministic_guidance_response(
     request: GuidanceRequest,
     *,
@@ -162,8 +192,18 @@ def build_deterministic_guidance_response(
         message = _claim_progress_message(request)
     elif request.task_type == "manual_assistance_required":
         message = _claim_progress_message(request)
-    elif request.task_type in {"final_decision_explanation", "human_decision"}:
+    elif request.task_type in {
+        "final_decision_explanation",
+        "final_claim_decision",
+        "human_decision",
+    }:
         message = _decision_message(request)
+    elif request.task_type in {
+        "reviewer_summary",
+        "internal_claim_review_summary",
+    }:
+        message = _reviewer_summary_message(request)
+
     elif request.task_type == "safe_error":
         message = "I'm sorry, I couldn't continue this request safely. Please try again."
     elif request.task_type == "insufficient_evidence":
@@ -293,6 +333,24 @@ def build_deterministic_guidance_response(
             "claim_submission_start", "information_answer",
         }
     )
+    summary_sec = None
+    if request.task_type in {"reviewer_summary", "internal_claim_review_summary"}:
+        claim = request.claim_data or {}
+        incident = claim.get("incident_type") or "Not specified"
+        date_val = claim.get("incident_date") or "Not specified"
+        fraud = request.fraud_assessment
+        obs = [ind.title for ind in (fraud.indicators if fraud else [])]
+        summary_sec = ReviewerSummarySection(
+            claim_overview=f"Reported {incident} on {date_val}",
+            policy_findings=[],
+            risk_observations=obs,
+            missing_items=[
+                item.value if hasattr(item, "value") else str(item)
+                for item in (fraud.missing_documents if fraud else [])
+            ],
+            reviewer_action_points=["Claims officer review required"],
+        )
+
     return GuidanceResponse(
         status=(
             "insufficient_evidence"
@@ -305,7 +363,7 @@ def build_deterministic_guidance_response(
             next_steps=[],
             evidence_used=[],
             requires_human_review=(
-                request.workflow_status == "awaiting_human_review"
+                request.workflow_status in {"awaiting_human_review", "under_human_review", "awaiting_assignment"}
                 or (
                     request.human_decision is not None
                     and request.human_decision.decision == "escalated"
@@ -314,7 +372,9 @@ def build_deterministic_guidance_response(
             insufficient_evidence=(request.task_type == "insufficient_evidence"),
             automated_decision=False,
             grounded=grounded,
+            reviewer_summary=summary_sec,
         ),
         warnings=[warning] if warning else [],
         provider="deterministic_fallback",
     )
+

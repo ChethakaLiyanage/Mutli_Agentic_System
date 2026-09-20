@@ -50,6 +50,8 @@ interface CustomerWorkflowResultProps {
   refreshing: boolean;
   onRefresh: () => void;
   onUploadClick?: () => void;
+  onSubmitClaim?: () => void;
+  submitting?: boolean;
 }
 
 export const CustomerWorkflowResult = ({
@@ -57,6 +59,8 @@ export const CustomerWorkflowResult = ({
   refreshing,
   onRefresh,
   onUploadClick,
+  onSubmitClaim,
+  submitting,
 }: CustomerWorkflowResultProps) => {
   const headingSuffix = workflow.workflow_id.replace(/[^a-zA-Z0-9_-]/g, "-");
   const resultHeadingId = `customer-result-heading-${headingSuffix}`;
@@ -84,39 +88,105 @@ export const CustomerWorkflowResult = ({
         <p className="eyebrow">Claim draft created</p>
         <h2>Supporting documents required</h2>
         {responseMessage && <p style={{ whiteSpace: "pre-line" }}>{responseMessage}</p>}
-        {isEligibleClaim && onUploadClick && (
-          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
-            <button
-              className="upload-docs-btn"
-              type="button"
-              onClick={onUploadClick}
-            >
-              <span className="upload-icon">📤</span>
-              Upload Documents
-            </button>
+        {workflow.missing_required_documents && workflow.missing_required_documents.length > 0 && (
+          <div style={{ backgroundColor: "#fff5df", border: "1px solid #fae1a0", padding: "10px 14px", borderRadius: "8px", margin: "1rem 0", color: "#a66800", fontSize: "13px" }}>
+            <strong>Missing required documents:</strong>
+            <ul style={{ margin: "6px 0 0 16px", padding: 0 }}>
+              {workflow.missing_required_documents.map((doc) => (
+                <li key={doc}>{doc.replace(/_/g, " ")}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {isEligibleClaim && (
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+            {onUploadClick && (
+              <button
+                className="upload-docs-btn"
+                type="button"
+                onClick={onUploadClick}
+              >
+                <span className="upload-icon">📤</span>
+                Attach Documents
+              </button>
+            )}
+            {onSubmitClaim && (
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={onSubmitClaim}
+                disabled={submitting}
+              >
+                {submitting ? "Submitting Claim…" : "Submit Claim"}
+              </button>
+            )}
           </div>
         )}
       </section>
     );
   }
 
-  if (workflow.status === "awaiting_human_review") {
+  if (
+    workflow.status === "documents_submitted" ||
+    workflow.status === "fraud_triage" ||
+    workflow.status === "fraud_triage_complete" ||
+    workflow.status === "review_summary_generation" ||
+    workflow.status === "awaiting_assignment"
+  ) {
     return (
       <section className="customer-result customer-result-review" aria-live="polite">
         <p className="eyebrow">Claim submitted</p>
-        <h2>Your claim is awaiting human review</h2>
-        {responseMessage && <p>{responseMessage}</p>}
-        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
-          {onUploadClick && (
-            <button
-              className="upload-docs-btn"
-              type="button"
-              onClick={onUploadClick}
-            >
-              <span className="upload-icon">📤</span>
-              Upload Documents
-            </button>
-          )}
+        <h2>Claim queued for assignment</h2>
+        <p>{responseMessage || "Your claim has been submitted successfully and is queued for assignment to a claims officer."}</p>
+        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+          <a
+            href="/dashboard/claims"
+            style={{
+              backgroundColor: "#123c42",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontWeight: "600",
+              fontSize: "13px",
+            }}
+          >
+            View in My Claims →
+          </a>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? "Checking status…" : "Check status"}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (workflow.status === "under_human_review" || workflow.status === "awaiting_human_review") {
+    return (
+      <section className="customer-result customer-result-review" aria-live="polite">
+        <p className="eyebrow">Review in progress</p>
+        <h2>Your claim is under human review</h2>
+        <p>{responseMessage || "Your claim has been assigned to a claims officer and is currently under review."}</p>
+        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+          <a
+            href="/dashboard/claims"
+            style={{
+              backgroundColor: "#123c42",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontWeight: "600",
+              fontSize: "13px",
+            }}
+          >
+            View in My Claims →
+          </a>
           <button
             className="button button-primary"
             type="button"

@@ -36,8 +36,10 @@ create table if not exists public.workflows (
         'received', 'intake_processing', 'intake_complete', 'awaiting_clarification',
         'manual_assistance_required', 'information_retrieval',
         'claim_information_retrieval', 'fraud_triage',
-        'retrieval_complete', 'awaiting_documents', 'awaiting_human_review', 'guidance_processing',
-        'guidance_generation',
+        'retrieval_complete', 'awaiting_documents', 'documents_submitted',
+        'fraud_triage_complete', 'review_summary_generation',
+        'awaiting_assignment', 'under_human_review', 'awaiting_human_review',
+        'guidance_processing', 'guidance_generation',
         'approved', 'rejected', 'more_information_required', 'escalated',
         'completed', 'failed'
     )),
@@ -163,6 +165,29 @@ create table if not exists public.human_decisions (
     check (workflow_id is not null or claim_id is not null)
 );
 
+create table if not exists public.claim_assignments (
+    assignment_id text primary key default gen_random_uuid()::text,
+    claim_id text not null references public.claims(claim_id),
+    workflow_id text not null references public.workflows(workflow_id),
+    assigned_to text not null references public.users(user_id),
+    assigned_by text not null references public.users(user_id),
+    assigned_at timestamptz not null default now()
+);
+
+create table if not exists public.notifications (
+    id text primary key default gen_random_uuid()::text,
+    user_id text not null references public.users(user_id),
+    workflow_id text references public.workflows(workflow_id),
+    claim_id text references public.claims(claim_id),
+    type text not null,
+    title text not null,
+    message text not null,
+    is_read boolean not null default false,
+    created_at timestamptz not null default now(),
+    read_at timestamptz
+);
+
+
 create index if not exists idx_workflows_authenticated_user_id on public.workflows(authenticated_user_id);
 create index if not exists idx_workflows_current_status on public.workflows(current_status);
 create index if not exists idx_workflows_created_at on public.workflows(created_at);
@@ -185,6 +210,13 @@ create index if not exists idx_human_decisions_claim_id on public.human_decision
 create index if not exists idx_human_decisions_reviewer_id on public.human_decisions(reviewer_id);
 create unique index if not exists uq_human_decisions_workflow_id
 on public.human_decisions(workflow_id) where workflow_id is not null;
+create index if not exists idx_claim_assignments_claim_id on public.claim_assignments(claim_id);
+create index if not exists idx_claim_assignments_workflow_id on public.claim_assignments(workflow_id);
+create index if not exists idx_claim_assignments_assigned_to on public.claim_assignments(assigned_to);
+create index if not exists idx_notifications_user_id on public.notifications(user_id);
+create index if not exists idx_notifications_is_read on public.notifications(is_read);
+create index if not exists idx_notifications_created_at on public.notifications(created_at);
+
 
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$

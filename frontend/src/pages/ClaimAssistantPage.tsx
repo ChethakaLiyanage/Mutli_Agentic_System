@@ -14,6 +14,8 @@ import {
   getOrchestratorErrorMessage,
   isWorkflowNotFoundError,
   processRequest,
+  submitClaim,
+  uploadWorkflowDocument,
 } from "../api/orchestrator";
 import { CustomerWorkflowResult } from "../components/CustomerWorkflowResult";
 import { IntakeSummary } from "../components/IntakeSummary";
@@ -33,6 +35,12 @@ export const ACTIVE_WORKFLOW_KEY = "motor_insurance_active_workflow_id";
 const TRACKED_WORKFLOW_STATUSES = new Set<WorkflowStatus>([
   "awaiting_clarification",
   "awaiting_documents",
+  "documents_submitted",
+  "fraud_triage",
+  "fraud_triage_complete",
+  "review_summary_generation",
+  "awaiting_assignment",
+  "under_human_review",
   "awaiting_human_review",
   "more_information_required",
 ]);
@@ -82,6 +90,7 @@ export const ClaimAssistantPage = () => {
   const [sending, setSending] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -233,31 +242,63 @@ export const ClaimAssistantPage = () => {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    const fileList = Array.from(files);
+    const targetWf = workflow && isOrchestratorResponse(workflow) ? workflow : null;
     const newFiles: Array<{ name: string; size: string }> = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+
+    for (const file of fileList) {
       const sizeKb = Math.round(file.size / 1024);
       const sizeStr = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+
+      if (targetWf && targetWf.status === "awaiting_documents") {
+        try {
+          await uploadWorkflowDocument(targetWf.workflow_id, file);
+        } catch (uploadErr) {
+          setError(getOrchestratorErrorMessage(uploadErr));
+        }
+      }
       newFiles.push({ name: file.name, size: sizeStr });
     }
 
     setUploadedFiles((prev) => [...prev, ...newFiles]);
 
-    const fileNames = newFiles.map((f) => f.name).join(", ");
+    const fileNames = fileList.map((f) => f.name).join(", ");
     setMessages((prev) => [
       ...prev,
-      createMessage("user", `Uploaded ${newFiles.length} document(s): ${fileNames}`),
+      createMessage("user", `Uploaded ${fileList.length} document(s): ${fileNames}`),
       createMessage(
         "system",
-        `Thank you. We have received your uploaded document(s): ${fileNames}. Our claims team has attached them to your file.`,
+        `Thank you. We have received your uploaded document(s): ${fileNames}. They are attached to your claim draft. You can now press "Submit Claim" below to finalize your submission.`,
       ),
     ]);
 
     event.target.value = "";
+  };
+
+  const handleSubmitClaim = async () => {
+    if (!workflow || !isOrchestratorResponse(workflow) || submittingClaim) return;
+    setSubmittingClaim(true);
+    setError(null);
+    try {
+      const response = await submitClaim(workflow.workflow_id);
+      applyWorkflow(response);
+      setMessages((prev) => [
+        ...prev,
+        createMessage(
+          "system",
+          resultMessage(response) ||
+            "Your claim has been submitted successfully and queued for assignment to a claims officer.",
+        ),
+      ]);
+    } catch (submitErr) {
+      setError(getOrchestratorErrorMessage(submitErr));
+    } finally {
+      setSubmittingClaim(false);
+    }
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -455,6 +496,8 @@ export const ClaimAssistantPage = () => {
               refreshing={refreshing}
               onRefresh={() => void refreshWorkflow(workflow)}
               onUploadClick={() => fileInputRef.current?.click()}
+              onSubmitClaim={handleSubmitClaim}
+              submitting={submittingClaim}
             />
           )}
 
@@ -464,6 +507,8 @@ export const ClaimAssistantPage = () => {
               refreshing={refreshing}
               onRefresh={() => void refreshWorkflow(separateTrackedWorkflow)}
               onUploadClick={() => fileInputRef.current?.click()}
+              onSubmitClaim={handleSubmitClaim}
+              submitting={submittingClaim}
             />
           )}
         </div>

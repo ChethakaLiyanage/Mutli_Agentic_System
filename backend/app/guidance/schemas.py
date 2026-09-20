@@ -37,8 +37,10 @@ GuidanceTaskType = Literal[
     "manual_assistance_required",
     "safe_error",
     "reviewer_summary",
+    "internal_claim_review_summary",
     "fraud_indicator_explanation",
     "final_decision_explanation",
+    "final_claim_decision",
 ]
 
 ResponseStatus = Literal["success", "insufficient_evidence", "error"]

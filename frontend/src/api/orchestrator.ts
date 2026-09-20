@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { apiClient, getApiErrorMessage } from "./client";
+import type { ClaimDocumentItem } from "../types/review";
 import type {
   ClarificationRequest,
   OrchestratorRequest,
@@ -34,6 +35,46 @@ export const getWorkflow = async (
 ): Promise<OrchestratorResponse> => {
   const response = await apiClient.get<OrchestratorResponse>(
     `/orchestrator/workflows/${encodeURIComponent(workflowId)}`,
+  );
+  return response.data;
+};
+
+export const submitClaim = async (
+  workflowId: string,
+): Promise<OrchestratorResponse> => {
+  const response = await apiClient.post<OrchestratorResponse>(
+    `/orchestrator/workflows/${encodeURIComponent(workflowId)}/submit-claim`,
+  );
+  return response.data;
+};
+
+export const uploadWorkflowDocument = async (
+  workflowId: string,
+  file: File,
+  documentType?: string,
+): Promise<ClaimDocumentItem> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (documentType) {
+    formData.append("document_type", documentType);
+  }
+  const response = await apiClient.post<ClaimDocumentItem>(
+    `/orchestrator/workflows/${encodeURIComponent(workflowId)}/documents`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
+};
+
+export const getWorkflowDocuments = async (
+  workflowId: string,
+): Promise<{ documents: ClaimDocumentItem[]; count: number }> => {
+  const response = await apiClient.get<{ documents: ClaimDocumentItem[]; count: number }>(
+    `/orchestrator/workflows/${encodeURIComponent(workflowId)}/documents`,
   );
   return response.data;
 };

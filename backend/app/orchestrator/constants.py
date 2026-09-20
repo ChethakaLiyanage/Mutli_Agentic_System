@@ -23,6 +23,11 @@ class WorkflowStatus(str, Enum):
     GUIDANCE_PROCESSING = "guidance_processing"
     GUIDANCE_GENERATION = "guidance_generation"
     AWAITING_DOCUMENTS = "awaiting_documents"
+    DOCUMENTS_SUBMITTED = "documents_submitted"
+    FRAUD_TRIAGE_COMPLETE = "fraud_triage_complete"
+    REVIEW_SUMMARY_GENERATION = "review_summary_generation"
+    AWAITING_ASSIGNMENT = "awaiting_assignment"
+    UNDER_HUMAN_REVIEW = "under_human_review"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -130,6 +135,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     ),
     WorkflowStatus.FRAUD_TRIAGE: frozenset(
         {
+            WorkflowStatus.FRAUD_TRIAGE_COMPLETE,
             WorkflowStatus.AWAITING_HUMAN_REVIEW,
             WorkflowStatus.AWAITING_DOCUMENTS,
             WorkflowStatus.GUIDANCE_PROCESSING,
@@ -137,11 +143,48 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
             WorkflowStatus.FAILED,
         }
     ),
+    WorkflowStatus.FRAUD_TRIAGE_COMPLETE: frozenset(
+        {
+            WorkflowStatus.REVIEW_SUMMARY_GENERATION,
+            WorkflowStatus.AWAITING_ASSIGNMENT,
+            WorkflowStatus.FAILED,
+        }
+    ),
+    WorkflowStatus.REVIEW_SUMMARY_GENERATION: frozenset(
+        {
+            WorkflowStatus.AWAITING_ASSIGNMENT,
+            WorkflowStatus.FAILED,
+        }
+    ),
     WorkflowStatus.AWAITING_DOCUMENTS: frozenset(
         {
+            WorkflowStatus.DOCUMENTS_SUBMITTED,
+            WorkflowStatus.FRAUD_TRIAGE,
             WorkflowStatus.AWAITING_HUMAN_REVIEW,
             WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
             WorkflowStatus.COMPLETED,
+            WorkflowStatus.FAILED,
+        }
+    ),
+    WorkflowStatus.DOCUMENTS_SUBMITTED: frozenset(
+        {
+            WorkflowStatus.FRAUD_TRIAGE,
+            WorkflowStatus.FAILED,
+        }
+    ),
+    WorkflowStatus.AWAITING_ASSIGNMENT: frozenset(
+        {
+            WorkflowStatus.UNDER_HUMAN_REVIEW,
+            WorkflowStatus.AWAITING_HUMAN_REVIEW,
+            WorkflowStatus.FAILED,
+        }
+    ),
+    WorkflowStatus.UNDER_HUMAN_REVIEW: frozenset(
+        {
+            WorkflowStatus.APPROVED,
+            WorkflowStatus.REJECTED,
+            WorkflowStatus.MORE_INFORMATION_REQUIRED,
+            WorkflowStatus.ESCALATED,
             WorkflowStatus.FAILED,
         }
     ),
