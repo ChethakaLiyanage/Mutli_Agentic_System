@@ -201,6 +201,23 @@ describe("ClaimAssistantPage", () => {
     expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
   });
 
+  it("keeps the document attachment control in the composer and shows selected files", async () => {
+    const user = userEvent.setup();
+    render(<ClaimAssistantPage />);
+
+    const attachmentButton = screen.getByRole("button", { name: "Attach documents" });
+    expect(attachmentButton).toBeInTheDocument();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(fileInput, new File(["policy details"], "policy-schedule.pdf", {
+      type: "application/pdf",
+    }));
+
+    expect(screen.getByText("Attached documents")).toBeInTheDocument();
+    expect(screen.getAllByText(/policy-schedule\.pdf/)).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Attach documents" })).toBeInTheDocument();
+  });
+
   it("keeps chat active after a greeting and starts insurance as a new workflow", async () => {
     vi.mocked(processRequest)
       .mockResolvedValueOnce(greetingResponse)

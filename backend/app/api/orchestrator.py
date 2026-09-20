@@ -11,10 +11,14 @@ from backend.app.orchestrator.agent_clients import (
     LocalFraudClient,
     LocalGuidanceClient,
     LocalClaimIntakeClient,
-    LocalRetrievalClient,
 )
-from backend.app.orchestrator.claim_repository import SupabaseClaimRepository
-from backend.app.fraud.repository import FraudRepository
+from backend.app.config import get_settings
+from backend.app.orchestrator.claim_repository import (
+    InMemoryClaimRepository,
+    SupabaseClaimRepository,
+)
+from backend.app.fraud.repository import FraudRepository, InMemoryFraudRepository
+from backend.app.orchestrator.agent_clients import LocalRetrievalClient
 from backend.app.orchestrator.service import (
     OrchestratorService,
     WorkflowAccessDeniedError,
@@ -37,13 +41,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
 _workflow_repository = get_application_repositories().workflows
-_supabase_client = get_supabase_client()
+_settings = get_settings()
+if _settings.persistence_backend == "supabase":
+    _supabase_client = get_supabase_client(_settings)
+    _claim_repository = SupabaseClaimRepository(_supabase_client)
+    _fraud_repository = FraudRepository(_supabase_client)
+    _retrieval_client = LocalRetrievalClient()
+else:
+    _claim_repository = InMemoryClaimRepository()
+    _fraud_repository = InMemoryFraudRepository()
+    _retrieval_client = None
 _orchestrator_service = OrchestratorService(
     claim_intake_client=LocalClaimIntakeClient(),
-    retrieval_client=LocalRetrievalClient(),
+    retrieval_client=_retrieval_client,
     fraud_client=LocalFraudClient(),
-    claim_repository=SupabaseClaimRepository(_supabase_client),
-    fraud_repository=FraudRepository(_supabase_client),
+    claim_repository=_claim_repository,
+    fraud_repository=_fraud_repository,
     guidance_client=LocalGuidanceClient(),
     workflow_repository=_workflow_repository,
 )

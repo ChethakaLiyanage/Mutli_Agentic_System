@@ -39,6 +39,7 @@ class WorkflowState(BaseModel):
     fraud_result: dict[str, Any] | None = None
     human_review_result: dict[str, Any] | None = None
     guidance_result: dict[str, Any] | None = None
+    reviewer_guidance_result: dict[str, Any] | None = None
 
     workflow_type: WorkflowType = WorkflowType.UNKNOWN
     current_status: WorkflowStatus = WorkflowStatus.RECEIVED

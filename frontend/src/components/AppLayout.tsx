@@ -17,9 +17,8 @@ export const AppLayout = () => {
         </div>
 
         <nav className="header-nav" aria-label="Primary navigation">
-          <NavLink to="/dashboard">Dashboard</NavLink>
-          <NavLink to="/claim-assistant">Claim Assistant</NavLink>
-          <NavLink to="/admin">Admin</NavLink>
+          {user?.role !== "admin" && <NavLink to="/dashboard">Dashboard</NavLink>}
+          {user?.role !== "admin" && <NavLink to="/claim-assistant">Claim Assistant</NavLink>}
         </nav>
 
         <div className="user-menu">

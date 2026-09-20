@@ -368,6 +368,57 @@
   line-height: 1.5;
 }
 
+.composer-input-row {
+  position: relative;
+}
+
+.composer-input-row textarea {
+  padding-left: 3.25rem;
+}
+
+.attachment-button {
+  position: absolute;
+  left: 0.55rem;
+  bottom: 0.55rem;
+  display: inline-grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid var(--slate-300);
+  border-radius: 8px;
+  color: var(--navy-900);
+  background: #fbfcfe;
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+
+.attachment-button:hover:not(:disabled) {
+  border-color: var(--blue-500);
+  background: #eff6ff;
+}
+
+.attachment-button:focus-visible {
+  outline: 3px solid rgba(38, 128, 235, 0.2);
+  border-color: var(--blue-500);
+}
+
+.attachment-button:disabled {
+  cursor: not-allowed;
+  background: #eef2f7;
+}
+
+.composer-attachments {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+
+.composer-attachments-label {
+  color: var(--slate-600, #475569);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .message-composer textarea:focus-visible {
   outline: 3px solid rgba(38, 128, 235, 0.2);
   border-color: var(--blue-500);

@@ -194,6 +194,7 @@ class HumanReviewService:
             policy=policy,
             retrieval_context=retrieval_context,
             fraud_assessment=fraud,
+            reviewer_guidance_result=state.reviewer_guidance_result,
             audit_timeline=list(state.audit_trail),
             human_decision=decision,
         )
@@ -219,6 +220,11 @@ class HumanReviewService:
             recommended_action=fraud.recommended_action.value,
             risk_indicator_count=len(fraud.indicators),
             missing_documents=[item.value for item in fraud.missing_documents],
+            reviewer_summary=(
+                (state.reviewer_guidance_result or {}).get("data", {}).get(
+                    "reviewer_summary"
+                )
+            ),
         )
 
     @staticmethod
