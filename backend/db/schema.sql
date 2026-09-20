@@ -56,6 +56,7 @@ create table if not exists public.policies (
     policy_number text not null unique,
     customer_id text not null references public.users(user_id),
     insurance_type text not null default 'motor',
+    coverage_type text not null default 'full' check (coverage_type in ('full', 'partial', 'third_party')),
     status text not null check (status in ('active', 'expired', 'cancelled')),
     start_date date not null,
     end_date date not null,

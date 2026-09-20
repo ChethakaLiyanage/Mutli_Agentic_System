@@ -9,6 +9,7 @@ from backend.app.api.documents import router as documents_router
 from backend.app.api.intake import router as intake_router
 from backend.app.api.notifications import router as notifications_router
 from backend.app.api.orchestrator import router as orchestrator_router
+from backend.app.api.policies import router as policies_router
 from backend.app.api.reviewer import router as reviewer_router
 
 
@@ -34,6 +35,7 @@ app.include_router(orchestrator_router)
 app.include_router(documents_router)
 app.include_router(claims_router)
 app.include_router(notifications_router)
+app.include_router(policies_router)
 app.include_router(reviewer_router)
 
 

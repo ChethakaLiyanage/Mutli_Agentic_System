@@ -64,6 +64,7 @@ class PolicyRecord(BaseModel):
     customer_id: str
 
     status: str
+    coverage_type: str = "full"
     start_date: str
     end_date: str
 

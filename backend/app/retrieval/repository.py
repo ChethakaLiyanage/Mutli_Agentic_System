@@ -26,6 +26,7 @@ class RetrievalRepository:
         return PolicyRecord(
             policy_id=row["policy_id"], policy_number=row["policy_number"],
             customer_id=row["customer_id"], status=row["status"],
+            coverage_type=row.get("coverage_type") or "full",
             start_date=str(row["start_date"]), end_date=str(row["end_date"]),
             coverage_details=row.get("coverage_details") or {},
         )

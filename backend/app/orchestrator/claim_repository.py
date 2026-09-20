@@ -32,6 +32,10 @@ class ClaimRepository(Protocol):
 
     def list_for_customer(self, customer_id: str) -> list[ClaimContext]: ...
 
+    def list_policies_for_customer(self, customer_id: str) -> list[dict[str, Any]]: ...
+
+    def ensure_default_policy(self, customer_id: str) -> dict[str, Any]: ...
+
 
 class InMemoryClaimRepository:
     """Deterministic test/local repository with optional trusted policies."""
@@ -56,10 +60,18 @@ class InMemoryClaimRepository:
                 "policy_number": f"POL-{uuid5(NAMESPACE_URL, claim.customer_id).hex[:8].upper()}",
                 "customer_id": claim.customer_id,
                 "insurance_type": "motor",
+                "coverage_type": "full",
                 "status": "active",
                 "start_date": "2026-01-01",
                 "end_date": "2027-01-01",
+                "coverage_details": {"type": "comprehensive", "deductible": 250},
+                "exclusions": [],
             }
+            if not any(
+                item.get("policy_id") == policy.get("policy_id")
+                for item in self.policies
+            ):
+                self.policies.append(deepcopy(policy))
         stored = _claim_with_persistence_identity(workflow_id, claim, policy)
         self.claims_by_workflow[workflow_id] = stored.model_copy(deep=True)
         return stored
@@ -80,6 +92,32 @@ class InMemoryClaimRepository:
             for claim in self.claims_by_workflow.values()
             if claim.customer_id == customer_id
         ]
+
+    def list_policies_for_customer(self, customer_id: str) -> list[dict[str, Any]]:
+        return [
+            deepcopy(policy)
+            for policy in self.policies
+            if policy.get("customer_id") == customer_id
+        ]
+
+    def ensure_default_policy(self, customer_id: str) -> dict[str, Any]:
+        policies = self.list_policies_for_customer(customer_id)
+        if policies:
+            return policies[0]
+        policy = {
+            "policy_id": f"POL-{uuid5(NAMESPACE_URL, customer_id).hex[:10].upper()}",
+            "policy_number": f"POL-{uuid5(NAMESPACE_URL, customer_id).hex[:8].upper()}",
+            "customer_id": customer_id,
+            "insurance_type": "motor",
+            "coverage_type": "full",
+            "status": "active",
+            "start_date": "2026-01-01",
+            "end_date": "2027-01-01",
+            "coverage_details": {"type": "comprehensive", "deductible": 250},
+            "exclusions": [],
+        }
+        self.policies.append(deepcopy(policy))
+        return policy
 
 
 class SupabaseClaimRepository:
@@ -110,7 +148,10 @@ class SupabaseClaimRepository:
 
             policies = (
                 self._client.table("policies")
-                .select("policy_id,policy_number,customer_id,status,start_date,end_date")
+                .select(
+                    "policy_id,policy_number,customer_id,status,coverage_type,"
+                    "start_date,end_date"
+                )
                 .eq("customer_id", claim.customer_id)
                 .execute()
             )
@@ -123,6 +164,7 @@ class SupabaseClaimRepository:
                     "policy_number": policy_num,
                     "customer_id": claim.customer_id,
                     "insurance_type": "motor",
+                    "coverage_type": "full",
                     "status": "active",
                     "start_date": "2026-01-01",
                     "end_date": "2027-01-01",
@@ -196,6 +238,44 @@ class SupabaseClaimRepository:
             return [claim_from_row(dict(row)) for row in (response.data or [])]
         except Exception as error:
             raise ClaimPersistenceError("Failed to list claims for customer") from error
+
+    def list_policies_for_customer(self, customer_id: str) -> list[dict[str, Any]]:
+        try:
+            response = (
+                self._client.table("policies")
+                .select(
+                    "policy_id,policy_number,insurance_type,status,start_date,end_date,"
+                    "coverage_type,coverage_details,exclusions"
+                )
+                .eq("customer_id", customer_id)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            return [dict(row) for row in (response.data or [])]
+        except Exception as error:
+            raise ClaimPersistenceError("Failed to list policies for customer") from error
+
+    def ensure_default_policy(self, customer_id: str) -> dict[str, Any]:
+        policies = self.list_policies_for_customer(customer_id)
+        if policies:
+            return policies[0]
+        policy = {
+            "policy_id": f"POL-{uuid5(NAMESPACE_URL, customer_id).hex[:10].upper()}",
+            "policy_number": f"POL-{uuid5(NAMESPACE_URL, customer_id).hex[:8].upper()}",
+            "customer_id": customer_id,
+            "insurance_type": "motor",
+            "coverage_type": "full",
+            "status": "active",
+            "start_date": "2026-01-01",
+            "end_date": "2027-01-01",
+            "coverage_details": {"type": "comprehensive", "deductible": 250},
+            "exclusions": [],
+        }
+        try:
+            response = self._client.table("policies").insert(policy).execute()
+            return dict(response.data[0]) if response.data else policy
+        except Exception as error:
+            raise ClaimPersistenceError("Failed to create default policy") from error
 
 
 def _select_owned_policy(
