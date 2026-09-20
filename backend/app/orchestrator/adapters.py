@@ -203,6 +203,7 @@ def retrieval_to_policy_context(
         policy_number=policy.policy_number,
         customer_id=policy.customer_id,
         status=policy.status,
+        coverage_type=policy.coverage_type,
         start_date=policy.start_date,
         end_date=policy.end_date,
         coverage_details=dict(policy.coverage_details),

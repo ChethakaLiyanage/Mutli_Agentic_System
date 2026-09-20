@@ -114,6 +114,8 @@ def test_schema_contains_every_controlled_domain_value(enum_type):
 def test_schema_uses_canonical_identifiers_and_timezone_columns():
     for column in ("policy_id", "claim_id", "document_id", "assessment_id", "chunk_id", "decision_id"):
         assert column in SCHEMA
+    assert "coverage_type text not null default 'full'" in SCHEMA
+    assert "coverage_type in ('full', 'partial', 'third_party')" in SCHEMA
     assert "timestamptz" in SCHEMA
     assert "ml_anomaly_score" not in SCHEMA
     assert "risk_indicators" not in SCHEMA
