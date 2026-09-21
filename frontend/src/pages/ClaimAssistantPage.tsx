@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -17,8 +16,7 @@ import {
   submitClaim,
   uploadWorkflowDocument,
 } from "../api/orchestrator";
-import { CustomerWorkflowResult } from "../components/CustomerWorkflowResult";
-import { IntakeSummary } from "../components/IntakeSummary";
+import { DocumentUploadModal } from "../components/DocumentUploadModal";
 import { WorkflowStatusBadge } from "../components/WorkflowStatusBadge";
 import type { ChatMessage } from "../types/chat";
 import {
@@ -92,31 +90,14 @@ export const ClaimAssistantPage = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [submittingClaim, setSubmittingClaim] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; size: string }>>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const canClarify = workflow?.status === "awaiting_clarification";
   const canSend = !sending && !restoring && !refreshing;
-  const canUploadDocuments =
-    workflow !== null &&
-    isOrchestratorResponse(workflow) &&
-    workflow.status === "awaiting_documents" &&
-    workflow.workflow_type === "claim_submission" &&
-    Boolean(workflow.claim_id);
-  const latestIntake = workflow?.intake_result ?? null;
   const hasConversation = messages.length > 0 || workflow !== null;
-  const separateTrackedWorkflow =
-    trackedWorkflow &&
-    trackedWorkflow.workflow_id !== workflow?.workflow_id &&
-    isOrchestratorResponse(trackedWorkflow)
-      ? trackedWorkflow
-      : null;
-
-  const activity = useMemo(
-    () => workflow?.audit_trail ?? [],
-    [workflow],
-  );
 
   const applyWorkflow = useCallback((response: WorkflowResponse) => {
     if (isPureGreetingResponse(response)) {
@@ -176,6 +157,13 @@ export const ClaimAssistantPage = () => {
       messageInputRef.current?.focus();
     }
   }, [canSend, messages.length]);
+
+  /* Auto-scroll to bottom when new messages arrive */
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, sending]);
 
   const submitMessage = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -248,12 +236,7 @@ export const ClaimAssistantPage = () => {
 
     const fileList = Array.from(files);
     const targetWf = workflow && isOrchestratorResponse(workflow) ? workflow : null;
-    const newFiles: Array<{ name: string; size: string }> = [];
-
     for (const file of fileList) {
-      const sizeKb = Math.round(file.size / 1024);
-      const sizeStr = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
-
       if (targetWf && targetWf.status === "awaiting_documents") {
         try {
           await uploadWorkflowDocument(targetWf.workflow_id, file);
@@ -261,10 +244,7 @@ export const ClaimAssistantPage = () => {
           setError(getOrchestratorErrorMessage(uploadErr));
         }
       }
-      newFiles.push({ name: file.name, size: sizeStr });
     }
-
-    setUploadedFiles((prev) => [...prev, ...newFiles]);
 
     const fileNames = fileList.map((f) => f.name).join(", ");
     setMessages((prev) => [
@@ -277,6 +257,18 @@ export const ClaimAssistantPage = () => {
     ]);
 
     event.target.value = "";
+  };
+
+  const handleModalUploadComplete = (files: Array<{ name: string; size: string }>) => {
+    const fileNames = files.map((f) => f.name).join(", ");
+    setMessages((prev) => [
+      ...prev,
+      createMessage("user", `Uploaded ${files.length} document(s): ${fileNames}`),
+      createMessage(
+        "system",
+        `Thank you. We have received your uploaded document(s): ${fileNames}. They are attached to your claim draft. You can now press "Submit Claim" below to finalize your submission.`,
+      ),
+    ]);
   };
 
   const handleSubmitClaim = async () => {
@@ -311,7 +303,6 @@ export const ClaimAssistantPage = () => {
   const resetConversation = () => {
     setInput("");
     setMessages([]);
-    setUploadedFiles([]);
     setWorkflow(null);
     setTrackedWorkflow(null);
     setSending(false);
@@ -321,247 +312,234 @@ export const ClaimAssistantPage = () => {
     sessionStorage.removeItem(ACTIVE_WORKFLOW_KEY);
   };
 
+  /* Resolve the active orchestrator response for inline action buttons */
+  const activeOrchWf =
+    workflow && isOrchestratorResponse(workflow) ? workflow : null;
+  const trackedOrchWf =
+    trackedWorkflow &&
+    trackedWorkflow.workflow_id !== workflow?.workflow_id &&
+    isOrchestratorResponse(trackedWorkflow)
+      ? trackedWorkflow
+      : null;
+
   return (
     <div className="claim-assistant">
-      <header className="assistant-heading">
-        <div>
-          <p className="eyebrow">Guided intake</p>
-          <h1>Claim Assistant</h1>
-          <p>
-            Describe your motor insurance claim or question. The assistant will
-            identify the request and ask for missing intake details when needed.
-          </p>
-        </div>
-        {hasConversation && (
-          <button className="button button-secondary" onClick={resetConversation}>
-            Start New Request
-          </button>
-        )}
-      </header>
+      {/* Scrollable chat area */}
+      <div className="conversation-scroll" ref={scrollRef} aria-live="polite">
+        {restoring && !messages.length ? (
+          <div className="assistant-welcome" role="status">
+            <span className="loading-spinner" aria-hidden="true" />
+            <h2>Restoring your workflow…</h2>
+            <p>Please wait while we retrieve its latest status.</p>
+          </div>
+        ) : !messages.length ? (
+          <div className="assistant-welcome">
+            <span className="assistant-symbol" aria-hidden="true">CA</span>
+            <h2>How can we help?</h2>
+            <p>Choose an example or write your own message below.</p>
+            <div className="example-list">
+              {examples.map((example) => (
+                <button key={example} onClick={() => setInput(example)}>
+                  {example}
+                </button>
+              ))}
+            </div>
+            <p className="prototype-note">
+              Answers use controlled policy evidence. Claim decisions are made
+              only by an authorized claims officer.
+            </p>
+          </div>
+        ) : (
+          <div className="message-list">
+            {messages.map((message) => (
+              <article
+                className={`chat-message chat-message-${message.sender}`}
+                key={message.id}
+              >
+                <span>{message.sender === "user" ? "You" : "Assistant"}</span>
+                <p style={{ whiteSpace: "pre-line" }}>{message.text}</p>
+                <time dateTime={message.timestamp}>
+                  {new Date(message.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </time>
+              </article>
+            ))}
 
-      <div className="assistant-layout">
-        <div className="assistant-primary">
-          <section className="conversation-card" aria-label="Claim conversation">
-          <div className="conversation-scroll" aria-live="polite">
-            {restoring && !messages.length ? (
-              <div className="assistant-welcome" role="status">
-                <span className="loading-spinner" aria-hidden="true" />
-                <h2>Restoring your workflow…</h2>
-                <p>Please wait while we retrieve its latest status.</p>
-              </div>
-            ) : !messages.length ? (
-              <div className="assistant-welcome">
-                <span className="assistant-symbol" aria-hidden="true">CA</span>
-                <h2>How can we help?</h2>
-                <p>Choose an example or write your own message below.</p>
-                <div className="example-list">
-                  {examples.map((example) => (
-                    <button key={example} onClick={() => setInput(example)}>
-                      {example}
-                    </button>
-                  ))}
+            {/* Inline workflow action buttons (rendered as chat-like cards) */}
+            {activeOrchWf && activeOrchWf.status === "awaiting_documents" && (
+              <div className="chat-action-card">
+                {activeOrchWf.missing_required_documents &&
+                  activeOrchWf.missing_required_documents.length > 0 && (
+                    <p className="chat-action-detail">
+                      <strong>Missing documents:</strong>{" "}
+                      {activeOrchWf.missing_required_documents
+                        .map((d) => d.replace(/_/g, " "))
+                        .join(", ")}
+                    </p>
+                  )}
+                <div className="chat-action-buttons">
+                  <button
+                    type="button"
+                    className="upload-docs-btn"
+                    data-testid="upload-documents-btn"
+                    onClick={() => setUploadModalOpen(true)}
+                  >
+                    <span className="upload-icon">📤</span>
+                    Upload Documents
+                  </button>
+                  <button
+                    className="button button-primary"
+                    type="button"
+                    onClick={handleSubmitClaim}
+                    disabled={submittingClaim}
+                  >
+                    {submittingClaim ? "Submitting Claim…" : "Submit Claim"}
+                  </button>
                 </div>
-                <p className="prototype-note">
-                  Answers use controlled policy evidence. Claim decisions are made
-                  only by an authorized claims officer.
-                </p>
               </div>
-            ) : (
-              <div className="message-list">
-                {messages.map((message, index) => {
-                  const isLatestSystemMessage =
-                    message.sender === "system" && index === messages.length - 1;
-                  const showUploadOnMessage = isLatestSystemMessage && canUploadDocuments;
+            )}
 
-                  return (
-                    <article
-                      className={`chat-message chat-message-${message.sender}`}
-                      key={message.id}
+            {activeOrchWf &&
+              (activeOrchWf.status === "documents_submitted" ||
+                activeOrchWf.status === "fraud_triage" ||
+                activeOrchWf.status === "fraud_triage_complete" ||
+                activeOrchWf.status === "review_summary_generation" ||
+                activeOrchWf.status === "awaiting_assignment") && (
+                <div className="chat-action-card">
+                  <WorkflowStatusBadge status={activeOrchWf.status} />
+                  <div className="chat-action-buttons">
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() => void refreshWorkflow(activeOrchWf)}
+                      disabled={refreshing}
                     >
-                      <span>{message.sender === "user" ? "You" : "Assistant"}</span>
-                      <p style={{ whiteSpace: "pre-line" }}>{message.text}</p>
-                      {showUploadOnMessage && (
-                        <div className="document-upload-container">
-                          <button
-                            type="button"
-                            className="upload-docs-btn"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <span className="upload-icon">📤</span>
-                            Upload Documents
-                          </button>
-                          {uploadedFiles.length > 0 && (
-                            <div className="uploaded-files-list">
-                              <p className="uploaded-files-title">
-                                Uploaded Documents ({uploadedFiles.length}):
-                              </p>
-                              <div className="uploaded-file-chips">
-                                {uploadedFiles.map((file, idx) => (
-                                  <span key={idx} className="uploaded-file-chip">
-                                    <span>📄</span> {file.name} ({file.size}){" "}
-                                    <span className="file-check">✓</span>
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <time dateTime={message.timestamp}>
-                        {new Date(message.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                    </article>
-                  );
-                })}
-
-                {sending && (
-                  <div className="assistant-thinking" role="status">
-                    <span className="loading-spinner" aria-hidden="true" />
-                    Reviewing your message…
+                      {refreshing ? "Checking status…" : "Check status"}
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
+
+            {activeOrchWf &&
+              (activeOrchWf.status === "under_human_review" ||
+                activeOrchWf.status === "awaiting_human_review") && (
+                <div className="chat-action-card">
+                  <WorkflowStatusBadge status={activeOrchWf.status} />
+                  <p className="chat-action-detail">
+                    Your claim is assigned to a claims officer.
+                  </p>
+                  <div className="chat-action-buttons">
+                    <button
+                      className="button button-primary"
+                      type="button"
+                      onClick={() => void refreshWorkflow(activeOrchWf)}
+                      disabled={refreshing}
+                    >
+                      {refreshing ? "Checking status…" : "Check status"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            {/* Tracked workflow (separate from current conversation) */}
+            {trackedOrchWf && (
+              <div className="chat-action-card">
+                <WorkflowStatusBadge status={trackedOrchWf.status} />
+                <p className="chat-action-detail">
+                  Tracked workflow: {trackedOrchWf.workflow_id}
+                </p>
+                <div className="chat-action-buttons">
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => void refreshWorkflow(trackedOrchWf)}
+                    disabled={refreshing}
+                  >
+                    {refreshing ? "Checking…" : "Check status"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {sending && (
+              <div className="assistant-thinking" role="status">
+                <span className="loading-spinner" aria-hidden="true" />
+                Reviewing your message…
               </div>
             )}
           </div>
+        )}
+      </div>
 
-          {error && <div className="alert alert-error assistant-error" role="alert">{error}</div>}
+      {/* Error banner */}
+      {error && <div className="alert alert-error assistant-error" role="alert">{error}</div>}
 
-          <form className="message-composer" onSubmit={submitMessage}>
-            <label htmlFor="claim-message">Your message</label>
-            <div className="composer-input-row">
-              <textarea
-                ref={messageInputRef}
-                id="claim-message"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={handleKeyDown}
-                minLength={2}
-                maxLength={MAX_MESSAGE_LENGTH}
-                rows={3}
-                placeholder={canClarify ? "Add the missing details…" : "Describe your claim or policy question…"}
-                disabled={!canSend}
-              />
-              <button
-                className="attachment-button"
-                type="button"
-                aria-label="Attach documents"
-                title="Attach documents"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!canSend}
-              >
-                <span aria-hidden="true">+</span>
-              </button>
-            </div>
-            {uploadedFiles.length > 0 && (
-              <div className="composer-attachments" aria-live="polite">
-                <span className="composer-attachments-label">Attached documents</span>
-                <div className="uploaded-file-chips">
-                  {uploadedFiles.map((file, index) => (
-                    <span key={`${file.name}-${index}`} className="uploaded-file-chip">
-                      <span aria-hidden="true">📄</span> {file.name} ({file.size})
-                      <span className="file-check" aria-label="Attached">✓</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
+      {/* Sticky input bar */}
+      <form className="message-composer" onSubmit={submitMessage}>
+        <div className="composer-input-row">
+          <textarea
+            ref={messageInputRef}
+            id="claim-message"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleKeyDown}
+            minLength={2}
+            maxLength={MAX_MESSAGE_LENGTH}
+            rows={2}
+            placeholder={canClarify ? "Add the missing details…" : "Describe your claim or policy question…"}
+            disabled={!canSend}
+            aria-label="Your message"
+          />
+          <button
+            className="composer-send-btn button button-primary"
+            type="submit"
+            disabled={!canSend || input.trim().length < 2}
+            aria-label="Send message"
+          >
+            {sending ? (
+              <span className="loading-spinner loading-spinner-sm" aria-hidden="true" />
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
             )}
-            <div className="composer-footer">
-              <span>{input.length} / {MAX_MESSAGE_LENGTH}</span>
-              <span>Enter to send · Shift+Enter for a new line</span>
-              <button
-                className="button button-primary"
-                type="submit"
-                disabled={!canSend || input.trim().length < 2}
-              >
-                {sending ? "Sending…" : canClarify ? "Send Details" : "Send Message"}
-              </button>
-            </div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              multiple
-              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-              style={{ display: "none" }}
-            />
-          </form>
-          </section>
-
-          {workflow && isOrchestratorResponse(workflow) && (
-            <CustomerWorkflowResult
-              workflow={workflow}
-              refreshing={refreshing}
-              onRefresh={() => void refreshWorkflow(workflow)}
-              onUploadClick={() => fileInputRef.current?.click()}
-              onSubmitClaim={handleSubmitClaim}
-              submitting={submittingClaim}
-            />
-          )}
-
-          {separateTrackedWorkflow && (
-            <CustomerWorkflowResult
-              workflow={separateTrackedWorkflow}
-              refreshing={refreshing}
-              onRefresh={() => void refreshWorkflow(separateTrackedWorkflow)}
-              onUploadClick={() => fileInputRef.current?.click()}
-              onSubmitClaim={handleSubmitClaim}
-              submitting={submittingClaim}
-            />
+          </button>
+        </div>
+        <div className="composer-footer">
+          <span>{input.length} / {MAX_MESSAGE_LENGTH}</span>
+          <span>Enter to send · Shift+Enter for a new line</span>
+          {hasConversation && (
+            <button
+              className="button button-secondary button-small"
+              type="button"
+              onClick={resetConversation}
+            >
+              New Chat
+            </button>
           )}
         </div>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          multiple
+          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+          style={{ display: "none" }}
+        />
+      </form>
 
-        <aside className="workflow-sidebar" aria-label="Workflow information">
-          <section className="workflow-card">
-            <p className="eyebrow">Workflow</p>
-            <h2>Current status</h2>
-            {workflow ? (
-              <>
-                <WorkflowStatusBadge status={workflow.status} />
-                <dl className="workflow-metadata">
-                  <div>
-                    <dt>Workflow ID</dt>
-                    <dd>{workflow.workflow_id}</dd>
-                  </div>
-                  <div>
-                    <dt>Workflow type</dt>
-                    <dd>{workflow.workflow_type.replaceAll("_", " ")}</dd>
-                  </div>
-                  <div>
-                    <dt>Clarification</dt>
-                    <dd>{workflow.requires_clarification ? "Required" : "Not required"}</dd>
-                  </div>
-                </dl>
-              </>
-            ) : (
-              <p className="empty-metadata">
-                Insurance workflow details will appear when you ask a policy or claim question.
-              </p>
-            )}
-          </section>
-
-          {latestIntake && <IntakeSummary intake={latestIntake} />}
-
-          {activity.length > 0 && (
-            <details className="activity-panel">
-              <summary>Workflow Activity</summary>
-              <ol>
-                {activity.map((event, index) => (
-                  <li key={`${event.timestamp}-${event.step}-${index}`}>
-                    <time dateTime={event.timestamp}>
-                      {new Date(event.timestamp).toLocaleString()}
-                    </time>
-                    <strong>{event.step.replaceAll("_", " ")}</strong>
-                    <span>{event.message}</span>
-                  </li>
-                ))}
-              </ol>
-            </details>
-          )}
-        </aside>
-      </div>
+      {/* Document upload modal */}
+      {uploadModalOpen && activeOrchWf && (
+        <DocumentUploadModal
+          workflowId={activeOrchWf.workflow_id}
+          missingDocuments={activeOrchWf.missing_required_documents ?? []}
+          onClose={() => setUploadModalOpen(false)}
+          onUploadComplete={handleModalUploadComplete}
+        />
+      )}
     </div>
   );
 };

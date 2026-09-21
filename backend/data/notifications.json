@@ -778,5 +778,18 @@
     "is_read": false,
     "created_at": "2026-09-20T18:36:05.510973+00:00",
     "read_at": null
+  },
+  {
+    "id": "NOTIF-F16A47D0D2E24D789FA6457FB3A5137A",
+    "user_id": "USR-A79517080A224D748A6C0D128C72B0ED",
+    "workflow_id": "WF-0A910880A0A340B8AB172A9E90DFBD71",
+    "claim_id": "CLM-575F7621077C58CEBF50D157FACF98C1",
+    "type": "claim_rejected",
+    "notification_type": "claim_rejected",
+    "title": "Claim Rejected",
+    "message": "Your claim has been reviewed and rejected. Reason: not required docs",
+    "is_read": true,
+    "created_at": "2026-09-21T07:29:48.806895+00:00",
+    "read_at": "2026-09-21T07:30:11.182850+00:00"
   }
 ]

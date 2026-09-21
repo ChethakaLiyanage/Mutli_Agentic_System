@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const currentUser = await getCurrentUser();
         setUser(currentUser);
         navigate(
-          currentUser.role === "admin" ? "/admin-dashboard" : "/dashboard",
+          currentUser.role === "admin" ? "/admin-dashboard" : "/claim-assistant",
           {
           replace: true,
           },
