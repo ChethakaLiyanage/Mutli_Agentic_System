@@ -3,7 +3,6 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { useAuth } from "./context/auth-context";
-import { DashboardPage } from "./pages/DashboardPage";
 import { ClaimAssistantPage } from "./pages/ClaimAssistantPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -11,6 +10,7 @@ import { AdminDashboard } from "./pages/AdminDashboard";
 import { AdminLoginPage } from "./pages/AdminLoginPage";
 import { MyClaimsPage } from "./pages/MyClaimsPage";
 import { ClaimDetailPage } from "./pages/ClaimDetailPage";
+import { ProfilePage } from "./pages/ProfilePage";
 
 const PublicOnlyRoute = () => {
   const { user, loading } = useAuth();
@@ -18,7 +18,7 @@ const PublicOnlyRoute = () => {
     return <div className="page-loading" role="status">Loading…</div>;
   }
   return user ? (
-    <Navigate to={user.role === "admin" ? "/admin-dashboard" : "/dashboard"} replace />
+    <Navigate to={user.role === "admin" ? "/admin-dashboard" : "/claim-assistant"} replace />
   ) : <Outlet />;
 };
 
@@ -27,7 +27,7 @@ const HomeRedirect = () => {
   if (loading) {
     return <div className="page-loading" role="status">Loading…</div>;
   }
-  return <Navigate to={user ? (user.role === "admin" ? "/admin-dashboard" : "/dashboard") : "/login"} replace />;
+  return <Navigate to={user ? (user.role === "admin" ? "/admin-dashboard" : "/claim-assistant") : "/login"} replace />;
 };
 
 const AdminRoute = () => {
@@ -40,7 +40,7 @@ const AdminRoute = () => {
   return user?.role === "admin" ? (
     <Outlet />
   ) : (
-    <Navigate to={user ? "/dashboard" : "/admin-login"} replace />
+    <Navigate to={user ? "/claim-assistant" : "/admin-login"} replace />
   );
 };
 
@@ -70,8 +70,9 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route element={<NonAdminRoute />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/claim-assistant" element={<ClaimAssistantPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/dashboard" element={<Navigate to="/claim-assistant" replace />} />
             <Route path="/dashboard/claims" element={<MyClaimsPage />} />
             <Route path="/dashboard/claims/:claimId" element={<ClaimDetailPage />} />
           </Route>

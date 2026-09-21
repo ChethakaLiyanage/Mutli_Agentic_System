@@ -1,0 +1,263 @@
+/* ── Profile page ── */
+
+.profile-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+  display: grid;
+  gap: 2.5rem;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.profile-header h1 {
+  margin: 0;
+  color: var(--navy-900);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+}
+
+/* ── Sections ── */
+
+.profile-section {
+  border: 1px solid var(--slate-200);
+  border-radius: 16px;
+  background: white;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  box-shadow: 0 6px 20px rgba(31, 45, 73, 0.04);
+}
+
+.profile-section h2 {
+  margin-bottom: 1.25rem;
+  color: var(--navy-900);
+  font-size: 1.25rem;
+}
+
+.profile-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.profile-section-header h2 {
+  margin-bottom: 0;
+}
+
+/* ── Personal details ── */
+
+.profile-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.profile-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.profile-detail-label {
+  color: var(--slate-500);
+  font-size: 0.75rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.profile-detail-value {
+  color: var(--navy-900);
+  font-size: 1rem;
+  font-weight: 650;
+  word-break: break-all;
+}
+
+/* ── Coverage / Policies ── */
+
+.profile-cards-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-policy-card {
+  border: 1px solid var(--slate-200);
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: #fbfcfe;
+}
+
+.profile-policy-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.profile-policy-header h3 {
+  margin: 0;
+  color: var(--navy-900);
+  font-size: 1.05rem;
+}
+
+.profile-policy-status {
+  color: var(--success);
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.profile-policy-status i {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: #48d597;
+}
+
+.profile-policy-card > p {
+  color: var(--slate-700);
+  font-size: 0.92rem;
+  margin-bottom: 0.75rem;
+}
+
+.profile-policy-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.profile-coverage-tag {
+  background: #eef5ff;
+  border-radius: 999px;
+  color: #234a79;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.profile-policy-exclusions {
+  color: var(--slate-500);
+  font-size: 0.86rem;
+  margin: 1rem 0 0;
+}
+
+/* ── Claims table ── */
+
+.profile-claims-table-wrapper {
+  border: 1px solid var(--slate-200);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(20, 43, 58, 0.04);
+}
+
+.profile-claims-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.86rem;
+}
+
+.profile-claims-table thead tr {
+  border-bottom: 1px solid #edf1f1;
+  background: #f9fbfb;
+}
+
+.profile-claims-table th {
+  padding: 0.75rem 1rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--slate-500);
+  letter-spacing: 0.08em;
+  font-weight: 750;
+}
+
+.profile-claims-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #edf1f1;
+  color: var(--navy-900);
+}
+
+.profile-claim-ref {
+  font-weight: 700;
+  color: var(--blue-600) !important;
+}
+
+.profile-claim-date {
+  white-space: nowrap;
+  color: var(--slate-500) !important;
+}
+
+.profile-status-badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.profile-claim-link {
+  color: #1967a3;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.profile-claim-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Empty / loading states ── */
+
+.profile-loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--slate-500);
+  font-size: 0.92rem;
+}
+
+.profile-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.profile-empty p {
+  margin: 0 0 0.4rem;
+  color: var(--navy-900);
+}
+
+.profile-empty-icon {
+  font-size: 2.5rem;
+}
+
+.profile-empty-sub {
+  color: var(--slate-500) !important;
+  font-size: 0.88rem;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 720px) {
+  .profile-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-claims-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .profile-claims-table {
+    min-width: 700px;
+  }
+}

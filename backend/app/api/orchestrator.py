@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.orchestrator.agent_clients import (
