@@ -31,6 +31,16 @@ def fraud_detection_agent(state: dict) -> dict:
     result_data = retrieval_res.get("result") or {}
 
     policy_raw = state.get("policy_data") or result_data.get("policy_data")
+    if policy_raw is None:
+        policy_raw = {
+            "policy_id": state.get("policy_id", "unknown-policy"),
+            "policy_number": state.get("policy_number", "UNKNOWN"),
+            "customer_id": state.get("user_id", "unknown-user"),
+            "status": "active",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "coverage_details": {},
+        }
     claim_raw = state.get("claim_data") or result_data.get("claim_record")
 
     if claim_raw is None:

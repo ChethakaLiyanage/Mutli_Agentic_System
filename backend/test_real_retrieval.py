@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+repo_root = str(Path(__file__).resolve().parent.parent)
+backend_dir = str(Path(__file__).resolve().parent)
+for p in (repo_root, backend_dir):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 import json
 from backend.app.services.supabase_service import get_supabase_client
 from backend.app.retrieval.repository import RetrievalRepository
