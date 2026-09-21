@@ -1,6 +1,10 @@
+from __future__ import annotations
+from backend.app.security.input_sanitization import (
+    InputSanitizationError,
+    sanitize_user_text,
+)
 """Claim Intake & Query Understanding Agent."""
 
-from __future__ import annotations
 
 import logging
 from collections.abc import Callable
@@ -77,7 +81,29 @@ class ClaimIntakeAgent:
         original_text = request.text
 
         try:
-            cleaned_text = preprocess_text(original_text)
+            sanitized_text = sanitize_user_text(original_text)
+        except InputSanitizationError as sanitization_err:
+            return IntakeResponse(
+                request_id=request.request_id,
+                status="error",
+                data=IntakeData(intent=IntentResult(label=None, confidence=0.0)),
+                errors=[str(sanitization_err)],
+            )
+
+        try:
+            cleaned_text = preprocess_text(sanitized_text)
+            if not cleaned_text:
+                raise ValueError("text must not be empty after preprocessing")
+            intent_label, intent_confidence = predict_intent(sanitized_text)
+
+            entities = extract_entities(sanitized_text)
+            incident_type = extract_incident_type(sanitized_text)
+            damage_areas = extract_damage_areas(sanitized_text)
+            date_text, normalized_date = extract_date(
+                sanitized_text,
+                reference_date=self._reference_date_provider(),
+            )
+            location = _select_location(entities)
             if not cleaned_text:
                 raise ValueError("text must not be empty after preprocessing")
             intent_label, intent_confidence = predict_intent(original_text)

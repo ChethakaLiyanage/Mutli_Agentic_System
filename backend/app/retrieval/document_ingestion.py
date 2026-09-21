@@ -1,6 +1,7 @@
+from __future__ import annotations
+from backend.app.security.input_sanitization import sanitize_user_text, InputSanitizationError
 """Controlled TXT/PDF/DOCX ingestion for the classical IR corpus."""
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
@@ -54,7 +55,13 @@ class IngestionResult:
 
 
 def _clean_text(text: str) -> str:
-    return re.sub(r"[ \t]+", " ", re.sub(r"\r\n?", "\n", text)).strip()
+    if not text:
+        return ""
+    try:
+        sanitized = sanitize_user_text(text)
+    except Exception:
+        sanitized = text.replace("\x00", "")
+    return re.sub(r"[ \t]+", " ", re.sub(r"\r\n?", "\n", sanitized)).strip()
 
 
 def _plain_text_sections(text: str) -> list[ExtractedSection]:

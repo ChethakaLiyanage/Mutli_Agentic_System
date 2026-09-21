@@ -33,16 +33,7 @@ def _format_friendly_incident_type(incident_type: str | None) -> str:
 
 
 def _get_time_aware_greeting(user_text: str | None = None) -> str:
-    """Return a natural, time-aware or time-matched greeting."""
-    if user_text:
-        lowered = user_text.casefold()
-        if "good afternoon" in lowered:
-            return "Good afternoon! How can I help with your motor insurance today?"
-        if "good evening" in lowered:
-            return "Good evening! How can I help with your motor insurance today?"
-        if "good morning" in lowered:
-            return "Good morning! How can I help with your motor insurance today?"
-
+    """Return a natural, time-aware or time-matched greeting with dynamic phrasing."""
     current_hour = datetime.now().hour
     if 4 <= current_hour < 12:
         salutation = "Good morning!"
@@ -50,7 +41,24 @@ def _get_time_aware_greeting(user_text: str | None = None) -> str:
         salutation = "Good afternoon!"
     else:
         salutation = "Good evening!"
-    return f"{salutation} How can I help with your motor insurance today?"
+
+    if user_text:
+        lowered = user_text.casefold()
+        if "good afternoon" in lowered:
+            salutation = "Good afternoon!"
+        elif "good evening" in lowered:
+            salutation = "Good evening!"
+        elif "good morning" in lowered:
+            salutation = "Good morning!"
+
+    variations = [
+        f"{salutation} How can I help with your motor insurance today?",
+        f"{salutation} What can I assist you with regarding your policy or claim?",
+        f"{salutation} I'm here to help with your insurance questions or claims. What's on your mind?",
+        f"Hello! {salutation} How may I assist you with your motor insurance today?",
+    ]
+    idx = (len(user_text or "") + datetime.now().second) % len(variations)
+    return variations[idx]
 
 
 _MISSING_FIELD_QUESTIONS = {

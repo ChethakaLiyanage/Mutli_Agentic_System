@@ -77,8 +77,16 @@ class MockLLMClient(BaseLLMClient):
                 time_greeting = "Good afternoon!"
             else:
                 time_greeting = "Good evening!"
+
+            options = [
+                f"{time_greeting} How can I help with your motor insurance today?",
+                f"{time_greeting} What can I assist you with regarding your policy, coverage, or claim?",
+                f"{time_greeting} I'm ready to assist with your motor insurance. What would you like to do?",
+                f"Hello! {time_greeting} How may I help you with your insurance today?",
+            ]
+            chosen_msg = options[(len(user_msg) + datetime.now().second) % len(options)]
             return {
-                "message": f"{time_greeting} How can I help with your motor insurance today?",
+                "message": chosen_msg,
                 "next_steps": [],
                 "evidence_used": [],
                 "requires_human_review": False,
@@ -610,6 +618,7 @@ class OpenAILLMClient(BaseLLMClient):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         }
         payload = {
             "model": self.settings.model_name,
