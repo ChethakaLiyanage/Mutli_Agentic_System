@@ -1,6 +1,7 @@
+from __future__ import annotations
+from backend.app.security.input_sanitization import InputSanitizationError, sanitize_user_text
 """REST endpoint for the motor-insurance workflow Orchestrator."""
 
-from __future__ import annotations
 
 import logging
 from typing import Annotated
@@ -118,11 +119,19 @@ async def process_orchestrator_request(
 
     logger.info("%s orchestrator request received", request.request_id)
     try:
+        request = request.model_copy(
+            update={"text": sanitize_user_text(request.text)}
+        )
         response = await service.process_request(
             request,
             authenticated_user_id=current_user.user_id,
             authenticated_user_role=current_user.role.value,
         )
+    except InputSanitizationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
     except Exception as error:
         logger.exception(
             "%s orchestrator service failed",
@@ -165,6 +174,9 @@ async def clarify_orchestrator_workflow(
         workflow_id,
     )
     try:
+        request = request.model_copy(
+            update={"text": sanitize_user_text(request.text)}
+        )
         response = await service.resume_clarification(
             workflow_id,
             request,

@@ -1,9 +1,10 @@
+from __future__ import annotations
+from backend.app.security.input_sanitization import sanitize_untrusted_llm_content
 """Prompt builder for constructing grounded, injection-resistant LLM prompts.
 
 Implements Section 4, 8, and Phase 5 of the Agent 4 Design Guide.
 """
 
-from __future__ import annotations
 
 import json
 from typing import NamedTuple
@@ -33,7 +34,8 @@ def format_evidence_block(request: GuidanceRequest) -> str:
         lines.append(
             f'  <document id="{item.document_id}" name="{item.document_name}" section="{item.section}">'
         )
-        lines.append(f"    {item.content}")
+        sanitized_content = sanitize_untrusted_llm_content(item.content)
+        lines.append(f"    {sanitized_content}")
         lines.append("  </document>")
     lines.append("</retrieved_evidence>")
     return "\n".join(lines)

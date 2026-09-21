@@ -1,6 +1,7 @@
+from __future__ import annotations
+from backend.app.security.input_sanitization import sanitize_user_text, InputSanitizationError
 """Orchestrator service for Agent 1 intake and initial workflow routing."""
 
-from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
@@ -132,14 +133,15 @@ class OrchestratorService:
         """Create received state; authentication context comes from outside."""
 
         self.validate_request(request)
+        sanitized = sanitize_user_text(request.text)
         workflow_id = f"WF-{uuid4().hex.upper()}"
         state = WorkflowState(
             workflow_id=workflow_id,
             request_id=request.request_id,
             last_request_id=request.request_id,
             raw_text=request.text,
-            original_text=request.text,
-            accumulated_text=request.text,
+            original_text=sanitized,
+            accumulated_text=sanitized,
             authenticated_user_id=authenticated_user_id,
             authenticated_user_role=authenticated_user_role,
         )
