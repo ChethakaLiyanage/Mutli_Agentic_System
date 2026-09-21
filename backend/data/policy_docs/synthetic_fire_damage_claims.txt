@@ -1,0 +1,40 @@
+Motor Insurance - Fire and Explosion Damage Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=fire_damage, incident_type=fire_damage, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document provides guidelines for vehicle damage resulting from accidental fire, engine combustion, electrical short circuit, lightning, external wildfire, or explosion.
+
+Section 2: When This Applies
+Applies under comprehensive and third-party fire & theft policies when a vehicle catches fire or suffers scorch, heat, or smoke damage. Scenarios:
+- Engine compartment fire caused by mechanical or electrical malfunction
+- External fire spreading from an adjacent structure, garage, or vehicle
+- Wildfire or bushfire encroaching on a parked or traveling vehicle
+- Malicious arson or explosive damage
+
+Section 3: Required Documents
+The following papers are required for fire claims:
+- Fire Brigade incident report or official municipal fire department investigation certificate
+- Official police station report recording the fire incident
+- Clear photographs of the burnt vehicle showing all angles, chassis numbers, and burnt areas
+- Vehicle registration book (certificate of registration)
+- Valid driving licence of the owner or last driver
+- Itemized repair estimate or salvage evaluation from an authorized technical assessor
+
+Section 4: Optional and Conditional Documents
+- Forensic or technical expert report on cause of fire origin (arson vs electrical short circuit)
+- Towing and salvage transport receipts
+- Property damage claims from third parties if the vehicle fire damaged external structures
+
+Section 5: Claim Procedure and Steps
+1. Extinguish and ensure safety: Ensure personal safety and alert emergency fire services immediately.
+2. Do not disturb debris: Avoid tampering with electrical wiring or burnt components before inspection.
+3. Obtain fire service documentation: Secure the fire incident log reference from the responding station.
+4. Lodge claim: Submit claim form and photos within 24 hours of the incident.
+
+Section 6: Important Notes and Practical Guidance
+- Arson and Fraud Checks: Unexplained vehicle fires undergo technical origin investigation.
+- Total Loss Settlement: Severe fires resulting in destroyed wiring harnesses and structural warping are typically settled on a constructive total loss basis according to market valuation.
+
+Section 7: Limitations and Human Review
+All fire damage claims require technical adjuster review and authoritative evaluation by a human claims officer.

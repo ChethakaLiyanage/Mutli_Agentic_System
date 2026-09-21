@@ -1,0 +1,41 @@
+Motor Insurance - Police Report Requirements and Procedures
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=police_report, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide clarifies when an official police report, police station entry, or accident report book (ARB) extract is legally and procedurally required for a motor claim.
+
+Section 2: When This Applies
+Relevant to customers asking:
+- "do i need a police report"
+- "is police complaint mandatory for my claim"
+- "can i claim without a police report"
+- "when is police entry required"
+
+Section 3: When a Police Report is Strictly MANDATORY
+A certified police report must be obtained and submitted in the following situations:
+- Theft of vehicle or attempted vehicle theft / burglary
+- Hit-and-run accidents where the other party fled the scene
+- Any collision involving bodily injury, fatality, or hospitalization of any person
+- Collisions involving government vehicles, road furniture, or public property
+- Incidents involving suspected criminal acts, malicious vandalism, or arson
+- Major multi-vehicle crashes with disputed liability
+
+Section 4: When a Police Report May Be WAIVED (Optional)
+A police report may be excused or waived under specific conditions:
+- Minor single-vehicle accidental damage (e.g. scraping a private gate post or parking pillar)
+- Isolated windscreen chips or glass cracks caused by road stones
+- Minor stationary parking dents where insurer on-site inspection was completed
+
+Section 5: Procedure for Obtaining a Police Report
+1. Visit local station: Go to the traffic police division nearest to the incident location within 24 hours.
+2. Record statement: Provide an accurate, truthful statement of the events.
+3. Request certified copy: Obtain the official entry number and request a certified copy of the accident book extract.
+4. Upload to portal: Upload the scanned police report or receipt voucher during claim filing.
+
+Section 6: Important Notes and Practical Guidance
+- Do not make false statements: Discrepancies between police reports and insurance claim forms create severe fraud red flags.
+- Time Limit: Most traffic police departments require accidents to be reported within 24 hours of occurrence.
+
+Section 7: Limitations and Human Review
+Police report extracts are evaluated by claims adjudicators to confirm accident facts and establish third-party liability.

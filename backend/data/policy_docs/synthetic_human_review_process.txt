@@ -1,0 +1,37 @@
+Motor Insurance - Human Review Process and Officer Authority
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=human_review, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document describes the governance, principles, and procedures governing human claims officer adjudication in our motor insurance system.
+
+Section 2: When This Applies
+Relevant when understanding who decides claims and how decisions are made:
+- "who makes the decision on my claim"
+- "does an AI decide my claim"
+- "role of claims officer"
+- "how are claims evaluated"
+
+Section 3: Authoritative Human Governance
+- AI Assists, Human Decides: All AI components (Agent 1 Intake, Agent 2 Retrieval, Agent 3 Fraud Triage, Agent 4 Guidance) are advisory. They catalog evidence, retrieve rules, and summarize facts.
+- Authoritative Mandate: Only a licensed, authorized human claims officer or administrator holds the legal authority to approve claims, reject claims, request more information, or escalate files.
+
+Section 4: Claims Officer Review Checklist
+When reviewing an assigned claim, the officer evaluates:
+1. Policy Coverage: Verifies active policy dates, premium standing, plan tier, and covered perils.
+2. Incident Veracity: Checks that the reported accident narrative aligns with the photographic damage patterns.
+3. Repair Quotation Audit: Reviews itemized repair estimates against standardized labor rates and parts pricing.
+4. Legal & Regulatory Compliance: Verifies driver's licence validity, vehicle registration, and police reports where applicable.
+5. Advisory Risk Indicators: Evaluates Agent 3 fraud triage indicators with human judgment.
+
+Section 5: Decision Options
+- Approve: Approves the repair quote or authorizes settlement disbursement.
+- Reject: Rejects the claim with a mandatory written justification citing applicable policy terms.
+- Request More Information: Pauses evaluation and requests specific missing documents or clarifications from customer.
+- Escalate: Refers complex, high-value, or legally disputed claims to a senior manager or legal counsel.
+
+Section 6: Important Notes and Practical Guidance
+- Confidentiality: Internal risk notes and fraud indicators remain confidential to staff and are never disclosed to customers.
+
+Section 7: Limitations and Human Review
+Human review ensures fairness, transparency, and accountability across every insurance decision.

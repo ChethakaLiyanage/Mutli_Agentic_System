@@ -1,0 +1,38 @@
+Motor Insurance - Step-by-Step Claim Submission Process
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=submission_process, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide outlines the end-to-end journey of filing a motor insurance claim from incident occurrence to claim settlement.
+
+Section 2: When This Applies
+Applies to any customer inquiring:
+- "how do i submit my claim"
+- "what is the process for lodging a claim"
+- "step by step claim filing"
+- "how does motor insurance claim work"
+
+Section 3: Step-by-Step Workflow
+1. Step 1: Initial Notification: Customer interacts with the intake agent or customer portal, providing incident type, date, and location.
+2. Step 2: Information Retrieval & Guidance: The retrieval agent identifies required documents; guidance agent provides clear requirements.
+3. Step 3: Document Upload: The policyholder uploads driving licence, registration, photos, estimate, and police report if required.
+4. Step 4: Submission Validation: The customer presses "Submit Claim"; orchestrator confirms all mandatory documents are attached.
+5. Step 5: Advisory Fraud Triage: Automated risk triage calculates advisory risk indicators (no automated decisions).
+6. Step 6: Human Assignment: An administrator assigns the claim file to an authorized claims officer.
+7. Step 7: Officer Review & Decision: The officer reviews evidence and decides (Approve, Reject, Request More Info, Escalate).
+8. Step 8: Settlement & Repair: Repair authorization issued to garage or settlement payout transferred to policyholder.
+
+Section 4: Online Portal Navigation
+Customers can track claim progress, receive notifications, and upload additional documents directly via their dashboard.
+
+Section 5: Common Submission Bottlenecks
+- Submitting blurry photos that do not show the license plate
+- Missing driving licence copy of the person who drove the vehicle
+- Submitting an estimate without itemized labor and parts breakdown
+
+Section 6: Important Notes and Practical Guidance
+- Draft Status: Your claim remains in draft or awaiting_documents until you click "Submit Claim".
+- Notification: You will receive in-app notifications whenever your claim advances to a new workflow stage.
+
+Section 7: Limitations and Human Review
+While automated systems guide intake and validation, all claim decisions are strictly made by human claims personnel.

@@ -1,0 +1,36 @@
+Motor Insurance - Claim Escalation and Supervisory Review Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=claim_escalation, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide explains the escalation pathway when a claim requires senior management evaluation, multi-party dispute resolution, or legal review.
+
+Section 2: When This Applies
+Applies when a claim status is set to "escalated", or when a policyholder requests senior supervisory re-evaluation. Relevant queries:
+- "what does escalated status mean"
+- "why is my claim escalated"
+- "second review of motor claim"
+- "supervisory claim assessment"
+
+Section 3: Why Claims Are Escalated
+A claims officer escalates a claim file when:
+- High Value / Total Loss: Repair estimates exceed significant monetary thresholds or approach constructive total loss limits.
+- Complex Multi-Party Collisions: Three or more vehicles involved with contested liability and cross-claims.
+- Legal Action / Summons: Court summons, third-party attorney letters, or statutory notices received.
+- Fraud Investigation: Special Investigations Unit (SIU) forensic audit recommended due to conflicting damage patterns.
+- Policy Ambiguity: Interpretation of non-standard endorsements or complex policy exclusions requires legal counsel opinion.
+
+Section 4: Escalation Review Workflow
+1. Escalation Note: The reviewing claims officer attaches detailed notes specifying the reason for escalation.
+2. Workflow Status: Status updates to "escalated"; policyholder receives notification that additional specialist review is underway.
+3. Senior Panel Review: A senior claims manager, technical loss engineer, or legal counsel examines the complete claim docket.
+4. Resolution: The escalation panel issues a binding determination (Approve with adjusted settlement, Request specific evidence, or Confirm Repudiation).
+
+Section 5: Escalation Timeframes
+Due to multi-party or technical investigations, escalated claims typically conclude within 5 to 10 business days. Regular status updates appear in the customer portal.
+
+Section 6: Important Notes and Practical Guidance
+- Cooperation: If the escalation panel requests forensic vehicle examination or recorded statements, prompt cooperation speeds up resolution.
+
+Section 7: Limitations and Human Review
+Escalation ensures senior human oversight and equitable resolution of complex and contentious claims.

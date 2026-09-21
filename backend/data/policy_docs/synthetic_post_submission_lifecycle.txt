@@ -1,0 +1,37 @@
+Motor Insurance - Post-Submission Claim Lifecycle Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=post_submission_lifecycle, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide explains what happens behind the scenes after a customer presses the "Submit Claim" button in our digital claims portal.
+
+Section 2: When This Applies
+Relevant to customers asking:
+- "what happens after i submit my claim"
+- "what are the next steps after claim submission"
+- "how long does review take after submitting papers"
+- "claim lifecycle after filing"
+
+Section 3: Behind-the-Scenes Processing Steps
+1. Immediate Validation: System checks that all mandatory documents for the reported incident type are attached. Status becomes "documents_submitted".
+2. Advisory Fraud Triage: Agent 3 evaluates objective risk factors (rule-based score, document consistency). All automated indicators are purely advisory. Status moves to "fraud_triage_complete".
+3. Internal Reviewer Summary: Agent 4 synthesizes a confidential internal overview for the claims team highlighting facts, missing proof, and policy details. Status moves to "awaiting_assignment".
+4. Allocation to Officer: An administrator assigns the file from the common review queue to an authorized claims officer. Status updates to "under_human_review".
+5. Assessment & Inspection: The officer cross-examines photographs, garage estimates, and policy terms, and may dispatch an engineer for on-site inspection.
+6. Authoritative Decision: The claims officer approves, rejects, requests more information, or escalates.
+
+Section 4: What the Policyholder Receives
+- Immediate confirmation: Confirmation of submission with claim reference (CLM-...).
+- Progress updates: Live tracking on the "My Claims" dashboard.
+- Decision notification: Immediate in-app notification when the claims officer submits a decision.
+
+Section 5: Typical Processing Timelines
+- Initial review: 24 to 48 business hours after document submission.
+- Assessor inspection (if needed): 2 to 4 business days.
+- Repair authorization: Released within 24 hours of claim approval.
+
+Section 6: Important Notes and Practical Guidance
+- Chat Unlocked: Submitting a claim does not lock your chat interface; you can continue asking questions or check status anytime.
+
+Section 7: Limitations and Human Review
+Our architecture strictly adheres to "AI Assists, Human Decides": no claim is ever automatically approved or denied without authorized human review.
