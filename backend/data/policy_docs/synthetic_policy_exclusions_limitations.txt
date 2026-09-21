@@ -1,0 +1,37 @@
+Motor Insurance - General Policy Exclusions and Limitations
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=exclusions, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document explains common situations, risks, and circumstances that are excluded from motor insurance coverage across standard policies.
+
+Section 2: When This Applies
+Relevant when policyholders inquire:
+- "why would a claim be excluded"
+- "common insurance exclusions"
+- "what is not covered by motor insurance"
+- "does insurance pay if driver was drunk"
+
+Section 3: Standard Statutory and Contractual Exclusions
+The following circumstances are strictly excluded from coverage:
+1. Driving Under the Influence: Operating the vehicle while impaired by alcohol, drugs, or illegal substances.
+2. Unlicensed Driving: Driving without a valid driving license, or by an individual disqualified from driving.
+3. Unapproved Commercial Use: Using a vehicle registered and insured for private use as an unapproved taxi, ride-hailing vehicle, or commercial haulage.
+4. Illegal Activities & Racing: Damage occurring during speed trials, street racing, or criminal activities.
+5. Inactive Policy: Losses occurring outside the policy start and end dates, or while policy is lapsed for non-payment.
+6. Deliberate / Staged Damage: Intentional damage caused or orchestrated by the policyholder or driver.
+7. Wear, Tear, and Mechanical Failure: Gradual deterioration, rust, corrosion, mechanical breakdown, or electrical burnout not caused by an insured peril.
+8. War, Nuclear, and Civil Commotion: Damage caused by acts of war, rebellion, or nuclear radiation.
+
+Section 4: Geographical and Environmental Limitations
+- Operating the vehicle outside national territorial boundaries without an overseas coverage extension is excluded.
+
+Section 5: Consequential Loss
+- Deprivation of use, loss of income, car rental expenses (unless a courtesy car rider was purchased), and hotel bills are excluded.
+
+Section 6: Important Notes and Practical Guidance
+- No Automatic Rejection: Automated systems must NEVER reject a claim based on suspected exclusions.
+- Full Investigation: Potential exclusions require thorough verification and evidence before any denial is issued.
+
+Section 7: Limitations and Human Review
+Decisions to decline a claim based on policy exclusions can only be authorized by a licensed claims officer with written justification.

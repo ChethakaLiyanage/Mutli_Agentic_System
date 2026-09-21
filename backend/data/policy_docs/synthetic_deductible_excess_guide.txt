@@ -1,0 +1,37 @@
+Motor Insurance - Deductibles and Policy Excess Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=deductibles_excess, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document clarifies the concepts of policy excess, deductibles, customer contributions, and how they apply during claim settlement.
+
+Section 2: When This Applies
+Relevant to policyholder queries:
+- "deductible/excess meaning"
+- "what is policy excess"
+- "what is deductible"
+- "deductibles and excess explained"
+- "how does a deductible work"
+- "do i have to pay excess if accident was not my fault"
+- "compulsory vs voluntary excess"
+
+Section 3: What is Policy Excess / Deductible?
+A policy excess (or deductible/excess) is the agreed first amount of any claim that the policyholder must pay out-of-pocket towards the cost of repairs. The terms deductible and excess carry the same meaning in motor claims. The insurer covers the remaining balance above the excess amount up to the sum insured.
+For example: If approved repair costs equal $1,500 and your policy excess is $250, the insurer pays $1,250 and you contribute $250.
+
+Section 4: Types of Policy Excess
+1. Compulsory (Standard) Excess: The mandatory deductible fixed by the insurer according to vehicle model and policy terms.
+2. Voluntary Excess: An additional amount chosen by the policyholder to reduce their annual insurance premium.
+3. Young or Inexperienced Driver Excess: An additional deductible applied when the driver at the time of accident is under 25 years of age or has held a full driving licence for less than two years.
+4. Glass Excess: A specialized, lower excess applicable strictly to windscreen or glass repair/replacement.
+
+Section 5: When Excess May Be Waived or Recovered
+- Non-Fault Collision: If the accident was 100% caused by an identified third party whose insurer admits full liability, your excess may be waived or recovered from the third-party insurer.
+- No Excess Windscreen Repair: Resin repairs of small stone chips often carry a zero excess incentive to avoid full glass replacement.
+
+Section 6: Important Notes and Practical Guidance
+- Excess Payment Timing: Excess is either deducted directly from the cash settlement or paid to the repair garage upon vehicle collection.
+- Below-Excess Claims: If total repair costs are less than your excess amount, filing a claim is uneconomical.
+
+Section 7: Limitations and Human Review
+Claims officers calculate and verify applicable excess amounts according to the specific policy schedule during final settlement approval.

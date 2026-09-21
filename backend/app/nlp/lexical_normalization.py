@@ -206,8 +206,6 @@ def damerau_levenshtein_distance(left: str, right: str) -> int:
 
 
 def _maximum_edit_distance(token: str) -> int:
-    if len(token) <= 3:
-        return 0
     if len(token) <= 7:
         return 1
     return 2

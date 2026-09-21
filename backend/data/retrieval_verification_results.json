@@ -1,0 +1,628 @@
+{
+  "total_indexed_chunks": 216,
+  "core_queries": [
+    {
+      "query": "vehicle collision required documents",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_collision_claims",
+          "section": "Section 1: Scope and Application",
+          "score": 0.2837,
+          "snippet": "Motor Insurance - Vehicle Collision Claims Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [METAD...",
+          "synthetic": true
+        },
+        {
+          "source_title": "collision_claim_process",
+          "section": "Section 1: Incident Reporting",
+          "score": 0.2342,
+          "snippet": "Motor Insurance - Collision Claim Process Section 1: Incident Reporting Following a vehicle collision, the customer should provide: - Date of incident - Locatio...",
+          "synthetic": false
+        },
+        {
+          "source_title": "synthetic_collision_claims",
+          "section": "Section 3: Required Documents",
+          "score": 0.1786,
+          "snippet": "Section 3: Required Documents To process a vehicle collision claim, the policyholder or driver must submit the following core documents: - Completed motor claim...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "windscreen damage documents",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "windscreen_claims",
+          "section": "Section 1: Windscreen Damage",
+          "score": 0.3663,
+          "snippet": "Motor Insurance - Windscreen Claims Section 1: Windscreen Damage Some motor insurance policies provide cover for accidental windscreen or window-glass damage....",
+          "synthetic": false
+        },
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 1: Scope and Application",
+          "score": 0.2928,
+          "snippet": "Motor Insurance - Windscreen and Glass Damage Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [ME...",
+          "synthetic": true
+        },
+        {
+          "source_title": "motor_policy_general",
+          "section": "Section 2: Common Covered Events",
+          "score": 0.2422,
+          "snippet": "Section 2: Common Covered Events Depending on the individual policy, motor insurance may provide cover for accidental collision damage, theft, attempted theft, ...",
+          "synthetic": false
+        }
+      ]
+    },
+    {
+      "query": "theft claim documents",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "theft_claim_requirements",
+          "section": "Section 1: Immediate Actions",
+          "score": 0.2021,
+          "snippet": "Motor Insurance - Theft Claim Requirements Section 1: Immediate Actions If a vehicle is stolen or broken into, the customer should report the incident to the po...",
+          "synthetic": false
+        },
+        {
+          "source_title": "synthetic_required_claim_documents",
+          "section": "Section 2: When This Applies",
+          "score": 0.2012,
+          "snippet": "Section 2: When This Applies Applies to all policyholders seeking to understand what documents, papers, or files must be provided after an incident. Relevant us...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_theft_breakin_claims",
+          "section": "Section 1: Scope and Application",
+          "score": 0.1956,
+          "snippet": "Motor Insurance - Vehicle Theft and Break-In Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [MET...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "flood claim documents",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_required_claim_documents",
+          "section": "Section 2: When This Applies",
+          "score": 0.2379,
+          "snippet": "Section 2: When This Applies Applies to all policyholders seeking to understand what documents, papers, or files must be provided after an incident. Relevant us...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_required_claim_documents",
+          "section": "Section 1: Scope and Application",
+          "score": 0.2309,
+          "snippet": "Motor Insurance - Required Claim Documents Master Checklist [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POL...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_flood_water_damage_claims",
+          "section": "Section 1: Scope and Application",
+          "score": 0.1216,
+          "snippet": "Motor Insurance - Flood and Water Damage Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [METADAT...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "police report requirement",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_police_report_requirements",
+          "section": "Section 2: When This Applies",
+          "score": 0.3892,
+          "snippet": "Section 2: When This Applies Relevant to customers asking: - \"do i need a police report\" - \"is police complaint mandatory for my claim\" - \"can i claim without a...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_police_report_requirements",
+          "section": "Section 1: Scope and Application",
+          "score": 0.3103,
+          "snippet": "Motor Insurance - Police Report Requirements and Procedures [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POL...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 4: Optional and Conditional Documents",
+          "score": 0.2113,
+          "snippet": "Section 4: Optional and Conditional Documents - Police report: Generally NOT required for accidental stone chip or road debris glass damage. A police report is ...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "claim reporting timeline",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "claims_reporting_deadlines",
+          "section": "Section 1: Prompt Reporting",
+          "score": 0.325,
+          "snippet": "Motor Insurance - Claim Reporting Guidance Section 1: Prompt Reporting Customers should report incidents as soon as reasonably possible after they occur....",
+          "synthetic": false
+        },
+        {
+          "source_title": "synthetic_claim_reporting_timelines",
+          "section": "Section 2: When This Applies",
+          "score": 0.3043,
+          "snippet": "Section 2: When This Applies Relevant to customers asking: - \"how long do i have to report an accident\" - \"claim reporting deadline\" - \"can i report a claim aft...",
+          "synthetic": true
+        },
+        {
+          "source_title": "claims_reporting_deadlines",
+          "section": "Section 2: Delayed Reporting",
+          "score": 0.2025,
+          "snippet": "Section 2: Delayed Reporting Significant reporting delays may require additional review....",
+          "synthetic": false
+        }
+      ]
+    },
+    {
+      "query": "deductible/excess meaning",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_deductible_excess_guide",
+          "section": "Section 2: When This Applies",
+          "score": 0.4616,
+          "snippet": "Section 2: When This Applies Relevant to policyholder queries: - \"deductible/excess meaning\" - \"what is policy excess\" - \"what is deductible\" - \"deductibles and...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_deductible_excess_guide",
+          "section": "Section 3: What is Policy Excess / Deductible?",
+          "score": 0.3178,
+          "snippet": "Section 3: What is Policy Excess / Deductible? A policy excess (or deductible/excess) is the agreed first amount of any claim that the policyholder must pay out...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 6: Important Notes and Practical Guidance",
+          "score": 0.1215,
+          "snippet": "Section 6: Important Notes and Practical Guidance - No Claim Discount (NCD) Protection: In many comprehensive policies, an isolated windscreen claim does not af...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "claim status process",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_claim_status_explanations",
+          "section": "Section 2: When This Applies",
+          "score": 0.3186,
+          "snippet": "Section 2: When This Applies Relevant when customers query: - \"check my claim status\" - \"what does under human review mean\" - \"what is happening with my claim\" ...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_claim_status_explanations",
+          "section": "Section 1: Scope and Application",
+          "score": 0.253,
+          "snippet": "Motor Insurance - Claim Status Tracking and Explanations [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_claim_escalation_review",
+          "section": "Section 2: When This Applies",
+          "score": 0.1863,
+          "snippet": "Section 2: When This Applies Applies when a claim status is set to \"escalated\", or when a policyholder requests senior supervisory re-evaluation. Relevant queri...",
+          "synthetic": true
+        }
+      ]
+    }
+  ],
+  "noisy_queries": [
+    {
+      "query": "what documents do i need after a crash",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_required_claim_documents",
+          "section": "Section 2: When This Applies",
+          "score": 0.3785,
+          "snippet": "Section 2: When This Applies Applies to all policyholders seeking to understand what documents, papers, or files must be provided after an incident. Relevant us...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.0881,
+          "snippet": "Section 2: When This Applies This policy section applies when vehicle glass suffers accidental damage without major structural vehicle bodywork damage. Typical ...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_driving_licence_requirements",
+          "section": "Section 2: When This Applies",
+          "score": 0.0786,
+          "snippet": "Section 2: When This Applies Applies to questions such as: - \"do i need my driving licence\" - \"whose driving licence do i submit\" - \"what if driver was not the ...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "papers needed for accident claim",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_required_claim_documents",
+          "section": "Section 2: When This Applies",
+          "score": 0.315,
+          "snippet": "Section 2: When This Applies Applies to all policyholders seeking to understand what documents, papers, or files must be provided after an incident. Relevant us...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_claim_reporting_timelines",
+          "section": "Section 2: When This Applies",
+          "score": 0.141,
+          "snippet": "Section 2: When This Applies Relevant to customers asking: - \"how long do i have to report an accident\" - \"claim reporting deadline\" - \"can i report a claim aft...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_flood_water_damage_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.1024,
+          "snippet": "Section 2: When This Applies Applies when water enters the vehicle cabin, engine compartment, transmission, or electrical systems due to natural flooding or hea...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "my windscreen broke what do i submit",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.1627,
+          "snippet": "Section 2: When This Applies This policy section applies when vehicle glass suffers accidental damage without major structural vehicle bodywork damage. Typical ...",
+          "synthetic": true
+        },
+        {
+          "source_title": "windscreen_claims",
+          "section": "Section 1: Windscreen Damage",
+          "score": 0.1201,
+          "snippet": "Motor Insurance - Windscreen Claims Section 1: Windscreen Damage Some motor insurance policies provide cover for accidental windscreen or window-glass damage....",
+          "synthetic": false
+        },
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 5: Claim Procedure and Steps",
+          "score": 0.0837,
+          "snippet": "Section 5: Claim Procedure and Steps 1. Photograph the damage immediately: Take clear close-ups showing the extent of crack propagation. 2. Determine repair vs ...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "car was stolen what documents are needed",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_theft_breakin_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.3168,
+          "snippet": "Section 2: When This Applies This guidance applies under comprehensive and third-party fire & theft policies when: - The entire motor vehicle has been stolen fr...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_flood_water_damage_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.1377,
+          "snippet": "Section 2: When This Applies Applies when water enters the vehicle cabin, engine compartment, transmission, or electrical systems due to natural flooding or hea...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_required_claim_documents",
+          "section": "Section 2: When This Applies",
+          "score": 0.1249,
+          "snippet": "Section 2: When This Applies Applies to all policyholders seeking to understand what documents, papers, or files must be provided after an incident. Relevant us...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "flood damaged my car what should i provide",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_flood_water_damage_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.3186,
+          "snippet": "Section 2: When This Applies Applies when water enters the vehicle cabin, engine compartment, transmission, or electrical systems due to natural flooding or hea...",
+          "synthetic": true
+        },
+        {
+          "source_title": "flood_coverage_guide",
+          "section": "Section 1: Flood Damage",
+          "score": 0.1095,
+          "snippet": "Motor Insurance - Flood Damage Guide Section 1: Flood Damage Some comprehensive motor insurance policies may provide cover for accidental vehicle damage caused ...",
+          "synthetic": false
+        },
+        {
+          "source_title": "synthetic_flood_water_damage_claims",
+          "section": "Section 1: Scope and Application",
+          "score": 0.0854,
+          "snippet": "Motor Insurance - Flood and Water Damage Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [METADAT...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "do i need a police report",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_police_report_requirements",
+          "section": "Section 2: When This Applies",
+          "score": 0.4593,
+          "snippet": "Section 2: When This Applies Relevant to customers asking: - \"do i need a police report\" - \"is police complaint mandatory for my claim\" - \"can i claim without a...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_police_report_requirements",
+          "section": "Section 1: Scope and Application",
+          "score": 0.1811,
+          "snippet": "Motor Insurance - Police Report Requirements and Procedures [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POL...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 4: Optional and Conditional Documents",
+          "score": 0.1233,
+          "snippet": "Section 4: Optional and Conditional Documents - Police report: Generally NOT required for accidental stone chip or road debris glass damage. A police report is ...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "do i need my driving licence",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_driving_licence_requirements",
+          "section": "Section 2: When This Applies",
+          "score": 0.474,
+          "snippet": "Section 2: When This Applies Applies to questions such as: - \"do i need my driving licence\" - \"whose driving licence do i submit\" - \"what if driver was not the ...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_driving_licence_requirements",
+          "section": "Section 1: Scope and Application",
+          "score": 0.1819,
+          "snippet": "Motor Insurance - Driving Licence Requirements Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [M...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_driving_licence_requirements",
+          "section": "Section 5: Exclusions and License Disqualifications",
+          "score": 0.1404,
+          "snippet": "Section 5: Exclusions and License Disqualifications Claims will be declined if at the time of the incident the driver: - Held no valid driving licence or had th...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "how long do i have to report an accident",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_claim_reporting_timelines",
+          "section": "Section 2: When This Applies",
+          "score": 0.4019,
+          "snippet": "Section 2: When This Applies Relevant to customers asking: - \"how long do i have to report an accident\" - \"claim reporting deadline\" - \"can i report a claim aft...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_post_submission_lifecycle",
+          "section": "Section 2: When This Applies",
+          "score": 0.0967,
+          "snippet": "Section 2: When This Applies Relevant to customers asking: - \"what happens after i submit my claim\" - \"what are the next steps after claim submission\" - \"how lo...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_police_report_requirements",
+          "section": "Section 1: Scope and Application",
+          "score": 0.0776,
+          "snippet": "Motor Insurance - Police Report Requirements and Procedures [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POL...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "what happens after i submit my claim",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_post_submission_lifecycle",
+          "section": "Section 2: When This Applies",
+          "score": 0.3452,
+          "snippet": "Section 2: When This Applies Relevant to customers asking: - \"what happens after i submit my claim\" - \"what are the next steps after claim submission\" - \"how lo...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_post_submission_lifecycle",
+          "section": "Section 1: Scope and Application",
+          "score": 0.1573,
+          "snippet": "Motor Insurance - Post-Submission Claim Lifecycle Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_claim_submission_process",
+          "section": "Section 2: When This Applies",
+          "score": 0.1146,
+          "snippet": "Section 2: When This Applies Applies to any customer inquiring: - \"how do i submit my claim\" - \"what is the process for lodging a claim\" - \"step by step claim f...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "what is policy excess",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_deductible_excess_guide",
+          "section": "Section 1: Scope and Application",
+          "score": 0.3095,
+          "snippet": "Motor Insurance - Deductibles and Policy Excess Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_deductible_excess_guide",
+          "section": "Section 3: What is Policy Excess / Deductible?",
+          "score": 0.2853,
+          "snippet": "Section 3: What is Policy Excess / Deductible? A policy excess (or deductible/excess) is the agreed first amount of any claim that the policyholder must pay out...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_parking_damage_claims",
+          "section": "Section 6: Important Notes and Practical Guidance",
+          "score": 0.2738,
+          "snippet": "Section 6: Important Notes and Practical Guidance - Policy Excess Comparison: Check whether the cost of repairing minor parking dents is lower than your policy ...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "why was more information requested",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_request_for_more_information",
+          "section": "Section 2: When This Applies",
+          "score": 0.3631,
+          "snippet": "Section 2: When This Applies Relevant to policyholders asking: - \"why was more information requested\" - \"what to do when insurer asks for more documents\" - \"cla...",
+          "synthetic": true
+        },
+        {
+          "source_title": "theft_claim_requirements",
+          "section": "Section 2: Common Required Documents",
+          "score": 0.1377,
+          "snippet": "Section 2: Common Required Documents A theft-related claim may require: - Completed claim form - Police report or police reference - Vehicle registration docume...",
+          "synthetic": false
+        },
+        {
+          "source_title": "synthetic_request_for_more_information",
+          "section": "Section 6: Important Notes and Practical Guidance",
+          "score": 0.1315,
+          "snippet": "Section 6: Important Notes and Practical Guidance - Response Deadline: Submit requested information within 14 business days to prevent administrative claim susp...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "what docs needed if i crash car",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_required_claim_documents",
+          "section": "Section 2: When This Applies",
+          "score": 0.2269,
+          "snippet": "Section 2: When This Applies Applies to all policyholders seeking to understand what documents, papers, or files must be provided after an incident. Relevant us...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_flood_water_damage_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.1734,
+          "snippet": "Section 2: When This Applies Applies when water enters the vehicle cabin, engine compartment, transmission, or electrical systems due to natural flooding or hea...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_theft_breakin_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.1612,
+          "snippet": "Section 2: When This Applies This guidance applies under comprehensive and third-party fire & theft policies when: - The entire motor vehicle has been stolen fr...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "my glass broke what paper i need",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_required_claim_documents",
+          "section": "Section 2: When This Applies",
+          "score": 0.2477,
+          "snippet": "Section 2: When This Applies Applies to all policyholders seeking to understand what documents, papers, or files must be provided after an incident. Relevant us...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.2168,
+          "snippet": "Section 2: When This Applies This policy section applies when vehicle glass suffers accidental damage without major structural vehicle bodywork damage. Typical ...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_windscreen_glass_claims",
+          "section": "Section 1: Scope and Application",
+          "score": 0.0966,
+          "snippet": "Motor Insurance - Windscreen and Glass Damage Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [ME...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "someone stole my car wat documents",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_theft_breakin_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.2412,
+          "snippet": "Section 2: When This Applies This guidance applies under comprehensive and third-party fire & theft policies when: - The entire motor vehicle has been stolen fr...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_theft_breakin_claims",
+          "section": "Section 1: Scope and Application",
+          "score": 0.131,
+          "snippet": "Motor Insurance - Vehicle Theft and Break-In Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [MET...",
+          "synthetic": true
+        },
+        {
+          "source_title": "synthetic_theft_breakin_claims",
+          "section": "Section 4: Optional and Conditional Documents",
+          "score": 0.1025,
+          "snippet": "Section 4: Optional and Conditional Documents - CCTV surveillance footage or security logbook entries from the premises where the theft took place - Repair esti...",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "query": "flood dmg claim what should i upload",
+      "results_count": 3,
+      "top_results": [
+        {
+          "source_title": "synthetic_flood_water_damage_claims",
+          "section": "Section 2: When This Applies",
+          "score": 0.2564,
+          "snippet": "Section 2: When This Applies Applies when water enters the vehicle cabin, engine compartment, transmission, or electrical systems due to natural flooding or hea...",
+          "synthetic": true
+        },
+        {
+          "source_title": "flood_coverage_guide",
+          "section": "Section 1: Flood Damage",
+          "score": 0.2361,
+          "snippet": "Motor Insurance - Flood Damage Guide Section 1: Flood Damage Some comprehensive motor insurance policies may provide cover for accidental vehicle damage caused ...",
+          "synthetic": false
+        },
+        {
+          "source_title": "synthetic_flood_water_damage_claims",
+          "section": "Section 1: Scope and Application",
+          "score": 0.1792,
+          "snippet": "Motor Insurance - Flood and Water Damage Guide [DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY] [METADAT...",
+          "synthetic": true
+        }
+      ]
+    }
+  ]
+}

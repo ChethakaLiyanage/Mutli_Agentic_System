@@ -19,11 +19,17 @@ _NORMAL_FORMS = {
     "covered": "cover",
     "covers": "cover",
     "damages": "damage",
+    "dmg": "damage",
     "documents": "document",
+    "docs": "document",
+    "doc": "document",
+    "papers": "document",
+    "paper": "document",
     "policies": "policy",
     "required": "require",
     "requires": "require",
     "stolen": "theft",
+    "stole": "theft",
 }
 
 
@@ -31,11 +37,16 @@ def tokenize_for_retrieval(text: str) -> list[str]:
     """Return normalized tokens while retaining identifiers and section numbers."""
     if not isinstance(text, str):
         raise TypeError("text must be a string")
-    tokens = [
-        _NORMAL_FORMS.get(match.group(0).lower(), match.group(0).lower())
-        for match in _TOKEN_PATTERN.finditer(text)
-    ]
-    return [token for token in tokens if token not in _STOP_WORDS]
+    raw_tokens: list[str] = []
+    for match in _TOKEN_PATTERN.finditer(text):
+        token = match.group(0).lower()
+        norm = _NORMAL_FORMS.get(token, token)
+        raw_tokens.append(norm)
+        if "/" in token and not any(char.isdigit() for char in token):
+            for part in token.split("/"):
+                if part:
+                    raw_tokens.append(_NORMAL_FORMS.get(part, part))
+    return [token for token in raw_tokens if token not in _STOP_WORDS]
 
 
 def preprocess_for_retrieval(text: str) -> str:

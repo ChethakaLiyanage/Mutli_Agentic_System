@@ -1,0 +1,37 @@
+Motor Insurance - Claim Rejection Explanation and Appeals Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=claim_rejection, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document outlines the formal process, requirements, and rights associated with claim repudiation or rejection under our motor insurance platform.
+
+Section 2: When This Applies
+Relevant when customers inquire:
+- "why was my claim rejected"
+- "claim declined explanation"
+- "can i appeal a rejected claim"
+- "insurance refusal reasons"
+
+Section 3: Mandatory Rejection Standards
+- No Automated Rejection: Our system strictly forbids automated AI rejections. Every rejection requires explicit human claims officer review.
+- Mandatory Written Justification: Claims officers cannot reject a claim without providing a non-empty, detailed, customer-safe explanation. Empty or whitespace-only reasons are programmatically blocked with HTTP 409 Conflict.
+- Specific Policy Reference: The rejection rationale must identify the specific policy exclusion, condition, or factual ground for denial.
+
+Section 4: Common Legitimate Grounds for Rejection
+1. Coverage Inactive: The reported incident occurred prior to the policy inception date or after policy expiration.
+2. Uncovered Peril: The claimed peril is not covered under the plan tier (e.g., claiming own-damage collision under a Third-Party Only policy).
+3. Contractual Exclusion: Driver was intoxicated, unlicensed, or vehicle was used for unapproved commercial racing/hire.
+4. Material Misrepresentation: Intentional falsification of accident date, circumstances, or staged damage.
+5. Wear and Tear: Damage is purely mechanical breakdown or age-related corrosion rather than an accidental impact.
+
+Section 5: Customer Appeals and Review Options
+If you believe your claim was rejected in error:
+1. Internal Dispute Resolution: You may submit a written appeal providing new evidence (e.g. additional photos, witness statements, or police findings).
+2. Escalation Request: Request supervisory re-evaluation by an escalation claims manager.
+3. Insurance Ombudsman: Independent external arbitration options are available under financial regulatory oversight.
+
+Section 6: Important Notes and Practical Guidance
+- Rejection Notices: Written rejection details are visible on your claim details screen and preserved in your audit history.
+
+Section 7: Limitations and Human Review
+Claims officers are held to strict ethical and procedural standards when issuing rejection decisions.

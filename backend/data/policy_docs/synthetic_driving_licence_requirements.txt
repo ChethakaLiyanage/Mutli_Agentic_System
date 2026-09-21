@@ -1,0 +1,37 @@
+Motor Insurance - Driving Licence Requirements Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=driving_licence, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document specifies requirements regarding the driver's licence of the person operating an insured vehicle during an incident.
+
+Section 2: When This Applies
+Applies to questions such as:
+- "do i need my driving licence"
+- "whose driving licence do i submit"
+- "what if driver was not the policyholder"
+- "expired licence claim validity"
+
+Section 3: Core Requirements
+- Valid authorization: The person driving at the moment of the accident must hold a valid, unexpired driver's licence authorized for that vehicle class (e.g., motor car, heavy vehicle, or motorcycle).
+- Document submission: Submit a clear scanned copy or photograph of both the front and reverse sides of the driving licence.
+- Driver identity: The driver listed on the claim form must match the driver recorded in the police entry (if applicable).
+
+Section 4: Driver Types and Policy Conditions
+- Policyholder Driving: Standard copy of policyholder licence required.
+- Named Drivers: If policy is restricted to named drivers, the driver must appear on the policy schedule.
+- Open Driver Policy: Any driver holding a valid licence who drove with the policyholder's permission is covered.
+- Learner Drivers: A learner permit holder must be accompanied by a fully licensed driver pursuant to national traffic laws.
+
+Section 5: Exclusions and License Disqualifications
+Claims will be declined if at the time of the incident the driver:
+- Held no valid driving licence or had their licence suspended/revoked by a court
+- Was driving a vehicle class outside their licensed authorization
+- Was driving under the influence of alcohol, narcotics, or intoxicating drugs
+
+Section 6: Important Notes and Practical Guidance
+- Renewals: If your licence expired immediately prior to the incident, proof of renewal application may be considered.
+- Legibility: Ensure the license number, photo, expiry date, and vehicle classes are clearly legible.
+
+Section 7: Limitations and Human Review
+The validity and authenticity of driving credentials are independently verified by human claims adjudicators.

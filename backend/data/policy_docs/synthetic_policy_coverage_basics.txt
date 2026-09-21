@@ -1,0 +1,44 @@
+Motor Insurance - Policy Coverage Basics and Plan Types
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=coverage_basics, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide explains the basic principles of motor insurance coverage, plan tiers, and scope of protection under our demo system.
+
+Section 2: When This Applies
+Relevant to customers asking:
+- "what does my policy cover"
+- "difference between comprehensive and third party"
+- "can you explain my motor policy"
+- "does my policy cover flood damage"
+
+Section 3: Motor Insurance Plan Tiers
+1. Comprehensive Cover:
+   - Provides the highest protection: covers damage to your own vehicle (collision, rollover, accidental damage)
+   - Covers fire, lightning, self-ignition, explosion, and theft of the vehicle
+   - Covers third-party property damage and bodily injury liability
+   - May include natural disaster extensions (flood, storm, landslide) and windscreen cover.
+2. Third-Party Fire and Theft (TPFT):
+   - Covers third-party liability
+   - Covers loss of or damage to your vehicle caused by fire, explosion, theft, or attempted theft
+   - Does NOT cover accidental collision damage to your own vehicle.
+3. Third-Party Only (TPO):
+   - Minimum statutory cover: covers legal liability for damage to third-party property and injury to third parties
+   - Does NOT cover any damage or loss to your own vehicle.
+
+Section 4: Key Policy Parameters
+- Sum Insured: The maximum agreed value payable in the event of total loss or theft.
+- Policy Period: The exact effective dates between start date and expiry date.
+- Territorial Limits: Geographical jurisdiction where policy coverage applies.
+
+Section 5: Optional Endorsements
+- Windscreen / Glass cover extension
+- Natural Perils (flood, storm, cyclone) rider
+- Passenger legal liability cover
+- Roadside assistance and towing package
+
+Section 6: Important Notes and Practical Guidance
+- General guidance does not guarantee that your specific policy covers an event; always verify active policy schedules.
+
+Section 7: Limitations and Human Review
+Claims officers verify active coverage dates, plan tier, and endorsements against policy repository records during claim review.

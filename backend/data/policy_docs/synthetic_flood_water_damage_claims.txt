@@ -1,0 +1,41 @@
+Motor Insurance - Flood and Water Damage Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=flood_damage, incident_type=flood_damage, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide explains claim submission requirements for motor vehicles damaged by floods, torrential rain, rising water, inundation, river overflow, or flash flooding.
+
+Section 2: When This Applies
+Applies when water enters the vehicle cabin, engine compartment, transmission, or electrical systems due to natural flooding or heavy storm runoff. Common user queries:
+- "flood damaged my car what should i provide"
+- "flood dmg claim what should i upload"
+- "water entered engine what papers needed"
+- "car was parked in flooded street"
+- "rising flood water submerged vehicle"
+
+Section 3: Required Documents
+The following documentation must be uploaded for flood damage claim assessment:
+- Detailed photographs showing water immersion levels (water marks on wheels, doors, upholstery, and dashboard)
+- Professional repair estimate from an authorized garage itemizing mechanical, electrical, and upholstery remediation
+- Completed motor claim form stating the exact geographic location, street name, and time of flooding
+- Copy of the vehicle registration document confirming ownership
+- Valid driving licence copy of the vehicle owner or driver
+
+Section 4: Optional and Conditional Documents
+- Local meteorological department advisory or newspaper weather clipping confirming flash floods in the area
+- Towing and recovery service invoice for transporting the submerged vehicle to the garage
+- Diagnostic scan report from the mechanic regarding electronic control unit (ECU) water immersion
+
+Section 5: Claim Procedure and Steps
+1. CRITICAL SAFETY RULE: DO NOT ATTEMPT TO START THE ENGINE if the vehicle has been submerged in flood water. Starting a wet engine causes catastrophic hydrostatic lock.
+2. Disconnect battery: Disconnect battery terminals safely if accessible to prevent short circuits.
+3. Photograph: Take photos of the vehicle in the water and water lines inside and outside the car.
+4. Tow to workshop: Have the vehicle towed to a qualified repair facility for drying and diagnostic assessment.
+5. Submit claim: File the claim online attaching all photos and garage diagnostics.
+
+Section 6: Important Notes and Practical Guidance
+- Hydrostatic Lock Exclusions: Starting an engine in standing floodwater may be categorized as avoidable consequential damage and excluded from payout unless specific natural disaster coverage covers it.
+- Special Perils Endorsement: Verify that your policy schedule includes natural perils / flood cover endorsements.
+
+Section 7: Limitations and Human Review
+Automated tools assist with cataloging evidence. Human claims officers assess whether policy endorsements cover flood events and authorize appropriate repair or total-loss settlements.

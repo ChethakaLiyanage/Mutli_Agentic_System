@@ -193,7 +193,7 @@ class FraudAssessmentContext(_DomainContract):
     indicators: list[RiskIndicator] = Field(default_factory=list)
     recommended_action: RecommendedAction
     missing_documents: list[DocumentType] = Field(default_factory=list)
-    rule_score: float = Field(ge=0.0, le=1.0)
+    rule_score: float = Field(default=0.0, ge=0.0, le=1.0)
     anomaly_score: float | None = Field(default=None, ge=0.0, le=1.0)
     automated_decision: Literal[False] = False
     rules_version: str | None = None

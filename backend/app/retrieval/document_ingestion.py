@@ -57,8 +57,44 @@ def _clean_text(text: str) -> str:
     return re.sub(r"[ \t]+", " ", re.sub(r"\r\n?", "\n", text)).strip()
 
 
+def _parse_preamble_metadata(preamble: str | None) -> dict[str, object]:
+    """Extract structured metadata tags (e.g. [METADATA: key=val] or key: val) from preamble."""
+    if not preamble:
+        return {}
+    meta: dict[str, object] = {}
+    for line in preamble.splitlines():
+        trimmed = line.strip()
+        match = re.search(r"\[METADATA:\s*(.+?)\]", trimmed, re.IGNORECASE)
+        if match:
+            pairs = match.group(1).split(",")
+            for pair in pairs:
+                if "=" in pair:
+                    k, v = pair.split("=", 1)
+                    k_str = k.strip().lower()
+                    v_str = v.strip()
+                    if v_str.lower() == "true":
+                        meta[k_str] = True
+                    elif v_str.lower() == "false":
+                        meta[k_str] = False
+                    else:
+                        meta[k_str] = v_str
+        for key in ("topic", "incident_type", "synthetic", "version"):
+            if re.match(rf"^{key}\s*:\s*(.+)$", trimmed, re.IGNORECASE):
+                val = re.sub(rf"^{key}\s*:\s*", "", trimmed, flags=re.IGNORECASE).strip()
+                if val.lower() == "true":
+                    meta[key] = True
+                elif val.lower() == "false":
+                    meta[key] = False
+                else:
+                    meta[key] = val
+    if "synthetic" not in meta and ("synthetic" in preamble.lower() or "demo" in preamble.lower()):
+        meta["synthetic"] = True
+    return meta
+
+
 def _plain_text_sections(text: str) -> list[ExtractedSection]:
     """Extract headings without mistaking prose/list introductions for headings."""
+    doc_metadata: dict[str, object] = _parse_preamble_metadata(text[:1200])
     sections: list[ExtractedSection] = []
     heading: str | None = None
     body: list[str] = []
@@ -69,7 +105,7 @@ def _plain_text_sections(text: str) -> list[ExtractedSection]:
         nonlocal preamble_attached
         content = _clean_text("\n".join(body))
         if content:
-            metadata: dict[str, object] = {}
+            metadata: dict[str, object] = dict(doc_metadata)
             if preamble and not preamble_attached:
                 metadata["document_preamble"] = preamble
                 preamble_attached = True
@@ -77,6 +113,8 @@ def _plain_text_sections(text: str) -> list[ExtractedSection]:
 
     def is_heading(line: str) -> bool:
         if not line or len(line) > 120:
+            return False
+        if line.startswith("[") and line.endswith("]"):
             return False
         if line.startswith("#") or _NUMBERED_SECTION.fullmatch(line):
             return True
@@ -90,6 +128,8 @@ def _plain_text_sections(text: str) -> list[ExtractedSection]:
                 leading_text = _clean_text("\n".join(body))
                 if leading_text:
                     preamble = leading_text
+                    parsed = _parse_preamble_metadata(preamble)
+                    doc_metadata.update(parsed)
             else:
                 flush()
             heading = line.lstrip("# ").rstrip(":").strip() or None
@@ -100,7 +140,7 @@ def _plain_text_sections(text: str) -> list[ExtractedSection]:
     if sections:
         return sections
     cleaned = _clean_text(text)
-    return [ExtractedSection(None, cleaned, {})] if cleaned else []
+    return [ExtractedSection(None, cleaned, dict(doc_metadata))] if cleaned else []
 
 
 def extract_document(path: str | Path) -> list[ExtractedSection]:
@@ -130,9 +170,9 @@ def extract_document(path: str | Path) -> list[ExtractedSection]:
         from docx import Document
 
         document = Document(str(file_path))
-        sections: list[ExtractedSection] = []
-        heading: str | None = None
-        paragraphs: list[str] = []
+        sections = []
+        heading = None
+        paragraphs = []
 
         def flush_docx() -> None:
             content = _clean_text("\n".join(paragraphs))
@@ -300,6 +340,10 @@ class DocumentIngestor:
                 "ingestion_pipeline_version": INGESTION_PIPELINE_VERSION,
                 "source_extension": file_path.suffix.lower(),
             }
+            if "synthetic" not in metadata and (
+                "synthetic" in title.lower() or "synthetic" in str(file_path).lower()
+            ):
+                metadata["synthetic"] = True
             chunks.append(
                 KnowledgeChunk(
                     chunk_id=chunk_id,

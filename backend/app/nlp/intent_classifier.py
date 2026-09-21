@@ -497,10 +497,10 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
             break
 
     # If the user message has no insurance terms and is not a recognized pure social
-    # turn (e.g. out-of-domain words like "panda", "dog", "cat"), route it to general
-    # information so it can proceed through retrieval and be naturally answered by the LLM.
+    # turn (e.g. out-of-domain words like "panda", "dog", "cat", or ambiguous "help"),
+    # route it to general information with low confidence so clarification is requested.
     if not has_insurance_topic and not is_pure_social:
-        return "general_information", 0.50
+        return "general_information", 0.35
 
     best_index = int(probabilities.argmax())
     label = str(model.classes_[best_index])

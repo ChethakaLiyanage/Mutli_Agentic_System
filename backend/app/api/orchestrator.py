@@ -209,6 +209,7 @@ async def clarify_orchestrator_workflow(
 @router.post(
     "/workflows/{workflow_id}/submit-claim",
     response_model=OrchestratorResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Submit claim documents for fraud triage and review",
     description=(

@@ -10,15 +10,21 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.schemas.auth import AuthenticatedUser
 from backend.app.schemas.notification import NotificationItemResponse, NotificationListResponse
 from backend.app.security.dependencies import get_current_user
-from backend.app.services.notification_service import NotificationService, get_notification_repository
+from backend.app.services.notification_service import (
+    NotificationRepository,
+    NotificationService,
+    get_notification_repository,
+)
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-def get_notification_service() -> NotificationService:
-    return NotificationService(get_notification_repository())
+def get_notification_service(
+    repository: Annotated[NotificationRepository, Depends(get_notification_repository)],
+) -> NotificationService:
+    return NotificationService(repository)
 
 
 @router.get("", response_model=NotificationListResponse)

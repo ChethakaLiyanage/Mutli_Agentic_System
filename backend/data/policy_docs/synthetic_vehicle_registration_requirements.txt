@@ -1,0 +1,33 @@
+Motor Insurance - Vehicle Registration and Ownership Documents Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=vehicle_registration, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document outlines vehicle registration requirements and proof of insurable interest required for motor insurance claims.
+
+Section 2: When This Applies
+Applies when verifying vehicle identity, ownership, roadworthiness, and insurable interest during claim processing.
+
+Section 3: Required Registration Documents
+Policyholders must submit:
+- Certificate of Registration (Registration Book / Logbook / Title Document)
+- Current valid Revenue License / Vehicle Road Tax disc
+- Periodic vehicle roadworthiness or inspection certificate (for commercial vehicles or aged private vehicles)
+
+Section 4: Vehicle Identification Verification
+The registration document must confirm:
+- Registered vehicle registration number (license plate)
+- Chassis number (VIN) matching the physical vehicle stamping
+- Engine number matching the vehicle engine
+- Registered vehicle owner name corresponding to the policyholder or an authorized corporate entity
+
+Section 5: Transfer of Ownership and Leased Vehicles
+- Recently Purchased Vehicles: If ownership was recently transferred, submit the official transfer acknowledgement or sales agreement.
+- Financed / Leased Vehicles: If the vehicle is leased, settlements may require concurrence from the financing financial institution.
+
+Section 6: Important Notes and Practical Guidance
+- Keep copies handy: Store digital scans of your vehicle registration to expedite claim processing.
+- Engine Modifications: Unauthorized engine replacements not updated on the registration book can jeopardize claim approval.
+
+Section 7: Limitations and Human Review
+Claims officers cross-verify registration records against insurance policy databases before approving repair authorizations.

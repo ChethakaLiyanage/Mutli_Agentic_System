@@ -34,14 +34,15 @@ def _format_friendly_incident_type(incident_type: str | None) -> str:
 
 def _get_time_aware_greeting(user_text: str | None = None) -> str:
     """Return a natural, time-aware or time-matched greeting."""
+    options = " You can ask about policies, coverage, or claims."
     if user_text:
         lowered = user_text.casefold()
         if "good afternoon" in lowered:
-            return "Good afternoon! How can I help with your motor insurance today?"
+            return f"Good afternoon! How can I help with your motor insurance today?{options}"
         if "good evening" in lowered:
-            return "Good evening! How can I help with your motor insurance today?"
+            return f"Good evening! How can I help with your motor insurance today?{options}"
         if "good morning" in lowered:
-            return "Good morning! How can I help with your motor insurance today?"
+            return f"Good morning! How can I help with your motor insurance today?{options}"
 
     current_hour = datetime.now().hour
     if 4 <= current_hour < 12:
@@ -50,7 +51,7 @@ def _get_time_aware_greeting(user_text: str | None = None) -> str:
         salutation = "Good afternoon!"
     else:
         salutation = "Good evening!"
-    return f"{salutation} How can I help with your motor insurance today?"
+    return f"{salutation} How can I help with your motor insurance today?{options}"
 
 
 _MISSING_FIELD_QUESTIONS = {

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import logging
+import re
 from typing import Iterable
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
+from backend.app.orchestrator.greetings import is_pure_greeting
 from backend.app.fraud.repository import FraudAssessmentRepository
 from backend.app.graph.state import WorkflowState
 from backend.app.orchestrator.agent_clients import (
@@ -586,34 +588,64 @@ class OrchestratorService:
         if self.guidance_client is None or state.claim_context is None:
             return
 
-        retrieval = (
-            RetrievalResponse.model_validate(state.retrieval_result)
-            if state.retrieval_result
-            else None
-        )
-        request = build_guidance_request(
-            request_id=state.last_request_id,
-            audience="reviewer",
-            task_type="reviewer_summary",
-            claim=state.claim_context,
-            policy=policy,
-            evidence=(retrieval_to_evidence_items(retrieval) if retrieval else []),
-            fraud_assessment=FraudAssessmentContext.model_validate(
-                state.fraud_result or {}
-            ),
-            intent="claim_submission",
-            workflow_status=state.current_status.value,
-        )
         try:
+            retrieval = None
+            if state.retrieval_result:
+                try:
+                    retrieval = RetrievalResponse.model_validate(state.retrieval_result)
+                except Exception:
+                    try:
+                        result = (state.retrieval_result or {}).get("result") or {}
+                        retrieval = RetrievalResponse.model_validate({
+                            "request_id": state.last_request_id,
+                            "status": (state.retrieval_result or {}).get("status", "success"),
+                            "result": result,
+                            "errors": (state.retrieval_result or {}).get("errors", []),
+                        })
+                    except Exception:
+                        retrieval = None
+
+            evidence = retrieval_to_evidence_items(retrieval) if retrieval else []
+            fraud_ctx = (
+                FraudAssessmentContext.model_validate(state.fraud_result)
+                if state.fraud_result
+                else FraudAssessmentContext()
+            )
+            request = build_guidance_request(
+                request_id=state.last_request_id,
+                audience="reviewer",
+                task_type="reviewer_summary",
+                claim=state.claim_context,
+                policy=policy,
+                evidence=evidence,
+                fraud_assessment=fraud_ctx,
+                intent="claim_submission",
+                workflow_status=state.current_status.value,
+            )
             response = await self.guidance_client.generate(request)
             if not isinstance(response, GuidanceResponse):
                 raise TypeError("Guidance client returned an invalid response")
         except Exception:
             logger.exception("Reviewer guidance failed for workflow %s", state.workflow_id)
-            response = build_deterministic_guidance_response(
-                request,
-                warning="Reviewer guidance provider failed; deterministic fallback used",
-            )
+            try:
+                request = build_guidance_request(
+                    request_id=state.last_request_id,
+                    audience="reviewer",
+                    task_type="reviewer_summary",
+                    claim=state.claim_context,
+                    policy=policy,
+                    evidence=[],
+                    fraud_assessment=FraudAssessmentContext(),
+                    intent="claim_submission",
+                    workflow_status=state.current_status.value,
+                )
+                response = build_deterministic_guidance_response(
+                    request,
+                    warning="Reviewer guidance provider failed; deterministic fallback used",
+                )
+            except Exception:
+                return
+
         state.reviewer_guidance_result = response.model_dump(mode="json")
 
     def _clarification_response(
@@ -814,76 +846,28 @@ class OrchestratorService:
                 "Workflow is not awaiting clarification"
             )
 
-        # Pre-screen the incoming message with Agent 1 before assuming it is a continuation
-        # of the awaiting claim. If the user sent an independent greeting or inquiry, or if the
-        # message does not supply any missing fields, route it as a clean new request.
-        try:
-            standalone_intake = await self.claim_intake_client.analyze(
-                IntakeRequest(request_id=request.request_id, text=request.text)
-            )
-            standalone_intent = (
-                standalone_intake.data.intent.label if standalone_intake.status == "success" else None
-            )
-            is_independent_intent = standalone_intent in {
-                "policy_question",
-                "coverage_question",
-                "required_documents_question",
-                "general_information",
-                "claim_status",
-            }
-            # Check if this message provides any of the missing fields
-            provides_missing_info = False
-            if state.missing_fields and standalone_intake.status == "success":
-                new_incident = standalone_intake.data.incident
-                if "incident_type" in state.missing_fields and new_incident.type:
-                    provides_missing_info = True
-                if "incident_date" in state.missing_fields and (new_incident.date_text or new_incident.normalized_date):
-                    provides_missing_info = True
-                if "location" in state.missing_fields and new_incident.location:
-                    provides_missing_info = True
+        # A short social response (greeting, thanks, goodbye) should not replace or erase
+        # a pending claim. It receives an Agent 4 reply while the same workflow remains
+        # available for the actual clarification answer.
+        norm_text = re.sub(r"[^\w\s]", " ", request.text.casefold()).strip()
+        social_task = None
+        if is_pure_greeting(request.text):
+            social_task = "greeting"
+        elif norm_text in {"thanks", "thank you", "thx", "ty", "thank u"}:
+            social_task = "thanks"
+        elif norm_text in {"bye", "goodbye", "byebye", "see you", "cya"}:
+            social_task = "goodbye"
 
-            # A short social response should not replace or erase a pending
-            # claim. It receives an Agent 4 reply while the same workflow
-            # remains available for the actual clarification answer.
-            # Only treat as a social act if it doesn't supply a missing claim fact.
-            is_valid_social = (
-                standalone_intent in _SOCIAL_INTENTS
-                and not provides_missing_info
-                and (
-                    standalone_intake.data.intent.confidence >= 0.40
-                    or request.text.strip().casefold() in _PURE_SOCIAL_INTENTS.get(standalone_intent, set())
-                )
+        if social_task is not None:
+            state.last_request_id = request.request_id
+            state.guidance_result = None
+            await self._run_customer_guidance(
+                state,
+                task_type=social_task,
+                safe_customer_context={"customer_message": request.text},
             )
-            if is_valid_social:
-                state.last_request_id = request.request_id
-                state.guidance_result = None
-                await self._run_customer_guidance(
-                    state,
-                    task_type=standalone_intent,
-                    safe_customer_context={"customer_message": request.text},
-                )
-                await self.workflow_repository.save(state)
-                return self._clarification_response(state)
-
-            # A real policy/coverage/status question begins its own workflow,
-            # unless this turn also concretely supplies a missing claim fact
-            # (for example, a bare place name while location is outstanding).
-            if not provides_missing_info:
-                logger.info(
-                    "Clarification input '%s' identified as independent intent %s (provides_missing=%s); routing as new request",
-                    request.text,
-                    standalone_intent,
-                    provides_missing_info,
-                )
-                return await self.process_request(
-                    OrchestratorRequest(request_id=request.request_id, text=request.text),
-                    authenticated_user_id=state.authenticated_user_id,
-                    authenticated_user_role=state.authenticated_user_role,
-                )
-        except Exception:
-            logger.warning(
-                "Clarification pre-screening failed; proceeding with normal clarification flow"
-            )
+            await self.workflow_repository.save(state)
+            return self._clarification_response(state)
 
         # The stored role remains authoritative for this workflow. Role-specific
         # reviewer behavior is intentionally outside this step.
@@ -891,16 +875,6 @@ class OrchestratorService:
         state.last_request_id = request.request_id
         state.clarification_count += 1
         previous_intake_result = state.intake_result
-        if (
-            'standalone_intake' in locals()
-            and standalone_intake is not None
-            and getattr(standalone_intake, "status", None) == "success"
-            and provides_missing_info
-        ):
-            previous_intake_result = merge_claim_intake_results(
-                previous_intake_result,
-                standalone_intake,
-            )
         state.guidance_result = None
         state.accumulated_text = (
             f"{state.accumulated_text.rstrip()} {request.text.strip()}"
