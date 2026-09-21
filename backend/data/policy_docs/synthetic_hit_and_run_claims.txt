@@ -1,0 +1,39 @@
+Motor Insurance - Hit-and-Run Incident Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=hit_and_run, incident_type=hit_and_run, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide explains procedures for claiming vehicle damage caused by an unidentified or fleeing vehicle where the responsible third party cannot be located at the scene.
+
+Section 2: When This Applies
+Applies in situations where:
+- Another vehicle crashed into yours and fled the scene without stopping or exchanging particulars
+- Your parked vehicle was struck by an unknown driver who left no note or contact information
+- An unidentified vehicle caused a collision and could not be traced by local police
+
+Section 3: Required Documents
+Because the third party is unknown, the following documents are mandatory:
+- Official police report confirming a hit-and-run incident was reported immediately
+- Detailed damage photographs showing paint transfer marks, impact depth, and vehicle registration
+- Itemized repair quotation from an authorized body repair garage
+- Copy of valid driving licence of the insured or driver
+- Vehicle registration book confirming ownership
+- Completed claim form stating exact date, time, and location of the incident
+
+Section 4: Optional and Conditional Documents
+- CCTV video footage from nearby shops, toll gates, or traffic surveillance cameras
+- Dashcam recordings capturing the fleeing vehicle make, model, color, or partial license plate
+- Witness testimony or statements taken by investigating police officers
+
+Section 5: Claim Procedure and Steps
+1. Report immediately to police: Hit-and-run incidents MUST be reported to the nearest police station within 24 hours.
+2. Document paint transfer: Photograph any paint rub-off or debris left by the offending vehicle.
+3. Check for cameras: Look for local security cameras overlooking the impact location.
+4. Submit claim online: Upload all documents and police report number for rapid triage.
+
+Section 6: Important Notes and Practical Guidance
+- Policy Excess: Because the offending driver cannot be identified to recover costs, the standard own-damage policy excess applies unless third-party identity is later uncovered.
+- Investigation: Insurers may conduct investigation to corroborate impact marks with reported hit-and-run details.
+
+Section 7: Limitations and Human Review
+Claims officers review hit-and-run submissions to confirm damage patterns are consistent with impact evidence before authorizing claim settlement.

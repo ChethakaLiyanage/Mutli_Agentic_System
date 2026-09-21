@@ -11,6 +11,7 @@ from datetime import datetime
 import json
 import logging
 import os
+import time
 import re
 from abc import ABC, abstractmethod
 from typing import Any
@@ -554,30 +555,43 @@ class GeminiLLMClient(BaseLLMClient):
             },
         }
 
-        try:
-            with httpx.Client(timeout=self.settings.timeout_seconds) as client:
-                response = client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                data = response.json()
-                raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
-                return json.loads(raw_text)
-        except httpx.HTTPStatusError as err:
-            status_code = err.response.status_code
-            if status_code in self._FALLBACK_STATUS_CODES:
-                logger.warning(
-                    "Gemini temporarily unavailable (HTTP %s); using grounded fallback",
-                    status_code,
-                )
-                return self.grounded_fallback.generate_json(
-                    system_instruction, user_prompt
-                )
-            logger.error("Gemini API returned HTTP %s", status_code)
-            raise LLMClientError(
-                f"Gemini API generation failed with HTTP {status_code}"
-            ) from err
-        except Exception as err:
-            logger.error("Gemini API generation failed: %s", type(err).__name__)
-            raise LLMClientError("Gemini API generation failed") from err
+        for attempt in range(self.settings.max_retries + 1):
+            try:
+                with httpx.Client(timeout=self.settings.timeout_seconds) as client:
+                    response = client.post(url, headers=headers, json=payload)
+                    response.raise_for_status()
+                    data = response.json()
+                    raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    return json.loads(raw_text)
+            except httpx.HTTPStatusError as err:
+                status_code = err.response.status_code
+                if status_code in self._FALLBACK_STATUS_CODES:
+                    if attempt < self.settings.max_retries:
+                        logger.warning(
+                            "Gemini API returned HTTP %s on attempt %d; retrying in %s seconds...",
+                            status_code,
+                            attempt + 1,
+                            0.5 * (2 ** attempt),
+                        )
+                        time.sleep(0.5 * (2 ** attempt))
+                        continue
+                    logger.warning(
+                        "Gemini temporarily unavailable (HTTP %s); using grounded fallback",
+                        status_code,
+                    )
+                    return self.grounded_fallback.generate_json(
+                        system_instruction, user_prompt
+                    )
+                logger.error("Gemini API returned HTTP %s", status_code)
+                raise LLMClientError(
+                    f"Gemini API generation failed with HTTP {status_code}"
+                ) from err
+            except Exception as err:
+                if attempt < self.settings.max_retries:
+                    time.sleep(0.5 * (2 ** attempt))
+                    continue
+                logger.error("Gemini API generation failed: %s", type(err).__name__)
+                raise LLMClientError("Gemini API generation failed") from err
 
 
 class OpenAILLMClient(BaseLLMClient):

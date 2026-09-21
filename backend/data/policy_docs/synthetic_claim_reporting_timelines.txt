@@ -1,0 +1,37 @@
+Motor Insurance - Claim Reporting Timelines and Deadlines
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=claim_timelines, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document sets out the regulatory and contractual time limits for notifying incidents and submitting motor claims.
+
+Section 2: When This Applies
+Relevant to customers asking:
+- "how long do i have to report an accident"
+- "claim reporting deadline"
+- "can i report a claim after two weeks"
+- "delayed reporting policy rules"
+
+Section 3: Standard Reporting Timelines
+- Immediate Notice (within 24 hours): Theft, vehicle fire, hit-and-run, and accidents involving bodily injury should be reported immediately.
+- Standard Collision Reporting (within 48 to 72 hours): Routine vehicle collisions and parking damage should be reported within 2 to 3 days of occurrence.
+- Document Submission Window (within 14 days): Initial claim notification should be followed by full supporting documents within 14 days.
+
+Section 4: Consequences of Delayed Notification
+Failure to report incidents promptly may result in:
+- Inability to verify fresh impact damage or paint transfer
+- Loss of CCTV or eyewitness evidence
+- Mandatory referral of the claim to the special investigations unit
+- Potential repudiation if delay prejudices the insurer's legal defense against third parties
+
+Section 5: Excusable Delays and Exceptions
+Delays in notification may be accepted upon presentation of valid corroborating proof:
+- Medical emergency: Driver hospitalized or medically incapacitated (medical discharge certificate required)
+- Remote location: Incident occurred in an area without communication access
+- Unavoidable detention or overseas travel
+
+Section 6: Important Notes and Practical Guidance
+- Report first, assemble papers second: You can lodge an initial claim notice immediately and upload quotes/documents later.
+
+Section 7: Limitations and Human Review
+Claims officers evaluate the reasons for late notifications on a case-by-case basis before accepting delayed claims.

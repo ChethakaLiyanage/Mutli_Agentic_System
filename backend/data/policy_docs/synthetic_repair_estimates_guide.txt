@@ -1,0 +1,32 @@
+Motor Insurance - Repair Estimates and Workshop Quotations Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=repair_estimates, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document provides guidelines for obtaining and submitting automotive repair estimates, garage quotations, and mechanic bills.
+
+Section 2: When This Applies
+Applies to all claims involving physical vehicle damage where repair work, replacement parts, or repainting is required.
+
+Section 3: Mandatory Information in Repair Estimates
+A valid repair estimate must be issued on official workshop letterhead and include:
+- Workshop details: Garage business name, tax registration number, phone number, and physical address
+- Vehicle particulars: Vehicle registration number, make, model, chassis number, and odometer mileage
+- Itemized parts: Distinct list of replacement parts with individual unit prices (OEM vs aftermarket)
+- Labor charges: Itemized labor costs for panel beating, mechanical repair, and electrical work
+- Paint and refinishing: Separate line items for paint materials and refinishing labor
+- Total quotation: Clear subtotal, applicable taxes (VAT/GST), and grand total estimate
+
+Section 4: Authorized vs Independent Workshops
+- Approved Partner Garages: Enjoy direct billing, priority inspection, and guaranteed workmanship without out-of-pocket cash requirements.
+- Non-Partner / Customer-Selected Garages: Subject to insurer assessor pre-inspection; payout may be settled via reimbursement basis.
+
+Section 5: Supplementary Estimates
+If hidden internal damage is uncovered after dismantling, the workshop must submit a supplementary estimate before commencing additional repairs.
+
+Section 6: Important Notes and Practical Guidance
+- Do NOT begin repairs before authorization: Starting repair work before official approval may result in disallowed parts costs.
+- Betterment / Depreciation: Depending on vehicle age, depreciation deductions may apply to wear-and-tear replacement parts.
+
+Section 7: Limitations and Human Review
+Professional insurance assessors and claims officers audit all estimate line items against standard labor times and market part rates.

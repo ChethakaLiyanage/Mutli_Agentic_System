@@ -1,0 +1,33 @@
+Motor Insurance - Damage Photographs Standards Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=damage_photos, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide sets the technical and quality standards for photographic evidence submitted to support motor damage claims.
+
+Section 2: When This Applies
+Applies whenever damage photos must be taken and uploaded for accidents, crashes, glass breakage, floods, vandalism, or fire.
+
+Section 3: Mandatory Photographic Views
+To ensure rapid assessment without request for re-takes, upload:
+1. Overall View: 4 wide-angle photos showing all four corners of the vehicle (front-left, front-right, rear-left, rear-right).
+2. Number Plate View: Clear photo showing the full vehicle with the registration number plate clearly readable.
+3. Specific Damage Shots: Medium-range and close-up photos showing dent depth, cracked panels, or displaced components.
+4. Odometer Reading: Photo of the dashboard showing mileage and warning lights.
+5. Vin Plate / Stamping: Photo of the chassis number plate inside the door jamb or engine bay.
+
+Section 4: Technical and Lighting Quality
+- Clear lighting: Take pictures during daylight or in well-lit garage conditions; avoid heavy shadows and flash glare on paint.
+- No filters or edits: Photographs must be authentic and unedited; filters, cropping of vital areas, or digital tampering will trigger fraud alerts.
+- Image resolution: Minimum 1080p resolution; file formats JPG, JPEG, or PNG under 10MB each.
+
+Section 5: Photographing Special Damages
+- Glass: Place a sheet of paper behind cracked windscreens to emphasize crack lines.
+- Flood: Photograph water tide lines on upholstery, carpets, and door panels.
+- Underside: If safe, photograph punctured oil pans or damaged suspension linkages.
+
+Section 6: Important Notes and Practical Guidance
+- Take immediate scene photos: Taking photos before vehicles are towed or dismantled provides the strongest evidence of impact veracity.
+
+Section 7: Limitations and Human Review
+AI photo analysis helps detect repairable components, while authorized claims assessors review photos to confirm repair quotes.

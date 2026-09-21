@@ -1,0 +1,41 @@
+Motor Insurance - Required Claim Documents Master Checklist
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=claim_documents, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This master checklist summarizes all necessary papers, documentation, records, and evidence required when lodging any motor insurance claim.
+
+Section 2: When This Applies
+Applies to all policyholders seeking to understand what documents, papers, or files must be provided after an incident. Relevant user queries include:
+- "what documents do i need after a crash"
+- "papers needed for accident claim"
+- "what docs do i need to upload"
+- "required paperwork for motor claim"
+- "checklist of claim documents"
+
+Section 3: Mandatory Core Documents Checklist
+Every claim submission requires the following essential documents:
+1. Completed Claim Form: Online submission detailing driver, date, time, location, and accident narrative.
+2. Valid Driving Licence: Clear copy of both sides of the driving license of the person who drove the vehicle.
+3. Vehicle Registration Certificate: Copy of vehicle registration book / logbook confirming ownership and chassis details.
+4. Detailed Repair Estimate: Itemized quotation from a recognized garage listing replacement parts, paint, and labor costs.
+5. Damage Photographs: Multiple well-lit photographs displaying full vehicle, damaged areas, and number plates.
+
+Section 4: Conditional Documents (Incident-Specific)
+- Police Report: Mandatory for theft, hit-and-run, injuries, third-party disputes, or municipal property damage.
+- Third-Party Information: License numbers, driver names, and insurer details when multiple vehicles collide.
+- Fire Brigade Report: Mandatory for fire or explosion incidents.
+- Weather Bulletins: Required when substantiating major flood or storm damage.
+- Surrendered Keys: Mandatory for unrecovered vehicle theft claims.
+
+Section 5: Document Quality and Upload Standards
+- File formats: PDF, PNG, JPG, or JPEG formats are supported.
+- File size: Files should be clearly legible and under 10MB per document.
+- Authenticity: Altered, cropped, or filtered images will be flagged and rejected for manual review.
+
+Section 6: Important Notes and Practical Guidance
+- Missing Documents: If mandatory documents are omitted, your claim status remains "awaiting_documents" until supplied.
+- Digital Storage: Keep original hard copies of repair bills and police receipts until settlement is finalized.
+
+Section 7: Limitations and Human Review
+Automated retrieval checks document completeness, but validity and authenticity are verified by a human claims officer.

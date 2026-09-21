@@ -1,0 +1,39 @@
+Motor Insurance - Claim Status Tracking and Explanations
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=claim_status, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This document defines every status code used in our motor claims platform so customers can track their claim's progress.
+
+Section 2: When This Applies
+Relevant when customers query:
+- "check my claim status"
+- "what does under human review mean"
+- "what is happening with my claim"
+- "why is my status awaiting documents"
+
+Section 3: Detailed Status Definitions
+- draft / intake: Initial incident details recorded; claim identifier generated.
+- awaiting_clarification: Critical details missing (e.g. location or what happened); chatbot is awaiting customer clarification.
+- awaiting_documents: Claim created; system is waiting for the customer to upload required documents.
+- documents_submitted: Customer uploaded all required documents and pressed "Submit Claim".
+- fraud_triage_complete: Advisory risk indicators generated; claim ready for officer review.
+- awaiting_assignment: File queued in common review backlog waiting for admin assignment to a claims officer.
+- under_human_review: Claims officer actively examining policy coverage, estimate, photos, and police records.
+- approved: Claim authorized for repair or payout; repair approval letter released.
+- rejected: Claim declined due to policy exclusion, lapsed coverage, or non-compliance (rejection reason supplied).
+- escalated: File referred to senior manager or legal counsel for complex multi-party or high-value assessment.
+
+Section 4: What Customers Should Do at Each Stage
+- If awaiting_documents: Upload missing items promptly through the portal.
+- If under_human_review: No action required; the assigned officer is evaluating your file.
+- If approved: Contact the authorized garage to schedule repair commencement.
+
+Section 5: Notification Updates
+Whenever your claim status updates, an in-app notification appears in your notification bell with a direct link to your claim summary.
+
+Section 6: Important Notes and Practical Guidance
+- Time in Review: Standard claims in "under_human_review" are typically assessed within 2 to 3 business days.
+
+Section 7: Limitations and Human Review
+Claims officers maintain sole authority to transition claims into approved, rejected, or escalated states.

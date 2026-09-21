@@ -1,0 +1,39 @@
+Motor Insurance - Request for More Information Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=request_more_info, incident_type=general, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide explains the procedure when a claims officer issues a "Request for More Information" (RFI) during claim adjudication.
+
+Section 2: When This Applies
+Relevant to policyholders asking:
+- "why was more information requested"
+- "what to do when insurer asks for more documents"
+- "claim status changed to awaiting documents after review"
+- "how to provide requested information"
+
+Section 3: Common Reasons for Information Requests
+A claims officer may request additional details when:
+- Submitted damage photographs are blurry, dark, or do not display the vehicle registration plate
+- Repair estimate lacks itemized parts numbers, labor hours, or paint breakdown
+- Driver's license copy is cropped, expired, or missing the reverse side
+- Police report extract is pending or requires a certified copy from the police station
+- Third-party contact details or eyewitness statements are required to verify fault
+- Mechanical inspection report is needed for suspected engine water immersion or gearbox failure
+
+Section 4: What Happens to Claim Workflow
+- Status Transition: Workflow status transitions back to "awaiting_documents".
+- Customer Notification: An in-app notification and email are dispatched specifying the exact documents or explanations requested.
+- Preserved History: All previously uploaded documents remain safely stored; only newly requested items need to be submitted.
+
+Section 5: How the Customer Should Respond
+1. Open Claim Details: Navigate to "My Claims" and click on the claim reference.
+2. Review Notes: Read the officer's specific notes detailing the requested items.
+3. Upload New Files: Use the document upload section to attach the required files.
+4. Resubmit: Click "Submit Claim" to return the updated file to the claims officer.
+
+Section 6: Important Notes and Practical Guidance
+- Response Deadline: Submit requested information within 14 business days to prevent administrative claim suspension.
+
+Section 7: Limitations and Human Review
+Information requests are initiated directly by human claims officers to give customers full opportunity to substantiate their claims before a final decision.

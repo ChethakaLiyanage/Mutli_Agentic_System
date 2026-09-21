@@ -1,0 +1,41 @@
+Motor Insurance - Vandalism and Malicious Damage Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=vandalism, incident_type=vandalism, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide outlines the claims process for intentional, malicious, or criminal damage inflicted upon an insured motor vehicle by third parties without the owner's consent.
+
+Section 2: When This Applies
+Applies when a vehicle has been deliberately damaged while parked or in transit. Common examples:
+- Keyed paintwork or scratched vehicle body panels
+- Slashed or punctured tires
+- Broken side mirrors, smashed headlights, or shattered glass caused by vandals
+- Graffiti, paint spraying, or deliberate denting of panels
+- Broken antennas or ripped wipers
+
+Section 3: Required Documents
+The following documents are mandatory for vandalism claims:
+- Official police entry or crime incident report documenting the malicious act
+- High-resolution photographs clearly displaying all vandalized surfaces and vehicle registration plate
+- Workshop repair estimate for repainting, panel repair, or parts replacement
+- Vehicle registration certificate confirming ownership
+- Driving licence copy of the policyholder
+- Completed claim form stating date, location, and circumstances when damage was observed
+
+Section 4: Optional and Conditional Documents
+- CCTV security camera recordings from surrounding buildings or parking facilities
+- Statements from eyewitnesses or building security personnel
+- Previous maintenance or inspection records showing pristine condition prior to incident
+
+Section 5: Claim Procedure and Steps
+1. Preserve evidence: Do not attempt to polish out scratches or wash away paint before photographing.
+2. Report to police: File an entry at the local police station to obtain a criminal damage reference.
+3. Upload documents: Submit the claim form, photos, repair quote, and police report online.
+4. Assessor inspection: Allow an insurer adjuster to verify the damage pattern against the reported incident.
+
+Section 6: Important Notes and Practical Guidance
+- Deductible: Standard policy excess applies to malicious damage claims unless an identified third-party perpetrator is apprehended and convicted.
+- Single Incident Rule: Vandalism occurring on separate dates cannot be combined into a single claim.
+
+Section 7: Limitations and Human Review
+AI systems assist with document intake. A human claims officer examines the police report, verifies policy coverage, and determines claim approval.

@@ -1,0 +1,46 @@
+Motor Insurance - Vehicle Collision Claims Guide
+[DEMO / SYNTHETIC DOCUMENT FOR TESTING AND DEMONSTRATION PURPOSES ONLY - NOT AN OFFICIAL INSURER POLICY]
+[METADATA: topic=vehicle_collision, incident_type=vehicle_collision, synthetic=true, version=1.0]
+
+Section 1: Scope and Application
+This guide outlines standard procedures, paperwork, and requirements for motor vehicle collision claims. It applies to private cars, commercial vans, utility vehicles, and motorcycles covered under comprehensive motor insurance policies in our demonstration environment.
+
+Section 2: When This Applies
+This guidance applies whenever an insured vehicle is involved in a road traffic accident, crash, smash, collision, or physical impact. Scenarios include:
+- Collision with another motor vehicle (head-on collision, rear-end impact, T-bone, or side swipe)
+- Impact with stationary objects such as walls, lamp posts, road barriers, or trees
+- Multi-vehicle pileups and chain-reaction accidents
+- Rollover accidents and ditch impacts
+Colloquial customer descriptions such as "I had a car crash", "I collided with another vehicle", "my car was smashed", or "fender bender" fall under this collision policy scope.
+
+Section 3: Required Documents
+To process a vehicle collision claim, the policyholder or driver must submit the following core documents:
+- Completed motor claim form detailing the date, time, location, and circumstances of the crash
+- Itemized repair estimate or garage quotation from an authorized repair workshop
+- High-resolution damage photographs showing the damaged vehicle parts, overall vehicle view, and license plate
+- Valid driving licence copy of the person operating the vehicle during the accident
+- Vehicle registration document (certificate of registration / revenue license)
+- Official police report or police accident entry if another vehicle was involved, injuries occurred, or dispute exists
+
+Section 4: Optional and Conditional Documents
+Depending on the specific collision circumstances, the following additional documentation may be requested:
+- Third-party driver details, vehicle registration numbers, and third-party insurer information
+- Contact information of independent eyewitnesses present at the accident scene
+- Dashcam footage or CCTV video recording of the collision
+- Towing receipt or vehicle recovery invoice if the car was immobile and required towing
+
+Section 5: Claim Procedure and Steps
+1. Immediate safety: Move to a safe location, turn on hazard lights, and ensure no persons require emergency medical care.
+2. Photographic evidence: Take photographs of both vehicles in their post-impact positions before moving them.
+3. Police notification: Notify local police if required by law or if significant property damage or injury occurred.
+4. Claim lodgment: Submit the initial claim notification promptly (within 24 to 48 hours of the incident).
+5. Document upload: Upload all required repair quotations, license copies, registration papers, and photos.
+6. Inspection: An insurance assessor or technical loss adjuster will inspect the vehicle damage before repairs begin.
+
+Section 6: Important Notes and Practical Guidance
+- Deductible / Policy Excess: The standard policy collision excess applies to own-damage repairs unless third-party fault is fully proven and accepted by the other driver's insurer.
+- Unauthorized Repairs: Do not dismantle or authorize repair work prior to official vehicle inspection and repair authorization.
+- Prompt Reporting: Delay in reporting without reasonable cause may delay assessment or require additional review.
+
+Section 7: Limitations and Human Review
+Automated triage systems and retrieval agents assist with document verification and information retrieval. All final claim determinations, settlement authorizations, and coverage decisions are made solely by an authorized human claims officer.
