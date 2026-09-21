@@ -1,0 +1,14 @@
+{
+  "pythonVersion": "3.13",
+  "pythonPlatform": "Windows",
+  "pythonPath": "C:/Python313/python.exe",
+  "venvPath": ".",
+  "extraPaths": [
+    "C:/Users/DTC/AppData/Roaming/Python/Python313/site-packages",
+    "C:/Python313/Lib/site-packages",
+    "."
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none"
+}

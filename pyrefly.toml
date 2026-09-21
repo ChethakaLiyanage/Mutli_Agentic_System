@@ -1,0 +1,13 @@
+# Pyrefly configuration for Multi-Agentic System
+# Points to the Python interpreter that has all packages installed
+
+[python]
+python_interpreter = "C:/Python313/python.exe"
+python_platform = "windows"
+
+# Search paths so Pyrefly resolves user site-packages
+[search_path]
+site_package_path = [
+    "C:/Users/DTC/AppData/Roaming/Python/Python313/site-packages",
+    "C:/Python313/Lib/site-packages",
+]
