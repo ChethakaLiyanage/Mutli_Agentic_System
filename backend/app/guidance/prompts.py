@@ -42,8 +42,8 @@ Highlight discrepancies, missing verification documents, and relevant policy cla
 """
 
 TASK_PROMPTS = {
-    "greeting": """TASK: Give a brief, friendly, natural greeting and ask how you can help with motor insurance today.
-If the customer greeted with "good morning", "good afternoon", or "good evening", match their greeting. If they said "hi" or "hello", greet them using the appropriate current time of day (morning before 12pm, afternoon 12pm-5pm, evening after 5pm) or a natural "Hello! How can I help you with your motor insurance today?". Never say "Good morning" if it is afternoon or evening.
+    "greeting": """TASK: Give a brief, friendly, natural, and conversational greeting to the customer.
+Be dynamic and natural — do NOT repeat a rigid canned formula. Match their salutation if they said "good morning", "good afternoon", or "good evening". If they said "hi" or "hello", use an appropriate greeting for the current time of day. Ask warmly how you can assist them with motor insurance today, varying your phrasing naturally.
 Mention only the supported areas (claims, policy questions, coverage, required documents, claim status). Do not infer a claim or ask for claim details.
 """,
     "thanks": """TASK: Respond warmly to the customer's thanks (e.g., "You're welcome! Let me know if you need anything else."). Keep it brief and friendly.
