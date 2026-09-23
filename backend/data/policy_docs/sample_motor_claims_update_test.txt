@@ -1,0 +1,116 @@
+SAMPLE MOTOR CLAIMS POLICY UPDATE TEST
+Version: 1.0
+Document Type: Motor Claims Procedure
+Purpose: University Project Testing Only
+
+IMPORTANT:
+This is synthetic test data created only to test the document management
+and Information Retrieval system. It is not a real insurance policy.
+
+==================================================
+MOTOR COLLISION CLAIM REPORTING
+==================================================
+
+A motor vehicle collision must be reported within 21 days from the date
+of the accident.
+
+The customer should provide the accident date, accident location,
+vehicle details, and a description of the damage when reporting the claim.
+
+==================================================
+VEHICLE DAMAGE
+==================================================
+
+The following vehicle damage areas may be recorded during a collision claim:
+
+- Front bumper
+- Rear bumper
+- Bonnet
+- Boot
+- Front windscreen
+- Rear windscreen
+- Side windows
+- Left front door
+- Left rear door
+- Right front door
+- Right rear door
+- Left side mirror
+- Right side mirror
+- Front headlights
+- Rear lights
+- Front fenders
+- Rear quarter panels
+- Roof
+- Wheels
+- Tyres
+- Engine area
+- Underbody
+
+Damage may include:
+
+- Cracked
+- Broken
+- Shattered
+- Scratched
+- Dented
+- Bent
+- Crushed
+- Burned
+- Flooded
+- Detached
+
+==================================================
+REQUIRED DOCUMENTS FOR COLLISION CLAIM
+==================================================
+
+For this sample policy, a collision claim requires:
+
+1. Vehicle registration document
+2. Valid driving licence
+3. Photographs of the damaged vehicle
+4. Accident description
+5. One repair estimate
+
+A police report should also be provided when required by the circumstances
+of the accident.
+
+==================================================
+WINDSCREEN DAMAGE
+==================================================
+
+Windscreen damage includes cracking, breaking, or shattering of the
+front windscreen.
+
+For this sample procedure, the customer should provide photographs of
+the damaged windscreen and vehicle information when submitting the claim.
+
+==================================================
+FIRE DAMAGE
+==================================================
+
+Fire-related vehicle damage should be reported with photographs of the
+damaged vehicle and a description of how the incident occurred.
+
+==================================================
+FLOOD DAMAGE
+==================================================
+
+Flood damage may include water entering the engine, electrical system,
+interior, or other vehicle components.
+
+The customer should provide photographs and details about the location
+and circumstances of the flood incident.
+
+==================================================
+TEST-SPECIFIC RULE
+==================================================
+
+The special reference code for motor collision claims in this document
+is IRWA-ALPHA-2109.
+
+This code exists only to verify that Agent 2 successfully retrieved this
+specific document.
+
+==================================================
+END OF DOCUMENT
+==================================================

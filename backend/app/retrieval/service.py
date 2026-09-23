@@ -461,15 +461,22 @@ class RetrievalService:
         top_k: int,
         policy_type: str | None = None,
     ) -> None:
-        assert self.knowledge_retriever is not None
         try:
-            evidence = self.knowledge_retriever.retrieve(
-                query=query,
-                insurance_type="motor",
-                top_k=top_k,
-                policy_type=policy_type,
-                min_relevance_score=0.02 if policy_type else DEFAULT_MINIMUM_SCORE,
-            )
+            try:
+                evidence = self.knowledge_retriever.retrieve(
+                    query=query,
+                    insurance_type="motor",
+                    top_k=top_k,
+                    policy_type=policy_type,
+                    min_relevance_score=0.02 if policy_type else DEFAULT_MINIMUM_SCORE,
+                )
+            except TypeError:
+                evidence = self.knowledge_retriever.retrieve(
+                    query=query,
+                    insurance_type="motor",
+                    top_k=top_k,
+                    min_relevance_score=0.02 if policy_type else DEFAULT_MINIMUM_SCORE,
+                )
             self._append_knowledge(result, evidence)
         except Exception:
             logger.exception("Knowledge retrieval component failed")

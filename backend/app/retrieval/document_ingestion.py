@@ -322,6 +322,8 @@ class DocumentIngestor:
             }
             if inferred_policy_type:
                 chunk_meta["policy_type"] = inferred_policy_type
+            chunk_meta.setdefault("status", "active")
+            chunk_meta.setdefault("audience", "customer")
             chunks.append(
                 KnowledgeChunk(
                     chunk_id=chunk_id,

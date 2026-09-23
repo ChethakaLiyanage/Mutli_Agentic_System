@@ -195,3 +195,18 @@ class RetrievalRepository:
         """Delete exactly one explicitly selected source, never the whole corpus."""
         (self.client.table("knowledge_chunks").delete()
          .eq("source_document_id", source_document_id).execute())
+
+    def mark_chunks_status_for_source(
+        self, source_document_id: str, status: str
+    ) -> int:
+        """Update status metadata for all chunks of a source (e.g. 'superseded')."""
+        existing = self.get_knowledge_chunks_by_source(source_document_id)
+        if not existing:
+            return 0
+        updated = []
+        for chunk in existing:
+            meta = dict(chunk.metadata)
+            meta["status"] = status
+            updated.append(chunk.model_copy(update={"metadata": meta}))
+        self.upsert_knowledge_chunks(updated)
+        return len(updated)

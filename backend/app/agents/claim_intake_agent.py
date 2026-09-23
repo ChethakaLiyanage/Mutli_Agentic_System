@@ -94,18 +94,6 @@ class ClaimIntakeAgent:
             cleaned_text = preprocess_text(sanitized_text)
             if not cleaned_text:
                 raise ValueError("text must not be empty after preprocessing")
-            intent_label, intent_confidence = predict_intent(sanitized_text)
-
-            entities = extract_entities(sanitized_text)
-            incident_type = extract_incident_type(sanitized_text)
-            damage_areas = extract_damage_areas(sanitized_text)
-            date_text, normalized_date = extract_date(
-                sanitized_text,
-                reference_date=self._reference_date_provider(),
-            )
-            location = _select_location(entities)
-            if not cleaned_text:
-                raise ValueError("text must not be empty after preprocessing")
             intent_label, intent_confidence = predict_intent(original_text)
 
             entities = extract_entities(original_text)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 from functools import lru_cache
+import logging
 from typing import Any, Protocol, runtime_checkable
 from uuid import NAMESPACE_URL, uuid5
 
@@ -12,6 +13,8 @@ from backend.app.config import get_settings
 from backend.app.schemas.domain import ClaimContext
 from backend.app.services.domain_row_mappers import claim_from_row, claim_to_row
 from backend.app.services.supabase_service import get_supabase_client
+
+logger = logging.getLogger(__name__)
 
 
 class ClaimPersistenceError(RuntimeError):
@@ -67,24 +70,6 @@ class InMemoryClaimRepository:
         if existing is not None:
             return existing.model_copy(deep=True)
         policy = _select_owned_policy(self.policies, claim.customer_id)
-        if policy is None and claim.customer_id:
-            policy = {
-                "policy_id": f"POL-{uuid5(NAMESPACE_URL, claim.customer_id).hex[:10].upper()}",
-                "policy_number": f"POL-{uuid5(NAMESPACE_URL, claim.customer_id).hex[:8].upper()}",
-                "customer_id": claim.customer_id,
-                "insurance_type": "motor",
-                "coverage_type": "full",
-                "status": "active",
-                "start_date": "2026-01-01",
-                "end_date": "2027-01-01",
-                "coverage_details": {"type": "comprehensive", "deductible": 250},
-                "exclusions": [],
-            }
-            if not any(
-                item.get("policy_id") == policy.get("policy_id")
-                for item in self.policies
-            ):
-                self.policies.append(deepcopy(policy))
         stored = _claim_with_persistence_identity(workflow_id, claim, policy)
         self.claims_by_workflow[workflow_id] = stored.model_copy(deep=True)
         return stored
@@ -182,27 +167,6 @@ class SupabaseClaimRepository:
                 .execute()
             )
             policy = _select_owned_policy(policies.data or [], claim.customer_id)
-            if policy is None and claim.customer_id:
-                policy_id = f"POL-{uuid5(NAMESPACE_URL, claim.customer_id).hex[:10].upper()}"
-                policy_num = f"POL-{uuid5(NAMESPACE_URL, claim.customer_id).hex[:8].upper()}"
-                new_policy = {
-                    "policy_id": policy_id,
-                    "policy_number": policy_num,
-                    "customer_id": claim.customer_id,
-                    "insurance_type": "motor",
-                    "coverage_type": "full",
-                    "status": "active",
-                    "start_date": "2026-01-01",
-                    "end_date": "2027-01-01",
-                    "coverage_details": {"type": "comprehensive", "deductible": 250},
-                    "exclusions": [],
-                }
-                try:
-                    self._client.table("policies").insert(new_policy).execute()
-                    policy = new_policy
-                except Exception:
-                    policy = new_policy
-
             stored = _claim_with_persistence_identity(workflow_id, claim, policy)
             row = claim_to_row(stored)
             row["workflow_id"] = workflow_id
@@ -311,13 +275,18 @@ class SupabaseClaimRepository:
             persisted = dict(response.data[0]) if response.data else payload
             return _normalize_policy_record(persisted)
         except Exception as error:
-            err_str = str(error)
-            if "column policies.policy_type does not exist" in err_str or "42703" in err_str:
+            logger.warning(
+                "Primary policy insertion with policy_type column failed: %s; attempting fallback without explicit column",
+                error,
+            )
+            try:
                 fallback = {k: v for k, v in payload.items() if k != "policy_type"}
                 response = self._client.table("policies").insert(fallback).execute()
-                persisted = dict(response.data[0]) if response.data else payload
+                persisted = dict(response.data[0]) if response.data else fallback
                 return _normalize_policy_record(persisted)
-            raise ClaimPersistenceError("Failed to create customer policy") from error
+            except Exception as fallback_error:
+                logger.exception("Fallback policy insertion also failed: %s", fallback_error)
+                raise ClaimPersistenceError("Failed to create customer policy") from fallback_error
 
     def ensure_default_policy(self, customer_id: str) -> dict[str, Any]:
         policies = self.list_policies_for_customer(customer_id)

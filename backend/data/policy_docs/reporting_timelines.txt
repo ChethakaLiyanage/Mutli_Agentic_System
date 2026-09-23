@@ -1,0 +1,3 @@
+SECTION 1: REPORTING TIMELINES
+TEST_CURRENT_RULE_ALPHA: Collision claims must be reported within 7 days of the incident date.
+Failure to report within 7 days may result in claim delay.

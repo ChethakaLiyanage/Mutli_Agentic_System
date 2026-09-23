@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.admin import router as admin_router
+from backend.app.api.admin_documents import router as admin_documents_router
 from backend.app.api.auth import router as auth_router
 from backend.app.api.claims import router as claims_router
 from backend.app.api.documents import router as documents_router
@@ -33,6 +34,7 @@ app.add_middleware(
 app.include_router(intake_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(admin_documents_router)
 app.include_router(orchestrator_router)
 app.include_router(documents_router)
 app.include_router(claims_router)

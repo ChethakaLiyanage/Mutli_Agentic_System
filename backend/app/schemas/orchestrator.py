@@ -113,4 +113,5 @@ class OrchestratorResponse(_OrchestratorContract):
     missing_required_documents: list[str] = Field(default_factory=list)
     requires_clarification: bool = False
     errors: list[OrchestratorError] = Field(default_factory=list)
+    pending_claim_workflow_id: str | None = None
     audit_trail: list[AuditEvent] = Field(default_factory=list)

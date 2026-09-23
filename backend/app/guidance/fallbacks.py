@@ -52,10 +52,10 @@ def _get_time_aware_greeting(user_text: str | None = None) -> str:
             salutation = "Good morning!"
 
     variations = [
-        f"{salutation} How can I help with your motor insurance today?",
-        f"{salutation} What can I assist you with regarding your policy or claim?",
+        f"{salutation} How can I help with your motor insurance claims or questions today?",
+        f"{salutation} What can I assist you with regarding your policy or claims?",
         f"{salutation} I'm here to help with your insurance questions or claims. What's on your mind?",
-        f"Hello! {salutation} How may I assist you with your motor insurance today?",
+        f"Hello! {salutation} How may I assist you with your motor insurance questions or claims today?",
     ]
     idx = (len(user_text or "") + datetime.now().second) % len(variations)
     return variations[idx]
@@ -347,9 +347,11 @@ def build_deterministic_guidance_response(
             "Please upload these documents using the button below so our claims team can process your claim."
         )
     elif request.retrieved_evidence:
+        top_item = request.retrieved_evidence[0]
+        clean_title = (top_item.source_title or "Official Policy Documentation").replace("_", " ").title()
         message = (
-            "I found relevant controlled policy information, but I couldn't "
-            "generate a fuller explanation right now. Please review the cited source."
+            f"Based on the active documentation ({clean_title}):\n\n"
+            f"{top_item.content}"
         )
     else:
         message = (

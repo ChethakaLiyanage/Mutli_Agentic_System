@@ -12,6 +12,7 @@ import {
   type AdminCustomer,
   type PolicyCategory,
 } from "../api/admin";
+import { PolicyKnowledgeManagement } from "../components/PolicyKnowledgeManagement";
 import type {
   HumanDecisionRequest,
   ReviewDetailResponse,
@@ -168,7 +169,8 @@ export const AdminDashboard = () => {
             <Claims items={items} loading={loading} onRefresh={loadQueue} />
           )}
           {section === "users" && <CustomerManagement />}
-          {!(["overview", "analytics", "claims", "users"] as Section[]).includes(
+          {section === "documents" && <PolicyKnowledgeManagement />}
+          {!(["overview", "analytics", "claims", "users", "documents"] as Section[]).includes(
             section,
           ) && (
             <Card>

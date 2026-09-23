@@ -23,7 +23,12 @@ from backend.app.orchestrator.service import OrchestratorService
 from backend.app.review.repository import InMemoryHumanReviewRepository
 from backend.app.review.service import HumanReviewService
 from backend.app.schemas.auth import AuthenticatedUser
-from backend.app.schemas.domain import ClaimContext, IncidentType
+from backend.app.schemas.domain import (
+    ClaimContext,
+    DocumentReference,
+    DocumentType,
+    IncidentType,
+)
 from backend.app.security.dependencies import (
     get_current_admin,
     get_current_customer,
@@ -225,6 +230,59 @@ def test_submit_claim_missing_required_documents(lifecycle_env):
     # Ensure fraud triage was NOT triggered
     saved_state = asyncio.run(workflows.get("WF-NEED-DOCS"))
     assert saved_state.fraud_result is None
+
+
+@pytest.mark.parametrize(
+    "start_status",
+    [WorkflowStatus.AWAITING_DOCUMENTS, WorkflowStatus.FRAUD_TRIAGE],
+)
+def test_submit_claim_handles_fallback_context_and_reaches_assignment(
+    lifecycle_env,
+    start_status,
+):
+    client = lifecycle_env["client"]
+    workflows = lifecycle_env["workflows"]
+    claims_repo = lifecycle_env["claims"]
+    workflow_id = "WF-SUBMIT-FALLBACK"
+    claim_id = "CLM-SUBMIT-FALLBACK"
+    state = build_test_claim_state(workflow_id, claim_id, status=start_status)
+    state.retrieval_result["result"]["policy_data"] = {
+        "policy_id": "POL-123",
+        "policy_number": "POL-12345",
+        "customer_id": CUSTOMER_USER.user_id,
+        "status": "active",
+        "coverage_type": "full",
+        "policy_type": "full_comprehensive",
+        "start_date": "2026-01-01",
+        "end_date": "2027-01-01",
+        "coverage_details": {},
+    }
+    state.claim_context = state.claim_context.model_copy(update={
+        "document_references": [
+            DocumentReference(
+                document_id="DOC-SUBMIT-FALLBACK",
+                document_type=DocumentType.DAMAGE_PHOTO,
+            )
+        ]
+    })
+    asyncio.run(workflows.save(state))
+    claims_repo.save_for_workflow(workflow_id=workflow_id, claim=state.claim_context)
+
+    app.dependency_overrides[get_current_customer] = lambda: CUSTOMER_USER
+    app.dependency_overrides[get_current_user] = lambda: CUSTOMER_USER
+
+    response = client.post(f"/orchestrator/workflows/{workflow_id}/submit-claim")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "awaiting_assignment"
+    assert "fraud_result" not in response.json()
+
+    app.dependency_overrides[get_current_reviewer] = lambda: ADMIN_USER
+    app.dependency_overrides[get_current_user] = lambda: ADMIN_USER
+    detail_response = client.get(f"/review/workflows/{workflow_id}")
+
+    assert detail_response.status_code == 200
+    assert detail_response.json()["policy"]["policy_id"] == "POL-123"
 
 
 def test_full_claim_submission_and_review_lifecycle(lifecycle_env):

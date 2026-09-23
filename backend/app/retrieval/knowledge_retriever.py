@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from threading import RLock
 from typing import Protocol
 
@@ -14,6 +15,7 @@ from backend.app.retrieval.repository import RetrievalRepository
 from backend.app.retrieval.schemas import KnowledgeChunk, KnowledgeDocumentType
 from backend.app.schemas.domain import EvidenceItem
 
+logger = logging.getLogger(__name__)
 
 DEFAULT_TOP_K = 5
 DEFAULT_MINIMUM_SCORE = 0.08
@@ -49,8 +51,13 @@ class KnowledgeRetriever:
         self._loaded = False
 
     def refresh(self) -> int:
-        """Reload the durable corpus and deterministically rebuild the index."""
-        chunks = self.repository.list_knowledge_chunks(insurance_type="motor")
+        """Reload the durable corpus and deterministically rebuild the index, excluding superseded chunks."""
+        raw_chunks = self.repository.list_knowledge_chunks(insurance_type="motor")
+        # Exclude superseded, archived, or failed chunks from active retrieval index
+        chunks = [
+            chunk for chunk in raw_chunks
+            if chunk.metadata.get("status", "active") not in {"superseded", "failed", "archived"}
+        ]
         chunks = sorted(chunks, key=lambda item: item.chunk_id)
         vectorizer: TfidfVectorizer | None = None
         matrix = None
@@ -72,6 +79,7 @@ class KnowledgeRetriever:
             self._vectorizer = vectorizer
             self._matrix = matrix
             self._loaded = True
+        logger.info("TF-IDF retrieval index refreshed with %d active chunks", len(chunks))
         return len(chunks)
 
     def retrieve(
@@ -84,6 +92,8 @@ class KnowledgeRetriever:
         intent: str | None = None,
         document_type: KnowledgeDocumentType | None = None,
         policy_type: str | None = None,
+        audience: str = "customer",
+        allow_internal: bool = False,
     ) -> list[EvidenceItem]:
         if top_k <= 0:
             raise ValueError("top_k must be positive")
@@ -101,7 +111,7 @@ class KnowledgeRetriever:
         if not chunks or vectorizer is None or matrix is None:
             return []
 
-        # Policy metadata filter -> eligible chunks before TF-IDF ranking
+        # Policy, audience, and status filter -> eligible chunks before TF-IDF ranking
         eligible_indices: list[int] = []
         eligible_chunks: list[KnowledgeChunk] = []
         for idx, chunk in enumerate(chunks):
@@ -109,6 +119,18 @@ class KnowledgeRetriever:
                 continue
             if document_type is not None and chunk.document_type != document_type:
                 continue
+
+            # Strict status exclusion
+            chunk_status = chunk.metadata.get("status", "active")
+            if chunk_status in {"superseded", "failed", "archived"}:
+                continue
+
+            # Audience protection: Customer queries must never retrieve internal documents
+            chunk_audience = chunk.metadata.get("audience", "customer")
+            if not allow_internal and chunk_audience == "internal":
+                continue
+
+            # Policy category pre-filtering
             chunk_policy_type = chunk.metadata.get("policy_type")
             if policy_type is not None:
                 if chunk_policy_type is not None and chunk_policy_type != policy_type:
@@ -151,3 +173,26 @@ class KnowledgeRetriever:
                 )
             )
         return evidence
+
+
+_shared_knowledge_retriever: KnowledgeRetriever | None = None
+
+
+def get_shared_knowledge_retriever(
+    repository: _KnowledgeRepository | None = None,
+) -> KnowledgeRetriever:
+    """Return the shared in-memory KnowledgeRetriever singleton for live zero-restart updates."""
+    global _shared_knowledge_retriever
+    if _shared_knowledge_retriever is None:
+        if repository is None:
+            from backend.app.services.supabase_service import get_supabase_client
+            client = get_supabase_client()
+            repository = RetrievalRepository(client)
+        _shared_knowledge_retriever = KnowledgeRetriever(repository=repository)
+    return _shared_knowledge_retriever
+
+
+def set_shared_knowledge_retriever(retriever: KnowledgeRetriever | None) -> None:
+    """Explicitly set or reset the shared knowledge retriever (useful in test suites)."""
+    global _shared_knowledge_retriever
+    _shared_knowledge_retriever = retriever

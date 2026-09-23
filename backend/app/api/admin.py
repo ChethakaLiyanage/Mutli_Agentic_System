@@ -64,6 +64,29 @@ async def create_customer(
             role=UserRole.CUSTOMER,
         )
     except UserAlreadyExistsError as error:
+        existing_user = await user_repo.get_by_email(str(request.email))
+        if existing_user and existing_user.role == UserRole.CUSTOMER:
+            existing_policies = claim_repo.list_policies_for_customer(existing_user.user_id)
+            if not existing_policies:
+                logger.info("Found customer without policy: %s. Linking policy now.", existing_user.user_id)
+                try:
+                    policy = claim_repo.create_customer_policy(
+                        customer_id=existing_user.user_id,
+                        policy_type=request.policy_type.value,
+                        status="active",
+                    )
+                    return AdminCustomerResponse(
+                        user_id=existing_user.user_id,
+                        email=existing_user.email,
+                        name=request.name,
+                        role="customer",
+                        policy_id=str(policy.get("policy_id") or ""),
+                        policy_number=str(policy.get("policy_number") or ""),
+                        policy_type=request.policy_type,
+                        created_at=existing_user.created_at,
+                    )
+                except Exception as link_err:
+                    logger.exception("Failed to recover and link policy for %s: %s", existing_user.user_id, link_err)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email is already registered",
