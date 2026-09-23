@@ -793,6 +793,7 @@
     "read_at": "2026-09-21T07:30:11.182850+00:00"
   },
   {
+
     "id": "NOTIF-A28A1B7DC8194D569CEC0229196E5C8B",
     "user_id": "CUSTOMER-API",
     "workflow_id": "API",
@@ -971,11 +972,17 @@
     "title": "Claim Approved",
     "message": "Your motor insurance claim has been approved by a claims officer.",
     "is_read": false,
+ 
     "created_at": "2026-09-23T04:18:26.261349+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-167EB03CA2D84A6FB83966293B19D5F6",
+    "created_at": "2026-09-21T14:07:14.594657+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-A693C5AEC2A14B97A9BAF9C96454E066",
     "user_id": "CUSTOMER-GUIDANCE",
     "workflow_id": "GUIDANCE",
     "claim_id": "CLM-GUIDANCE",
@@ -989,6 +996,12 @@
   },
   {
     "id": "NOTIF-5CEC9C25263441C0AC8929CE70AF767A",
+
+    "created_at": "2026-09-21T14:07:14.603641+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-0C85CE5F3E954E969F08FCF55B0D802D",
     "user_id": "CUSTOMER-GUIDANCE",
     "workflow_id": "GUIDANCE",
     "claim_id": "CLM-GUIDANCE",
@@ -997,11 +1010,18 @@
     "title": "Additional Information Required",
     "message": "A claims officer has requested more information: Customer-safe recorded reason.",
     "is_read": false,
+ 
     "created_at": "2026-09-23T04:18:26.282278+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-7187E4350C50410394A77559D6D98DFB",
+
+    "created_at": "2026-09-21T14:07:14.634504+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-B3EF133296664E0DB28D3B0C6CA41341",
     "user_id": "CUSTOMER-GUIDANCE",
     "workflow_id": "GUIDANCE",
     "claim_id": "CLM-GUIDANCE",
@@ -1015,6 +1035,12 @@
   },
   {
     "id": "NOTIF-AAFF8AD300EF4B6FB2E514CC20689D38",
+
+    "created_at": "2026-09-21T14:07:14.652910+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-34A6701C2FB643F9870CFB0566FFDDF3",
     "user_id": "CUSTOMER-OUTAGE",
     "workflow_id": "OUTAGE",
     "claim_id": "CLM-OUTAGE",
@@ -1028,6 +1054,12 @@
   },
   {
     "id": "NOTIF-EFE6571F00A3498EADE0CB49226CECEE",
+
+    "created_at": "2026-09-21T14:07:14.665689+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-AFCA3A6E4BDA4838B67FA85A79B73D1A",
     "user_id": "CUSTOMER-POST-DEC-approve",
     "workflow_id": "POST-DEC-approve",
     "claim_id": "CLM-POST-DEC-approve",
@@ -1041,6 +1073,13 @@
   },
   {
     "id": "NOTIF-D09CF9CFD57D45C592D3550BAB2C48AC",
+
+    "created_at": "2026-09-21T14:07:14.766925+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-35778DEDF61547E0BA5444F92143667F",
+
     "user_id": "CUSTOMER-POST-DEC-reject",
     "workflow_id": "POST-DEC-reject",
     "claim_id": "CLM-POST-DEC-reject",
@@ -1049,11 +1088,19 @@
     "title": "Claim Rejected",
     "message": "Your claim has been reviewed and rejected. Reason: Incident not covered under policy.",
     "is_read": false,
+
     "created_at": "2026-09-23T04:18:26.432907+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-89FBF9FC39C3439AAC26D05A2B69FEA0",
+
+    "created_at": "2026-09-21T14:07:14.786677+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-E02B3AAD65C14EE79BAC76A8EACF1AEC",
+
     "user_id": "CUSTOMER-POST-DEC-request_more_information",
     "workflow_id": "POST-DEC-request_more_information",
     "claim_id": "CLM-POST-DEC-request_more_information",
@@ -1062,11 +1109,18 @@
     "title": "Additional Information Required",
     "message": "A claims officer has requested more information: Need repair estimate.",
     "is_read": false,
+
     "created_at": "2026-09-23T04:18:26.451771+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-FB9256A3E3174FB39B006228DB4ADB2E",
+
+    "created_at": "2026-09-21T14:07:14.809133+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-006BE2EBCEED4F75AA70A66F59E2F301",
     "user_id": "CUSTOMER-POST-DEC-escalate",
     "workflow_id": "POST-DEC-escalate",
     "claim_id": "CLM-POST-DEC-escalate",
@@ -1080,6 +1134,13 @@
   },
   {
     "id": "NOTIF-B2F0C6FF5BE347619A41FAFA7154F14B",
+
+    "created_at": "2026-09-21T14:07:14.826751+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-9AD204E34BD74C04AF09994D09016663",
+
     "user_id": "CUSTOMER-INJECT-INTEG",
     "workflow_id": "INJECT-INTEG",
     "claim_id": "CLM-INJECT-INTEG",
@@ -1088,6 +1149,7 @@
     "title": "Claim Rejected",
     "message": "Your claim has been reviewed and rejected. Reason: Territorial exclusion applies.",
     "is_read": false,
+
     "created_at": "2026-09-23T04:18:26.494424+00:00",
     "read_at": null
   },
@@ -1275,6 +1337,19 @@
   },
   {
     "id": "NOTIF-83AB3D491D50429ABABE50660525C836",
+    "user_id": "CUSTOMER-CUSTOMER-RESULT",
+    "workflow_id": "CUSTOMER-RESULT",
+    "claim_id": "CLM-CUSTOMER-RESULT",
+    "type": "claim_rejected",
+    "notification_type": "claim_rejected",
+    "title": "Claim Rejected",
+    "message": "Your claim has been reviewed and rejected. Reason: The submitted incident is outside the recorded policy period.",
+    "is_read": false,
+    "created_at": "2026-09-21T14:07:14.841032+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-AE0006701A4F41DDB9A8EDBECCDCD9C1",
     "user_id": "CUSTOMER-GUIDANCE",
     "workflow_id": "GUIDANCE",
     "claim_id": "CLM-GUIDANCE",
@@ -1283,11 +1358,18 @@
     "title": "Claim Approved",
     "message": "Your motor insurance claim has been approved by a claims officer.",
     "is_read": false,
+
     "created_at": "2026-09-23T07:26:27.350634+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-03CCD4DDDD294DA3AB2101B72C22E7AF",
+
+    "created_at": "2026-09-21T14:08:30.191721+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-B6C1674DE5A2457C8CB1491ECCFE27A6",
     "user_id": "CUSTOMER-GUIDANCE",
     "workflow_id": "GUIDANCE",
     "claim_id": "CLM-GUIDANCE",
@@ -1301,6 +1383,11 @@
   },
   {
     "id": "NOTIF-F1FCDB43B94D4B84A436D2FEE2747913",
+    "created_at": "2026-09-21T14:08:30.203022+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-9EE2B60A221D4040A71E1006081F6A37",
     "user_id": "CUSTOMER-GUIDANCE",
     "workflow_id": "GUIDANCE",
     "claim_id": "CLM-GUIDANCE",
@@ -1309,6 +1396,7 @@
     "title": "Additional Information Required",
     "message": "A claims officer has requested more information: Customer-safe recorded reason.",
     "is_read": false,
+
     "created_at": "2026-09-23T07:26:27.374462+00:00",
     "read_at": null
   },
@@ -1322,11 +1410,31 @@
     "title": "Claim Escalated for Review",
     "message": "Your claim has been escalated for specialist human review.",
     "is_read": false,
+    "created_at": "2026-09-21T14:08:30.215093+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-0AAD57EE8B324E589A4CBDB04417F3F0",
+    "user_id": "CUSTOMER-GUIDANCE",
+    "workflow_id": "GUIDANCE",
+    "claim_id": "CLM-GUIDANCE",
+    "type": "claim_escalated",
+    "notification_type": "claim_escalated",
+    "title": "Claim Escalated for Review",
+    "message": "Your claim has been escalated for specialist human review.",
+    "is_read": false,
+
     "created_at": "2026-09-23T07:26:27.387214+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-2CDA40D75A1E46DAB023DFC1E5E17A18",
+
+    "created_at": "2026-09-21T14:08:30.224907+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-06F51C3B4F67459DA86473DA56ED0D12",
     "user_id": "CUSTOMER-OUTAGE",
     "workflow_id": "OUTAGE",
     "claim_id": "CLM-OUTAGE",
@@ -1340,6 +1448,12 @@
   },
   {
     "id": "NOTIF-2655056932C9498996B18D6442C687F1",
+
+    "created_at": "2026-09-21T14:08:30.234555+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-DF76CCD82D31428A98996C541D2B7CAE",
     "user_id": "CUSTOMER-POST-DEC-approve",
     "workflow_id": "POST-DEC-approve",
     "claim_id": "CLM-POST-DEC-approve",
@@ -1353,6 +1467,12 @@
   },
   {
     "id": "NOTIF-AF8E00E9716D4733B45D5E329B1352AC",
+    "created_at": "2026-09-21T14:08:30.315704+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-D22620931C08446290C20EE249206CD4",
+
     "user_id": "CUSTOMER-POST-DEC-reject",
     "workflow_id": "POST-DEC-reject",
     "claim_id": "CLM-POST-DEC-reject",
@@ -1361,11 +1481,19 @@
     "title": "Claim Rejected",
     "message": "Your claim has been reviewed and rejected. Reason: Incident not covered under policy.",
     "is_read": false,
+
     "created_at": "2026-09-23T07:26:27.525962+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-D6F4DCF425BF4207B6042B2AB3A43AF3",
+
+    "created_at": "2026-09-21T14:08:30.328289+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-C14EEDA304664ECD819995781B818215",
+
     "user_id": "CUSTOMER-POST-DEC-request_more_information",
     "workflow_id": "POST-DEC-request_more_information",
     "claim_id": "CLM-POST-DEC-request_more_information",
@@ -1374,11 +1502,17 @@
     "title": "Additional Information Required",
     "message": "A claims officer has requested more information: Need repair estimate.",
     "is_read": false,
+
     "created_at": "2026-09-23T07:26:27.542777+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-D78D108E18E44BCFA8D4BFF06782D326",
+    "created_at": "2026-09-21T14:08:30.343417+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-539E63F1713F4893BAA28182B02A4DA7",
     "user_id": "CUSTOMER-POST-DEC-escalate",
     "workflow_id": "POST-DEC-escalate",
     "claim_id": "CLM-POST-DEC-escalate",
@@ -1387,11 +1521,25 @@
     "title": "Claim Escalated for Review",
     "message": "Your claim has been escalated for specialist human review.",
     "is_read": false,
+
     "created_at": "2026-09-23T07:26:27.560062+00:00",
     "read_at": null
   },
   {
     "id": "NOTIF-895EC65D81B446C3B53E27EA16D3F682",
+    "user_id": "CUSTOMER-POST-DEC-escalate",
+    "workflow_id": "POST-DEC-escalate",
+    "claim_id": "CLM-POST-DEC-escalate",
+    "type": "claim_escalated",
+    "notification_type": "claim_escalated",
+    "title": "Claim Escalated for Review",
+    "message": "Your claim has been escalated for specialist human review.",
+    "is_read": false,
+    "created_at": "2026-09-21T14:08:30.359404+00:00",
+    "read_at": null
+  },
+  {
+    "id": "NOTIF-2B23B9573EA64613A8E0D320593E5D43",
     "user_id": "CUSTOMER-INJECT-INTEG",
     "workflow_id": "INJECT-INTEG",
     "claim_id": "CLM-INJECT-INTEG",
@@ -1400,6 +1548,7 @@
     "title": "Claim Rejected",
     "message": "Your claim has been reviewed and rejected. Reason: Territorial exclusion applies.",
     "is_read": false,
+
     "created_at": "2026-09-23T07:26:27.577055+00:00",
     "read_at": null
   },

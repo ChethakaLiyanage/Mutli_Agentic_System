@@ -144,6 +144,65 @@ class ContradictoryGuidance:
         )
 
 
+class HallucinatingGuidance:
+    async def generate(self, _request):
+        return GuidanceResponse(
+            status="success",
+            response_type="coverage_answer",
+            data=GuidanceResponseData(
+                message="Your policy definitely covers earthquake damage with no excess.",
+                automated_decision=False,
+                grounded=True,
+                evidence_used=["DOC-EARTHQUAKE#Earthquake coverage"],
+            ),
+        )
+
+
+def test_orchestrator_does_not_publish_unsupported_guidance() -> None:
+    content = "The policy guide describes flood damage assessment only."
+    chunk = KnowledgeChunk(
+        chunk_id="CHK-FLOOD",
+        source_document_id="DOC-FLOOD",
+        source_title="Motor Policy Guide",
+        document_type="policy_manual",
+        section="Flood damage",
+        content=content,
+        normalized_content=preprocess_for_retrieval(content),
+        metadata={},
+    )
+    workflows = InMemoryWorkflowRepository()
+    service = OrchestratorService(
+        claim_intake_client=CoverageIntakeClient(),
+        workflow_repository=workflows,
+        retrieval_client=LocalRetrievalClient(
+            RetrievalService(
+                Structured(),
+                KnowledgeRetriever(repository=Corpus([chunk])),
+            )
+        ),
+        guidance_client=HallucinatingGuidance(),
+    )
+
+    response = asyncio.run(
+        service.process_request(
+            OrchestratorRequest(
+                request_id="REQ-ORCH-HALLUCINATION",
+                text="Does my policy cover flood damage?",
+            ),
+            authenticated_user_id="CUSTOMER-HALLUCINATION",
+            authenticated_user_role="customer",
+        )
+    )
+
+    assert response.guidance_result is not None
+    assert "earthquake" not in response.message.lower()
+    assert "no excess" not in response.message.lower()
+    assert any(
+        warning.startswith("Ungrounded Agent 4 response")
+        for warning in response.warnings
+    )
+
+
 def test_information_provider_failure_preserves_retrieval_and_fails_safely() -> None:
     # Reuse the real integration setup with a provider boundary failure.
     content = "Motor policy information is available from the controlled guide."

@@ -56,6 +56,7 @@ from backend.app.guidance.schemas import (
     GuidanceResponseData,
     GuidanceTaskType,
 )
+from backend.app.guidance.response_validator import validate_guidance_response
 from backend.app.guidance.fallbacks import build_deterministic_guidance_response
 from backend.app.schemas.domain import (
     DocumentFact,
@@ -1368,6 +1369,16 @@ class OrchestratorService:
                     request,
                     warning="Invalid Agent 4 response; deterministic fallback used",
                 )
+            else:
+                validation = validate_guidance_response(
+                    data=response.data,
+                    request=request,
+                )
+                if not validation.is_valid:
+                    response = build_deterministic_guidance_response(
+                        request,
+                        warning="Ungrounded Agent 4 response; deterministic fallback used",
+                    )
             state.guidance_result = response.model_dump(mode="json")
         except Exception:
             logger.exception("Information guidance failed for %s", state.workflow_id)

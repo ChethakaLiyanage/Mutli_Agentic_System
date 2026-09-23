@@ -14,11 +14,16 @@ from backend.app.api.orchestrator import router as orchestrator_router
 from backend.app.api.policies import router as policies_router
 from backend.app.api.reviewer import router as reviewer_router
 
+from backend.app.api.guidance_routes import router as guidance_router
+
 
 app = FastAPI(
     title="Claim Intake Agent API",
     version="1.0.0",
 )
+
+app.include_router(guidance_router)
+
 
 app.add_middleware(
     CORSMiddleware,

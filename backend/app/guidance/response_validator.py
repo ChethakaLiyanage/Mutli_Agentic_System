@@ -27,16 +27,25 @@ def check_evidence_attribution(
     Fails or warns if the model invents document identifiers not in retrieved_evidence.
     """
     errors: list[str] = []
-    known_doc_ids = {item.document_id for item in request.retrieved_evidence}
-    known_doc_names = {item.document_name for item in request.retrieved_evidence}
-    known_sections = {item.section for item in request.retrieved_evidence}
+    known_doc_ids = {
+        item.document_id.casefold() for item in request.retrieved_evidence
+    }
+    known_doc_names = {
+        item.document_name.casefold() for item in request.retrieved_evidence
+    }
+    known_sections = {
+        item.section.casefold()
+        for item in request.retrieved_evidence
+        if item.section
+    }
 
     for cited_source in data.evidence_used:
+        normalized_source = cited_source.casefold()
         # Check if the cited source references at least one known identifier or section
         matches = (
-            any(doc_id in cited_source for doc_id in known_doc_ids)
-            or any(doc_name in cited_source for doc_name in known_doc_names)
-            or any(section in cited_source for section in known_sections)
+            any(doc_id in normalized_source for doc_id in known_doc_ids)
+            or any(doc_name in normalized_source for doc_name in known_doc_names)
+            or any(section in normalized_source for section in known_sections)
         )
         if not matches and known_doc_ids:
             errors.append(
