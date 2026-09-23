@@ -324,7 +324,17 @@ class HumanReviewService:
             raise ReviewWorkflowConflictError("Workflow is not reviewable")
         result = (state.retrieval_result or {}).get("result") or {}
         policy_data = result.get("policy_data")
-        policy = PolicyContext.model_validate(policy_data) if policy_data else None
+        policy = (
+            PolicyContext.model_validate(
+                {
+                    key: value
+                    for key, value in policy_data.items()
+                    if key in PolicyContext.model_fields
+                }
+            )
+            if policy_data
+            else None
+        )
         fraud = FraudAssessmentContext.model_validate(state.fraud_result)
         decision = await self.repository.get_decision(state.workflow_id)
         assignment = await self.repository.get_assignment(state.workflow_id)

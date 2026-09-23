@@ -276,6 +276,8 @@ class DocumentIngestor:
         document_type: KnowledgeDocumentType,
         source_document_id: str | None = None,
         source_title: str | None = None,
+        policy_type: str | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> IngestionResult:
         file_path = Path(path)
         if not file_path.is_file():
@@ -283,8 +285,18 @@ class DocumentIngestor:
         raw_bytes = file_path.read_bytes()
         content_hash = sha256(raw_bytes).hexdigest()
         title = source_title or file_path.stem
+        inferred_policy_type = policy_type
+        if not inferred_policy_type:
+            lowered_stem = file_path.stem.lower()
+            if "full_comprehensive" in lowered_stem:
+                inferred_policy_type = "full_comprehensive"
+            elif "partial_comprehensive" in lowered_stem:
+                inferred_policy_type = "partial_comprehensive"
+            elif "third_party" in lowered_stem:
+                inferred_policy_type = "third_party"
+
         source_id = source_document_id or (
-            "doc-" + sha256(f"{document_type}:{title.lower()}".encode()).hexdigest()[:24]
+            "doc-" + sha256(f"{document_type}:{title.lower()}:{inferred_policy_type or ''}".encode()).hexdigest()[:24]
         )
         sections = extract_document(file_path)
         if not sections:
@@ -300,13 +312,18 @@ class DocumentIngestor:
             chunk_id = "chk-" + sha256(
                 f"{source_id}:{index}:{piece.content}".encode()
             ).hexdigest()[:32]
-            metadata = {
+            chunk_meta = {
                 **piece.metadata,
+                **(metadata or {}),
                 "chunk_index": index,
                 "content_hash": content_hash,
                 "ingestion_pipeline_version": INGESTION_PIPELINE_VERSION,
                 "source_extension": file_path.suffix.lower(),
             }
+            if inferred_policy_type:
+                chunk_meta["policy_type"] = inferred_policy_type
+            chunk_meta.setdefault("status", "active")
+            chunk_meta.setdefault("audience", "customer")
             chunks.append(
                 KnowledgeChunk(
                     chunk_id=chunk_id,
@@ -316,7 +333,7 @@ class DocumentIngestor:
                     section=piece.title,
                     content=piece.content,
                     normalized_content=normalized,
-                    metadata=metadata,
+                    metadata=chunk_meta,
                 )
             )
         if not chunks:

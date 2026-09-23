@@ -7,8 +7,12 @@ from fastapi.testclient import TestClient
 
 from backend.app.api.auth import router as auth_router
 from backend.app.config import Settings, get_settings
+import asyncio
+import pytest
 from backend.app.security.dependencies import get_user_repository
-from backend.app.security.password import verify_password
+from backend.app.security.password import hash_password, verify_password
+from backend.app.security.roles import UserRole
+from backend.app.security.user_repository import UserAlreadyExistsError
 from backend.app.security.supabase_user_repository import SupabaseUserRepository
 from backend.tests._supabase_fake import FakeSupabaseClient
 
@@ -32,29 +36,25 @@ def _auth_app(repository: SupabaseUserRepository) -> FastAPI:
 def test_registered_user_survives_repository_and_service_reinitialization() -> None:
     database = FakeSupabaseClient()
     first_repository = SupabaseUserRepository(database)
-    registration_app = _auth_app(first_repository)
 
-    with TestClient(registration_app) as client:
-        registered = client.post(
-            "/auth/register",
-            json={
-                "email": "Persistent.Customer@Example.com",
-                "password": "securepass123",
-            },
+    user = asyncio.run(
+        first_repository.create_user(
+            email="Persistent.Customer@Example.com",
+            password_hash=hash_password("securepass123"),
+            role=UserRole.CUSTOMER,
         )
-        duplicate = client.post(
-            "/auth/register",
-            json={
-                "email": "PERSISTENT.CUSTOMER@example.com",
-                "password": "anotherpass123",
-            },
+    )
+
+    with pytest.raises(UserAlreadyExistsError):
+        asyncio.run(
+            first_repository.create_user(
+                email="PERSISTENT.CUSTOMER@example.com",
+                password_hash=hash_password("anotherpass123"),
+                role=UserRole.CUSTOMER,
+            )
         )
 
-    assert registered.status_code == 201
-    assert duplicate.status_code == 409
-    assert duplicate.json() == {"detail": "Email is already registered"}
-
-    user_id = registered.json()["user_id"]
+    user_id = user.user_id
     stored = database.rows["users"][user_id]
     assert set(stored) == {
         "user_id",

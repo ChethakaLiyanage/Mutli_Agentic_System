@@ -13,7 +13,10 @@ from backend.app.retrieval.schemas import (
     KnowledgeEvidence,
     RetrievalError,
 )
-from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.retrieval.knowledge_retriever import (
+    DEFAULT_MINIMUM_SCORE,
+    KnowledgeRetriever,
+)
 from backend.app.schemas.domain import EvidenceItem
 
 
@@ -214,8 +217,12 @@ class RetrievalService:
             request=request,
             user_id=user_id,
         )
+        resolved_policy_type = None
         if policy is not None:
             result.policy_data = self._coerce_policy(policy)
+            resolved_policy_type = result.policy_data.policy_type
+        elif request.policy_context and request.policy_context.policy_type:
+            resolved_policy_type = request.policy_context.policy_type
         elif request.policy_context is not None:
             result.missing_evidence.append("policy_not_found")
         elif request.query and "my policy" in request.query.lower():
@@ -228,7 +235,12 @@ class RetrievalService:
         if self.knowledge_retriever:
             knowledge_query = self._build_policy_knowledge_query(request)
             if knowledge_query:
-                self._search_knowledge(result, knowledge_query, top_k=3)
+                self._search_knowledge(
+                    result,
+                    knowledge_query,
+                    top_k=3,
+                    policy_type=resolved_policy_type,
+                )
 
         if not result.policy_data and not result.knowledge_evidence:
             if "knowledge_evidence_not_found" not in result.missing_evidence:
@@ -295,11 +307,22 @@ class RetrievalService:
         """Keep test doubles compatible while production repositories return models."""
         if isinstance(policy, PolicyRecord):
             return policy
+        cov_type = str(policy.get("coverage_type") or "full")
+        pol_type = policy.get("policy_type")
+        if not pol_type:
+            mapping = {
+                "full": "full_comprehensive",
+                "partial": "partial_comprehensive",
+                "third_party": "third_party",
+            }
+            pol_type = mapping.get(cov_type, "full_comprehensive")
         return PolicyRecord(
             policy_id=policy.get("policy_id", policy.get("id")),
             policy_number=policy["policy_number"],
             customer_id=policy["customer_id"],
             status=policy["status"],
+            coverage_type=cov_type,
+            policy_type=pol_type,
             start_date=str(policy["start_date"]),
             end_date=str(policy["end_date"]),
             coverage_details=policy.get("coverage_details", {}),
@@ -436,14 +459,24 @@ class RetrievalService:
         query: str,
         *,
         top_k: int,
+        policy_type: str | None = None,
     ) -> None:
-        assert self.knowledge_retriever is not None
         try:
-            evidence = self.knowledge_retriever.retrieve(
-                query=query,
-                insurance_type="motor",
-                top_k=top_k,
-            )
+            try:
+                evidence = self.knowledge_retriever.retrieve(
+                    query=query,
+                    insurance_type="motor",
+                    top_k=top_k,
+                    policy_type=policy_type,
+                    min_relevance_score=0.02 if policy_type else DEFAULT_MINIMUM_SCORE,
+                )
+            except TypeError:
+                evidence = self.knowledge_retriever.retrieve(
+                    query=query,
+                    insurance_type="motor",
+                    top_k=top_k,
+                    min_relevance_score=0.02 if policy_type else DEFAULT_MINIMUM_SCORE,
+                )
             self._append_knowledge(result, evidence)
         except Exception:
             logger.exception("Knowledge retrieval component failed")

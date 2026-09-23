@@ -98,8 +98,8 @@ export const LoginPage = () => {
           </button>
         </form>
 
-        <p className="auth-switch">
-          New to the portal? <Link to="/register">Create an account</Link>
+        <p className="auth-switch text-xs text-[#788990]">
+          Customer accounts are provisioned by your insurance administrator. If you do not have credentials, please contact support.
         </p>
         <p className="auth-switch">
           Staff member? <Link to="/admin-login">Admin sign in</Link>

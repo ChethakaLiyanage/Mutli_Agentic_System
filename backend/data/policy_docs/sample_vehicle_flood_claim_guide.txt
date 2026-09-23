@@ -1,0 +1,143 @@
+SAMPLE VEHICLE FLOOD CLAIM GUIDE
+Version: 1.0
+Document Type: Motor Claim Procedure
+Purpose: University Project Retrieval Testing Only
+
+IMPORTANT:
+This is synthetic test data created only for testing the Information
+Retrieval and multi-agent motor insurance system.
+It is not an official insurance policy.
+
+==================================================
+VEHICLE FLOOD INCIDENTS
+==================================================
+
+A vehicle flood incident occurs when water enters or damages a vehicle
+because of flooding, heavy rainfall, overflowing waterways, or similar
+water-related events.
+
+Customers should avoid attempting to start a vehicle when significant
+water has entered the engine compartment.
+
+==================================================
+FLOOD CLAIM REPORTING PERIOD
+==================================================
+
+For this sample procedure, a vehicle flood incident must be reported
+within 13 days from the date of the incident.
+
+The 13-day period is a synthetic test rule used only for this university
+project.
+
+==================================================
+VEHICLE AREAS AFFECTED BY FLOODING
+==================================================
+
+Flood water may cause damage to multiple areas of a vehicle.
+
+Possible affected areas include:
+
+- Engine
+- Air intake system
+- Transmission
+- Battery
+- Alternator
+- Starter motor
+- Electrical wiring
+- Electronic control modules
+- Sensors
+- Fuse boxes
+- Dashboard electronics
+- Infotainment system
+- Front seats
+- Rear seats
+- Carpets
+- Interior trim
+- Boot / trunk
+- Underbody
+- Braking components
+- Wheel bearings
+- Exhaust system
+
+==================================================
+FLOOD DAMAGE CLASSIFICATION
+==================================================
+
+Flood-related damage may include:
+
+- Water ingress
+- Engine water damage
+- Electrical failure
+- Electronic component damage
+- Interior water damage
+- Corrosion
+- Contamination
+- Mud and debris damage
+- Underbody damage
+
+==================================================
+REQUIRED DOCUMENTS FOR A FLOOD CLAIM
+==================================================
+
+For this sample flood claim procedure, the customer should provide:
+
+1. Vehicle registration document
+2. Valid driving licence
+3. Photographs of the vehicle
+4. Photographs showing the flood or water damage
+5. Description of the flood incident
+6. Location where the flooding occurred
+7. One vehicle inspection report
+
+Additional evidence may be requested during claim review when necessary.
+
+==================================================
+FLOOD VEHICLE INSPECTION
+==================================================
+
+For this sample procedure, a flood-damaged vehicle must receive an
+inspection before major flood-related repairs are started.
+
+The inspection should identify visible water damage and any affected
+mechanical, electrical, electronic, and interior components.
+
+==================================================
+SPECIAL FLOOD TEST RULE
+==================================================
+
+The special flood assessment code used by this document is:
+
+FLOOD-NEPTUNE-7314
+
+This code has no real insurance meaning.
+
+It exists only to verify that Agent 2 retrieves information from this
+specific uploaded document.
+
+==================================================
+SPECIAL INSPECTION RULE
+==================================================
+
+For this sample procedure, the synthetic inspection reference period
+for severe engine water ingress is 72 hours.
+
+The value of 72 hours is included only as a retrieval test value.
+
+==================================================
+CUSTOMER GUIDANCE
+==================================================
+
+When reporting a flood incident, the customer should provide accurate
+information about:
+
+- Date of flooding
+- Location
+- Approximate water level where known
+- Vehicle areas affected
+- Whether the engine was running
+- Whether an attempt was made to restart the vehicle
+- Visible damage
+
+==================================================
+END OF DOCUMENT
+==================================================

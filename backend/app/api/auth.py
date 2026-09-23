@@ -43,32 +43,15 @@ def get_authentication_service(
 
 @router.post(
     "/register",
-    response_model=UserPublic,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a customer account",
+    status_code=status.HTTP_403_FORBIDDEN,
+    summary="Register a customer account (Disabled)",
 )
-async def register_user(
-    request: UserRegisterRequest,
-    service: Annotated[
-        AuthenticationService,
-        Depends(get_authentication_service),
-    ],
-) -> UserPublic:
-    try:
-        user = await service.register(request)
-    except UserAlreadyExistsError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email is already registered",
-        ) from error
-    except RepositoryError as error:
-        logger.exception("User registration persistence failed")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Persistence service failed",
-        ) from error
-    logger.info("User registered: %s", user.user_id)
-    return user
+async def register_user() -> None:
+    """Public customer registration is disabled. Accounts must be created by an administrator."""
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Public customer registration is disabled. Accounts must be created by an administrator.",
+    )
 
 
 @router.post(

@@ -30,6 +30,7 @@ class ClaimContext(BaseModel):
 class PolicyLookupContext(BaseModel):
     policy_id: str | None = None
     policy_number: str | None = None
+    policy_type: str | None = None
 
 
 class ClaimLookupContext(BaseModel):
@@ -65,6 +66,7 @@ class PolicyRecord(BaseModel):
 
     status: str
     coverage_type: str = "full"
+    policy_type: str = "full_comprehensive"
     start_date: str
     end_date: str
 

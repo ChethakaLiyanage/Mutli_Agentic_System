@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 import joblib
 from sklearn.linear_model import LogisticRegression
@@ -393,7 +394,8 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
     probabilities = model.predict_proba([text])[0]
     normalized_text = model.named_steps["normalize"].transform([text])[0]
     normalized_tokens = normalized_text.split()
-    normalized_token_set = set(normalized_tokens)
+    clean_tokens = [re.sub(r"^[^\w]+|[^\w]+$", "", t.replace("'s", "")) for t in normalized_tokens]
+    normalized_token_set = set(normalized_tokens) | {t for t in clean_tokens if t}
 
     # A social turn is only recognised when the complete message is social.
     # This preserves normal insurance routing for mixed messages.
@@ -421,10 +423,36 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
         "track",
         "update",
     }
+    inquiry_markers = {
+        "how",
+        "what",
+        "where",
+        "when",
+        "why",
+        "which",
+        "days",
+        "period",
+        "deadline",
+        "timeline",
+        "timeframe",
+        "procedure",
+        "process",
+        "steps",
+        "documents",
+        "papers",
+        "required",
+        "rules",
+        "guidelines",
+        "reference",
+        "code",
+    }
+    is_inquiry = bool(normalized_token_set.intersection(inquiry_markers))
+
     if (
         "claim" in normalized_token_set
         and normalized_token_set.intersection(submission_actions)
         and not normalized_token_set.intersection(status_terms)
+        and not is_inquiry
     ):
         submission_indexes = [
             index
@@ -458,12 +486,27 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
             if greeting_similarity >= 0.75 and greeting_probability >= 0.20:
                 return "greeting", greeting_probability
 
-    # If the user is asking about policy or coverage and not explicitly
-    # asking for status/tracking, policy_question / coverage_question must
-    # take precedence over claim_status (e.g. "can i know about motor claim policy").
-    policy_inquiry_terms = {"policy", "coverage", "cover"}
+    # If the user is asking about policy, coverage, reporting rules, reference codes,
+    # or general information and not explicitly asking for claim tracking/status,
+    # informational intents must take precedence over claim_status or claim_submission.
+    policy_inquiry_terms = {
+        "policy",
+        "coverage",
+        "cover",
+        "period",
+        "deadline",
+        "days",
+        "timeline",
+        "reference",
+        "code",
+        "procedure",
+        "guidelines",
+        "rules",
+        "documents",
+        "required",
+    }
     if (
-        normalized_token_set.intersection(policy_inquiry_terms)
+        (normalized_token_set.intersection(policy_inquiry_terms) or is_inquiry)
         and not normalized_token_set.intersection(status_terms)
     ):
         info_indexes = [
@@ -500,7 +543,7 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
     # turn (e.g. out-of-domain words like "panda", "dog", "cat"), route it to general
     # information so it can proceed through retrieval and be naturally answered by the LLM.
     if not has_insurance_topic and not is_pure_social:
-        return "general_information", 0.50
+        return "general_information", 0.40
 
     best_index = int(probabilities.argmax())
     label = str(model.classes_[best_index])

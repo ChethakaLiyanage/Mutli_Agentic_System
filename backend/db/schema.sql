@@ -57,6 +57,7 @@ create table if not exists public.policies (
     customer_id text not null references public.users(user_id),
     insurance_type text not null default 'motor',
     coverage_type text not null default 'full' check (coverage_type in ('full', 'partial', 'third_party')),
+    policy_type text not null default 'full_comprehensive' check (policy_type in ('full_comprehensive', 'partial_comprehensive', 'third_party')),
     status text not null check (status in ('active', 'expired', 'cancelled')),
     start_date date not null,
     end_date date not null,
@@ -148,6 +149,35 @@ create table if not exists public.knowledge_chunks (
     created_at timestamptz not null default now()
 );
 
+create table if not exists public.policy_documents (
+    id text primary key default gen_random_uuid()::text,
+    root_document_id text not null,
+    title text not null,
+    document_type text not null check (document_type in (
+        'policy_document', 'policy_manual', 'procedure_guide', 'guideline', 'manual', 'other'
+    )),
+    policy_type text check (policy_type is null or policy_type in (
+        'full_comprehensive', 'partial_comprehensive', 'third_party'
+    )),
+    audience text not null default 'customer' check (audience in ('customer', 'internal', 'all')),
+    version text not null default '1.0',
+    original_filename text not null,
+    storage_path text,
+    checksum text,
+    status text not null default 'active' check (status in (
+        'processing', 'active', 'superseded', 'failed', 'archived'
+    )),
+    chunks_count integer not null default 0 check (chunks_count >= 0),
+    previous_version_id text references public.policy_documents(id),
+    change_summary text,
+    uploaded_by text default 'admin',
+    created_at timestamptz not null default now(),
+    activated_at timestamptz,
+    superseded_at timestamptz,
+    updated_at timestamptz not null default now(),
+    metadata jsonb not null default '{}'::jsonb check (jsonb_typeof(metadata) = 'object')
+);
+
 create table if not exists public.human_decisions (
     decision_id text primary key default gen_random_uuid()::text,
     workflow_id text references public.workflows(workflow_id),
@@ -206,6 +236,11 @@ create index if not exists idx_fraud_assessments_claim_id on public.fraud_assess
 create index if not exists idx_knowledge_chunks_source_document_id on public.knowledge_chunks(source_document_id);
 create index if not exists idx_knowledge_chunks_insurance_type on public.knowledge_chunks(insurance_type);
 create index if not exists idx_knowledge_chunks_document_type on public.knowledge_chunks(document_type);
+create index if not exists idx_policy_documents_status on public.policy_documents(status);
+create index if not exists idx_policy_documents_root_id on public.policy_documents(root_document_id);
+create index if not exists idx_policy_documents_policy_type on public.policy_documents(policy_type);
+create index if not exists idx_policy_documents_document_type on public.policy_documents(document_type);
+create index if not exists idx_policy_documents_audience on public.policy_documents(audience);
 create index if not exists idx_human_decisions_workflow_id on public.human_decisions(workflow_id);
 create index if not exists idx_human_decisions_claim_id on public.human_decisions(claim_id);
 create index if not exists idx_human_decisions_reviewer_id on public.human_decisions(reviewer_id);

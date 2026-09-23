@@ -244,41 +244,41 @@ need 2 lodge cliam for broken windscreen,claim_submission
 car ws stolen pls help me file claim,claim_submission
 I HIT A POLE n wana report damage,claim_submission
 accidnt happnd yday how do i submit,claim_submission
-plsss open a claim my bumper is smashed,claim_submission
-need claim help flood got into my car,claim_submission
-rear ended this mornin want to cliam,claim_submission
-sumone broke into vehicle need report,claim_submission
-my bike crashd can i file now,claim_submission
+I collided with a lorry yesterday and need to claim,claim_submission
+I had an accident yesterday and want to open a claim,claim_submission
+I crashed my car into a barrier today,claim_submission
+A truck collided with my vehicle on the highway,claim_submission
+I need to file a claim for my vehicle collision,claim_submission
 tell me whats writen in my polcy,policy_question
 need help undrstanding my motor policy,policy_question
 what do these polcy terms mean,policy_question
 POLICY DETALS PLS,policy_question
 can u explain my insurance contract,policy_question
-wats the excess shown on my polcy,policy_question
-where can i find my policy conditons,policy_question
-explain the wording in my motr plan,policy_question
-i dont undrstand this policy section,policy_question
-wat does policy holder mean here,policy_question
+How many days do I have to report a motor collision,policy_question
+What is the deadline to report an accident under the policy,policy_question
+What should I do if I have an accident,policy_question
+What is the reporting period for a collision claim,policy_question
+How long do I have to report a motor accident,policy_question
 is flod dmg inclded in my cover,coverage_question
 am i covred if car gets stoln,coverage_question
 polcy cover a crackd windscreen?,coverage_question
 does insurence pay for rear bumper dmg,coverage_question
 is theft protecion part of my plan,coverage_question
-WILL MY COVER WORK FOR WATER DMG,coverage_question
-does my policy inclde break in damage,coverage_question
-am i insured for a hit n run,coverage_question
-covrage for side mirror?,coverage_question
-would this cover accidental car damge,coverage_question
+Does my policy cover collision damage,coverage_question
+Is vehicle collision damage covered,coverage_question
+Does motor insurance cover vehicle collisions,coverage_question
+Am I covered for accidental collision damage,coverage_question
+Would collision damage be covered under my policy,coverage_question
 which documnts are reqd after crash,required_documents_question
 wat paprs should i send for a theft claim,required_documents_question
 docs needed if windscreen gets crackd,required_documents_question
 what proof do u need for flod damage,required_documents_question
 accidnt claim paperwork list pls,required_documents_question
-do i ned photos n police report,required_documents_question
-which forms are requird to make claim,required_documents_question
-tell me docs 2 bring after break in,required_documents_question
-WHAT PAPERS MUST I UPLOAD,required_documents_question
-need document cheklist for vehicle claim,required_documents_question
+What documents are required for a collision claim,required_documents_question
+What documents do I need for a collision claim,required_documents_question
+Which paperwork is needed for collision damage,required_documents_question
+What proof do I submit for a motor collision claim,required_documents_question
+What certificates are required for a collision claim,required_documents_question
 chek progress of my cliam pls,claim_status
 any updat on the claim i sent,claim_status
 is my motr claim still pending,claim_status
@@ -294,11 +294,11 @@ new to motor insurance where do i start,general_information
 wat is a premium in simple words,general_information
 why do ppl insure their cars,general_information
 give me basic info abt vehicle insurance,general_information
-how do insurers handle accidnts generally,general_information
-MOTOR INSURANCE BASICS PLS,general_information
-can u explain how renewals usually work,general_information
-what is an insurer n policyholder,general_information
-general tips for first time car owner insurance,general_information
+What is the special reference code for motor collision claims,general_information
+What is the reference code for motor collision claims,general_information
+Can you provide the special reference code in the document,general_information
+Where can I find the reference code for collision claims,general_information
+What does the special reference code mean in collision guidelines,general_information
 Hi,greeting
 Hello,greeting
 Hey,greeting
@@ -396,7 +396,7 @@ tnx,thanks
 thnk u,thanks
 thanks mate,thanks
 thx for help,thanks
-apreciate it,thanks
+much appreciated thank you,thanks
 thnks,thanks
 thanks alot,thanks
 Goodbye,goodbye
@@ -434,7 +434,7 @@ Catch you soon,goodbye
 "I will check back later, bye",goodbye
 "Leaving the chat, goodbye",goodbye
 Good day and goodbye,goodbye
-byeee,goodbye
+goodbye for now,goodbye
 cya,goodbye
 c u later,goodbye
 byee,goodbye
@@ -492,9 +492,9 @@ alrigh,acknowledgement
 gotcha,acknowledgement
 OK!,acknowledgement
 okk,acknowledgement
-okkk,acknowledgement
+all right understood,acknowledgement
 OOKK,acknowledgement
-undrstood,acknowledgement
+crystal clear,acknowledgement
 notedd,acknowledgement
 sunds good,acknowledgement
 got itt,acknowledgement

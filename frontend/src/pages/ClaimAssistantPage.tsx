@@ -95,7 +95,13 @@ export const ClaimAssistantPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const canClarify = workflow?.status === "awaiting_clarification";
+  const activeClaimWf =
+    workflow && needsWorkflowTracking(workflow)
+      ? workflow
+      : trackedWorkflow && needsWorkflowTracking(trackedWorkflow)
+        ? trackedWorkflow
+        : workflow;
+  const canClarify = activeClaimWf?.status === "awaiting_clarification";
   const canSend = !sending && !restoring && !refreshing;
   const hasConversation = messages.length > 0 || workflow !== null;
 
@@ -103,6 +109,16 @@ export const ClaimAssistantPage = () => {
     if (isPureGreetingResponse(response)) {
       if (sessionStorage.getItem(ACTIVE_WORKFLOW_KEY) === response.workflow_id) {
         sessionStorage.removeItem(ACTIVE_WORKFLOW_KEY);
+      }
+      return;
+    }
+
+    if (
+      isOrchestratorResponse(response) &&
+      response.workflow_type === "information_request"
+    ) {
+      if (response.pending_claim_workflow_id) {
+        sessionStorage.setItem(ACTIVE_WORKFLOW_KEY, response.pending_claim_workflow_id);
       }
       return;
     }
@@ -188,9 +204,10 @@ export const ClaimAssistantPage = () => {
       const request = { request_id: makeId("REQ"), text };
       const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening)\b/i.test(text);
       const isQuestion = /^(can|does|what|where|how|tell me|is|are|why)\b/i.test(text);
-      const shouldClarify = canClarify && workflow && !isGreeting && !isQuestion;
+      const targetWorkflow = activeClaimWf;
+      const shouldClarify = canClarify && targetWorkflow && !isGreeting && !isQuestion;
       const response = shouldClarify
-        ? await clarifyWorkflow(workflow.workflow_id, request)
+        ? await clarifyWorkflow(targetWorkflow.workflow_id, request)
         : await processRequest(request);
 
       applyWorkflow(response);
@@ -313,11 +330,12 @@ export const ClaimAssistantPage = () => {
   };
 
   /* Resolve the active orchestrator response for inline action buttons */
+  const effectiveWf = activeClaimWf || workflow;
   const activeOrchWf =
-    workflow && isOrchestratorResponse(workflow) ? workflow : null;
+    effectiveWf && isOrchestratorResponse(effectiveWf) ? effectiveWf : null;
   const trackedOrchWf =
     trackedWorkflow &&
-    trackedWorkflow.workflow_id !== workflow?.workflow_id &&
+    trackedWorkflow.workflow_id !== activeOrchWf?.workflow_id &&
     isOrchestratorResponse(trackedWorkflow)
       ? trackedWorkflow
       : null;

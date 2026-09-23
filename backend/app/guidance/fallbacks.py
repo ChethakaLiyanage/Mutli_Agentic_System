@@ -52,10 +52,10 @@ def _get_time_aware_greeting(user_text: str | None = None) -> str:
             salutation = "Good morning!"
 
     variations = [
-        f"{salutation} How can I help with your motor insurance today?",
-        f"{salutation} What can I assist you with regarding your policy or claim?",
+        f"{salutation} How can I help with your motor insurance claims or questions today?",
+        f"{salutation} What can I assist you with regarding your policy or claims?",
         f"{salutation} I'm here to help with your insurance questions or claims. What's on your mind?",
-        f"Hello! {salutation} How may I assist you with your motor insurance today?",
+        f"Hello! {salutation} How may I assist you with your motor insurance questions or claims today?",
     ]
     idx = (len(user_text or "") + datetime.now().second) % len(variations)
     return variations[idx]
@@ -221,24 +221,51 @@ def build_deterministic_guidance_response(
         )
     elif request.task_type == "coverage_answer":
         evidence_text = " ".join(item.content for item in request.retrieved_evidence).casefold()
-        if "flood" in evidence_text or "water" in evidence_text:
-            message = (
-                "Some comprehensive motor policies may cover accidental flood or water-ingress "
-                "damage. However, coverage depends on your specific policy terms, exclusions, "
-                "excess, and endorsements, so the general guidance alone cannot confirm "
-                "whether your own policy covers it."
-            )
-        elif "windscreen" in evidence_text or "glass" in evidence_text:
-            message = (
-                "Windscreen and window glass damage is often covered under comprehensive motor "
-                "policies, subject to specific excess and repair conditions. Please refer to "
-                "your policy schedule for exact limits."
-            )
+        if "third party" in evidence_text and ("only" in evidence_text or "statutory" in evidence_text or "liability" in evidence_text):
+            if "fire" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
+                message = "Under your Third Party policy, own-vehicle fire damage is strictly excluded. Third party coverage protects only against legal liabilities to others."
+            elif "theft" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
+                message = "Under your Third Party policy, own-vehicle theft and break-in loss is strictly excluded."
+            elif "collision" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
+                message = "Under your Third Party policy, own-vehicle collision damage is strictly excluded."
+            elif "windscreen" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
+                message = "Under your Third Party policy, windscreen and glass damage to your own vehicle is strictly excluded."
+            elif "flood" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
+                message = "Under your Third Party policy, flood and water damage to your own vehicle is strictly excluded."
+            else:
+                message = "Your Third Party policy covers third-party bodily injury and property damage liabilities only. All damage to your own vehicle (collision, fire, theft, flood, windscreen) is strictly excluded."
+        elif "partial comprehensive" in evidence_text or "collision damage exclusion" in evidence_text:
+            if "collision" in evidence_text and ("excluded" in evidence_text or "not covered" in evidence_text):
+                message = "Under your Partial Comprehensive policy, ordinary own-vehicle collision damage is strictly excluded. The policy covers fire, theft, flood, and windscreen damage."
+            elif "fire" in evidence_text:
+                message = "Under your Partial Comprehensive policy, loss or damage caused by fire, explosion, or lightning is covered."
+            elif "theft" in evidence_text:
+                message = "Under your Partial Comprehensive policy, theft and attempted theft damage are covered."
+            elif "flood" in evidence_text:
+                message = "Under your Partial Comprehensive policy, flood and natural disaster water damage are covered."
+            elif "windscreen" in evidence_text or "glass" in evidence_text:
+                message = "Under your Partial Comprehensive policy, windscreen and window glass damage is covered."
+            else:
+                message = "Your Partial Comprehensive policy covers fire, theft, flood, windscreen glass, and third-party liability, but excludes own-vehicle collision damage."
+        elif "full comprehensive" in evidence_text or "total coverage" in evidence_text or "accidental damage" in evidence_text:
+            if "fire" in evidence_text:
+                message = "Under your Full Comprehensive policy, loss or damage caused by accidental fire, explosion, or lightning is fully covered."
+            elif "theft" in evidence_text:
+                message = "Under your Full Comprehensive policy, vehicle theft, attempted theft, and break-in damages are fully covered."
+            elif "collision" in evidence_text:
+                message = "Under your Full Comprehensive policy, accidental own-vehicle collision damage to all vehicle panels is fully covered."
+            elif "flood" in evidence_text or "water" in evidence_text:
+                message = "Under your Full Comprehensive policy, storm, flood, and rising surface water damage are fully covered."
+            elif "windscreen" in evidence_text or "glass" in evidence_text:
+                message = "Under your Full Comprehensive policy, windscreen and window glass repair and replacement are fully covered."
+            else:
+                message = "Your Full Comprehensive policy provides full cover for accidental own-vehicle collision damage, fire, theft, flood, windscreen glass, vandalism, and third-party liabilities."
+        elif "excluded" in evidence_text or "exclusion" in evidence_text:
+            message = "Based on your retrieved policy terms, this type of own-vehicle damage is not covered under your policy category."
         else:
             message = (
                 "Coverage depends on your specific policy terms, exclusions, and endorsements. "
-                "Please check your policy schedule or contact a claims officer to verify "
-                "your individual cover."
+                "Please check your policy schedule or contact customer support for details on your individual cover."
             )
     elif request.task_type == "policy_answer":
         evidence_text = " ".join(item.content for item in request.retrieved_evidence).casefold()
@@ -320,9 +347,11 @@ def build_deterministic_guidance_response(
             "Please upload these documents using the button below so our claims team can process your claim."
         )
     elif request.retrieved_evidence:
+        top_item = request.retrieved_evidence[0]
+        clean_title = (top_item.source_title or "Official Policy Documentation").replace("_", " ").title()
         message = (
-            "I found relevant controlled policy information, but I couldn't "
-            "generate a fuller explanation right now. Please review the cited source."
+            f"Based on the active documentation ({clean_title}):\n\n"
+            f"{top_item.content}"
         )
     else:
         message = (

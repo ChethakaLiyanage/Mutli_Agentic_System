@@ -15,6 +15,7 @@ class PolicySummaryResponse(BaseModel):
     policy_number: str
     insurance_type: str = "motor"
     coverage_type: str = "full"
+    policy_type: str = "full_comprehensive"
     status: str
     start_date: date
     end_date: date

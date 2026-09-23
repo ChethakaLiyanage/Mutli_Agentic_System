@@ -1,45 +1,6 @@
-import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
-import { getApiErrorMessage } from "../api/client";
-import { useAuth } from "../context/auth-context";
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export const RegisterPage = () => {
-  const { register } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const validate = (): string | null => {
-    if (!EMAIL_PATTERN.test(email.trim())) return "Enter a valid email address.";
-    if (password.length < 8) return "Password must contain at least 8 characters.";
-    if (password !== confirmPassword) return "Passwords do not match.";
-    return null;
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    setError(null);
-    setSubmitting(true);
-    try {
-      await register({ email: email.trim(), password });
-    } catch (requestError) {
-      setError(getApiErrorMessage(requestError, "Unable to create your account."));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <main className="auth-page">
       <section className="auth-intro" aria-labelledby="register-heading">
@@ -60,63 +21,32 @@ export const RegisterPage = () => {
         </div>
       </section>
 
-      <section className="auth-panel" aria-label="Registration form">
+      <section className="auth-panel" aria-label="Registration disabled notice">
         <div className="form-heading">
-          <p className="eyebrow">New account</p>
-          <h2>Register</h2>
-          <p>Use an email address you can access and a strong password.</p>
+          <p className="eyebrow">Account access notice</p>
+          <h2>Registration is Closed</h2>
+          <p>Customer self-registration is disabled.</p>
         </div>
 
-        {error && (
-          <div className="alert alert-error" role="alert">
-            {error}
-          </div>
-        )}
+        <div className="alert alert-error" role="alert">
+          Public account creation has been deactivated. Customer accounts are created and configured with binding motor-policy categories exclusively by authorized insurance administrators.
+        </div>
 
-        <form className="auth-form" onSubmit={handleSubmit} noValidate>
-          <label htmlFor="email">Email address</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="customer@example.com"
-            required
-          />
+        <div className="mt-4 rounded-lg bg-[#f8fafb] border border-[#e5ecec] p-4 text-xs text-[#4b5563] space-y-2">
+          <p className="font-semibold text-[#142b3a]">How do I get an account?</p>
+          <p>
+            Please contact your insurance representative or claims administrator. They will provision your account credentials and bind your motor insurance policy to your portal profile.
+          </p>
+        </div>
 
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            minLength={8}
-            required
-          />
-          <p className="field-hint">Use at least 8 characters.</p>
-
-          <label htmlFor="confirm-password">Confirm password</label>
-          <input
-            id="confirm-password"
-            name="confirm-password"
-            type="password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            required
-          />
-
-          <button className="button button-primary" type="submit" disabled={submitting}>
-            {submitting ? "Creating account…" : "Create account"}
-          </button>
-        </form>
+        <div className="mt-6">
+          <Link to="/login" className="button button-primary w-full text-center block">
+            Return to Sign In
+          </Link>
+        </div>
 
         <p className="auth-switch">
-          Already registered? <Link to="/login">Sign in</Link>
+          Staff member? <Link to="/admin-login">Admin sign in</Link>
         </p>
       </section>
     </main>

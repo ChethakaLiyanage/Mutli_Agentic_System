@@ -20,7 +20,10 @@ from backend.app.schemas.domain import (
 )
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
 from backend.app.guidance.schemas import GuidanceRequest, GuidanceResponse
-from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.retrieval.knowledge_retriever import (
+    KnowledgeRetriever,
+    get_shared_knowledge_retriever,
+)
 from backend.app.retrieval.repository import RetrievalRepository
 from backend.app.retrieval.schemas import RetrievalRequest, RetrievalResponse
 from backend.app.retrieval.schemas import HistoricalClaim
@@ -73,7 +76,7 @@ class LocalRetrievalClient:
             repository = RetrievalRepository(client)
             service = RetrievalService(
                 repository=repository,
-                knowledge_retriever=KnowledgeRetriever(repository=repository),
+                knowledge_retriever=get_shared_knowledge_retriever(repository=repository),
             )
         self._service = service
 

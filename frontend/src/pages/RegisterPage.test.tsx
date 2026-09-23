@@ -17,44 +17,16 @@ const renderPage = (register = vi.fn()) => {
 };
 
 describe("RegisterPage", () => {
-  it("rejects an invalid email before calling the API", async () => {
-    const register = renderPage();
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Email address"), "not-an-email");
-    await user.type(screen.getByLabelText("Password"), "securepass123");
-    await user.type(screen.getByLabelText("Confirm password"), "securepass123");
-    await user.click(screen.getByRole("button", { name: "Create account" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("valid email");
-    expect(register).not.toHaveBeenCalled();
+  it("renders the registration closed notice", () => {
+    renderPage();
+    expect(screen.getByRole("heading", { name: "Registration is Closed" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Public account creation has been deactivated");
   });
 
-  it("rejects short and mismatched passwords", async () => {
-    const register = renderPage();
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Email address"), "customer@example.com");
-    await user.type(screen.getByLabelText("Password"), "short");
-    await user.type(screen.getByLabelText("Confirm password"), "different");
-    await user.click(screen.getByRole("button", { name: "Create account" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("at least 8 characters");
-    expect(register).not.toHaveBeenCalled();
-  });
-
-  it("submits a valid customer registration without a role", async () => {
-    const register = renderPage();
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Email address"), "customer@example.com");
-    await user.type(screen.getByLabelText("Password"), "securepass123");
-    await user.type(screen.getByLabelText("Confirm password"), "securepass123");
-    await user.click(screen.getByRole("button", { name: "Create account" }));
-
-    expect(register).toHaveBeenCalledWith({
-      email: "customer@example.com",
-      password: "securepass123",
-    });
+  it("provides a link returning to the sign-in page", () => {
+    renderPage();
+    const loginLink = screen.getByRole("link", { name: "Return to Sign In" });
+    expect(loginLink).toBeInTheDocument();
+    expect(loginLink).toHaveAttribute("href", "/login");
   });
 });

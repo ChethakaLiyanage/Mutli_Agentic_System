@@ -147,6 +147,7 @@ def build_retrieval_request(
     original_query: str,
     intake: IntakeResponse,
     claim: ClaimContext | None = None,
+    policy_context: PolicyLookupContext | None = None,
 ) -> RetrievalRequest:
     """Create Agent 2 input without synthesizing unsupported identifiers."""
     intent = intake.data.intent.label
@@ -154,6 +155,13 @@ def build_retrieval_request(
         raise ValueError("Retrieval requires a determined intake intent")
     claim = claim or intake_to_claim_context(
         intake, customer_id=authenticated_user_id
+    )
+    resolved_policy_context = policy_context or (
+        PolicyLookupContext(
+            policy_id=claim.policy_id, policy_number=claim.policy_number
+        )
+        if claim.policy_id or claim.policy_number
+        else None
     )
     return RetrievalRequest(
         request_id=request_id,
@@ -168,13 +176,7 @@ def build_retrieval_request(
             incident_location=claim.incident_location,
             damage_areas=list(claim.damage_areas),
         ),
-        policy_context=(
-            PolicyLookupContext(
-                policy_id=claim.policy_id, policy_number=claim.policy_number
-            )
-            if claim.policy_id or claim.policy_number
-            else None
-        ),
+        policy_context=resolved_policy_context,
         claim_lookup=(
             ClaimLookupContext(
                 claim_id=claim.claim_id, claim_reference=claim.claim_reference

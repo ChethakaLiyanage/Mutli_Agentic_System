@@ -1,0 +1,3 @@
+SECTION 1: REPORTING TIMELINES
+TEST_UPDATED_RULE_BETA: Collision claims must be reported within 14 days of the incident date.
+All collision notifications must be received within the 14-day window.

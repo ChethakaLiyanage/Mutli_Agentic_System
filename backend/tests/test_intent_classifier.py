@@ -143,7 +143,7 @@ def test_training_dataset_remains_balanced() -> None:
     with DEFAULT_DATASET_PATH.open(encoding="utf-8", newline="") as dataset:
         rows = list(csv.DictReader(dataset))
 
-    assert len(rows) == 350
+    assert len(rows) == len(INTENT_LABELS) * 50
     assert Counter(row["label"] for row in rows) == {
         label: 50 for label in INTENT_LABELS
     }

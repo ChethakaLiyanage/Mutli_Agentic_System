@@ -30,6 +30,7 @@ async def list_my_policies(
                 policy_number=str(policy.get("policy_number") or ""),
                 insurance_type=str(policy.get("insurance_type") or "motor"),
                 coverage_type=str(policy.get("coverage_type") or "full"),
+                policy_type=str(policy.get("policy_type") or "full_comprehensive"),
                 status=str(policy.get("status") or "active"),
                 start_date=policy["start_date"],
                 end_date=policy["end_date"],

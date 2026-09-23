@@ -10,7 +10,10 @@ from backend.app.retrieval.schemas import (
 
 from backend.app.retrieval.service import RetrievalService
 from backend.app.retrieval.repository import RetrievalRepository
-from backend.app.retrieval.knowledge_retriever import KnowledgeRetriever
+from backend.app.retrieval.knowledge_retriever import (
+    KnowledgeRetriever,
+    get_shared_knowledge_retriever,
+)
 
 from backend.app.services.supabase_service import get_supabase_client
 
@@ -31,8 +34,8 @@ def retrieval_agent(state: dict) -> dict:
         client=supabase_client
     )
 
-    knowledge_retriever = KnowledgeRetriever(
-        client=supabase_client
+    knowledge_retriever = get_shared_knowledge_retriever(
+        repository=repository
     )
 
     service = RetrievalService(

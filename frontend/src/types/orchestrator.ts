@@ -181,6 +181,7 @@ export interface OrchestratorResponse extends WorkflowResponseBase {
   message: string | null;
   guidance_result: CustomerGuidanceResult | null;
   missing_required_documents?: string[];
+  pending_claim_workflow_id?: string | null;
   errors: OrchestratorError[];
 }
 
