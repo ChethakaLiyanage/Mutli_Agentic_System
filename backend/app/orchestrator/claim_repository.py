@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Protocol, runtime_checkable
 from uuid import NAMESPACE_URL, uuid5
@@ -35,6 +36,18 @@ class ClaimRepository(Protocol):
     def list_policies_for_customer(self, customer_id: str) -> list[dict[str, Any]]: ...
 
     def ensure_default_policy(self, customer_id: str) -> dict[str, Any]: ...
+
+    def create_customer_policy(
+        self,
+        *,
+        customer_id: str,
+        policy_type: str,
+        status: str = "active",
+        start_date: str = "2026-01-01",
+        end_date: str = "2027-01-01",
+    ) -> dict[str, Any]: ...
+
+    def list_all_policies(self) -> list[dict[str, Any]]: ...
 
 
 class InMemoryClaimRepository:
@@ -95,29 +108,42 @@ class InMemoryClaimRepository:
 
     def list_policies_for_customer(self, customer_id: str) -> list[dict[str, Any]]:
         return [
-            deepcopy(policy)
+            _normalize_policy_record(deepcopy(policy))
             for policy in self.policies
             if policy.get("customer_id") == customer_id
         ]
+
+    def list_all_policies(self) -> list[dict[str, Any]]:
+        return [_normalize_policy_record(deepcopy(p)) for p in self.policies]
+
+    def create_customer_policy(
+        self,
+        *,
+        customer_id: str,
+        policy_type: str,
+        status: str = "active",
+        start_date: str = "2026-01-01",
+        end_date: str = "2027-01-01",
+    ) -> dict[str, Any]:
+        payload = _build_policy_payload(
+            customer_id=customer_id,
+            policy_type=policy_type,
+            status=status,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        self.policies.append(deepcopy(payload))
+        return _normalize_policy_record(payload)
 
     def ensure_default_policy(self, customer_id: str) -> dict[str, Any]:
         policies = self.list_policies_for_customer(customer_id)
         if policies:
             return policies[0]
-        policy = {
-            "policy_id": f"POL-{uuid5(NAMESPACE_URL, customer_id).hex[:10].upper()}",
-            "policy_number": f"POL-{uuid5(NAMESPACE_URL, customer_id).hex[:8].upper()}",
-            "customer_id": customer_id,
-            "insurance_type": "motor",
-            "coverage_type": "full",
-            "status": "active",
-            "start_date": "2026-01-01",
-            "end_date": "2027-01-01",
-            "coverage_details": {"type": "comprehensive", "deductible": 250},
-            "exclusions": [],
-        }
-        self.policies.append(deepcopy(policy))
-        return policy
+        return self.create_customer_policy(
+            customer_id=customer_id,
+            policy_type="full_comprehensive",
+            status="active",
+        )
 
 
 class SupabaseClaimRepository:
@@ -243,39 +269,176 @@ class SupabaseClaimRepository:
         try:
             response = (
                 self._client.table("policies")
-                .select(
-                    "policy_id,policy_number,insurance_type,status,start_date,end_date,"
-                    "coverage_type,coverage_details,exclusions"
-                )
+                .select("*")
                 .eq("customer_id", customer_id)
                 .order("created_at", desc=True)
                 .execute()
             )
-            return [dict(row) for row in (response.data or [])]
+            return [_normalize_policy_record(dict(row)) for row in (response.data or [])]
         except Exception as error:
             raise ClaimPersistenceError("Failed to list policies for customer") from error
+
+    def list_all_policies(self) -> list[dict[str, Any]]:
+        try:
+            response = (
+                self._client.table("policies")
+                .select("*")
+                .order("created_at", desc=True)
+                .execute()
+            )
+            return [_normalize_policy_record(dict(row)) for row in (response.data or [])]
+        except Exception as error:
+            raise ClaimPersistenceError("Failed to list all policies") from error
+
+    def create_customer_policy(
+        self,
+        *,
+        customer_id: str,
+        policy_type: str,
+        status: str = "active",
+        start_date: str = "2026-01-01",
+        end_date: str = "2027-01-01",
+    ) -> dict[str, Any]:
+        payload = _build_policy_payload(
+            customer_id=customer_id,
+            policy_type=policy_type,
+            status=status,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        try:
+            response = self._client.table("policies").insert(payload).execute()
+            persisted = dict(response.data[0]) if response.data else payload
+            return _normalize_policy_record(persisted)
+        except Exception as error:
+            err_str = str(error)
+            if "column policies.policy_type does not exist" in err_str or "42703" in err_str:
+                fallback = {k: v for k, v in payload.items() if k != "policy_type"}
+                response = self._client.table("policies").insert(fallback).execute()
+                persisted = dict(response.data[0]) if response.data else payload
+                return _normalize_policy_record(persisted)
+            raise ClaimPersistenceError("Failed to create customer policy") from error
 
     def ensure_default_policy(self, customer_id: str) -> dict[str, Any]:
         policies = self.list_policies_for_customer(customer_id)
         if policies:
             return policies[0]
-        policy = {
-            "policy_id": f"POL-{uuid5(NAMESPACE_URL, customer_id).hex[:10].upper()}",
-            "policy_number": f"POL-{uuid5(NAMESPACE_URL, customer_id).hex[:8].upper()}",
-            "customer_id": customer_id,
-            "insurance_type": "motor",
-            "coverage_type": "full",
-            "status": "active",
-            "start_date": "2026-01-01",
-            "end_date": "2027-01-01",
-            "coverage_details": {"type": "comprehensive", "deductible": 250},
-            "exclusions": [],
+        return self.create_customer_policy(
+            customer_id=customer_id,
+            policy_type="full_comprehensive",
+            status="active",
+        )
+
+
+def _normalize_policy_record(row: dict[str, Any]) -> dict[str, Any]:
+    data = dict(row)
+    cov_type = str(data.get("coverage_type") or "full")
+    pol_type = data.get("policy_type")
+    if not pol_type:
+        meta = data.get("metadata") or {}
+        if isinstance(meta, dict) and meta.get("policy_type"):
+            pol_type = str(meta["policy_type"])
+        else:
+            mapping = {
+                "full": "full_comprehensive",
+                "partial": "partial_comprehensive",
+                "third_party": "third_party",
+            }
+            pol_type = mapping.get(cov_type, "full_comprehensive")
+    data["policy_type"] = pol_type
+    return data
+
+
+def _build_policy_payload(
+    *,
+    customer_id: str,
+    policy_type: str,
+    policy_id: str | None = None,
+    policy_number: str | None = None,
+    status: str = "active",
+    start_date: str = "2026-01-01",
+    end_date: str = "2027-01-01",
+) -> dict[str, Any]:
+    norm_policy_type = policy_type.strip().lower()
+    cov_mapping = {
+        "full_comprehensive": "full",
+        "partial_comprehensive": "partial",
+        "third_party": "third_party",
+    }
+    cov_type = cov_mapping.get(norm_policy_type, "full")
+    if norm_policy_type == "third_party":
+        coverage_details = {
+            "type": "third_party",
+            "deductible": 0,
+            "own_damage": False,
+            "third_party_liability": True,
+            "theft": False,
+            "fire": False,
+            "flood": False,
+            "windscreen": False,
+            "coverage_limit": 5000000,
         }
-        try:
-            response = self._client.table("policies").insert(policy).execute()
-            return dict(response.data[0]) if response.data else policy
-        except Exception as error:
-            raise ClaimPersistenceError("Failed to create default policy") from error
+        exclusions = [
+            "damage to the insured vehicle",
+            "theft of own vehicle",
+            "fire damage to own vehicle",
+            "flood damage to own vehicle",
+            "windscreen damage to own vehicle",
+        ]
+    elif norm_policy_type == "partial_comprehensive":
+        coverage_details = {
+            "type": "partial_comprehensive",
+            "deductible": 200,
+            "own_damage": False,
+            "third_party_liability": True,
+            "theft": True,
+            "fire": True,
+            "flood": True,
+            "windscreen": True,
+            "coverage_limit": 300000,
+        }
+        exclusions = [
+            "accidental own-vehicle collision damage",
+            "racing",
+            "intentional damage",
+        ]
+    else:
+        norm_policy_type = "full_comprehensive"
+        cov_type = "full"
+        coverage_details = {
+            "type": "full_comprehensive",
+            "deductible": 250,
+            "own_damage": True,
+            "third_party_liability": True,
+            "theft": True,
+            "fire": True,
+            "flood": True,
+            "windscreen": True,
+            "coverage_limit": 500000,
+        }
+        exclusions = [
+            "racing",
+            "intentional damage",
+            "driving without a valid licence",
+        ]
+
+    p_id = policy_id or f"POL-{uuid5(NAMESPACE_URL, f'{customer_id}:{datetime.now(timezone.utc).isoformat()}:id').hex[:10].upper()}"
+    p_num = policy_number or f"POL-{uuid5(NAMESPACE_URL, f'{customer_id}:{datetime.now(timezone.utc).isoformat()}:num').hex[:8].upper()}"
+
+    return {
+        "policy_id": p_id,
+        "policy_number": p_num,
+        "customer_id": customer_id,
+        "insurance_type": "motor",
+        "coverage_type": cov_type,
+        "policy_type": norm_policy_type,
+        "status": status,
+        "start_date": start_date,
+        "end_date": end_date,
+        "coverage_details": coverage_details,
+        "exclusions": exclusions,
+        "metadata": {"policy_type": norm_policy_type},
+    }
 
 
 def _select_owned_policy(

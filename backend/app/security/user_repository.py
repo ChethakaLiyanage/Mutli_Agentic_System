@@ -45,6 +45,9 @@ class UserRepository(Protocol):
     async def get_by_id(self, user_id: str) -> UserRecord | None:
         ...
 
+    async def list_users(self, role: UserRole | None = None) -> list[UserRecord]:
+        ...
+
 
 class InMemoryUserRepository:
     """Prototype user storage that disappears when the process restarts."""
@@ -87,6 +90,14 @@ class InMemoryUserRepository:
         async with self._lock:
             serialized = self._users_by_id.get(user_id)
         return self._restore(serialized)
+
+    async def list_users(self, role: UserRole | None = None) -> list[UserRecord]:
+        async with self._lock:
+            users = [self._restore(s) for s in self._users_by_id.values()]
+        valid_users = [u for u in users if u is not None]
+        if role is not None:
+            return [u for u in valid_users if u.role == role]
+        return valid_users
 
     @staticmethod
     def _restore(serialized: str | None) -> UserRecord | None:

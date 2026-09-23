@@ -6,6 +6,12 @@ import {
   fetchReviewQueue,
   submitHumanDecision,
 } from "../api/review";
+import {
+  createCustomerAccount,
+  fetchCustomersList,
+  type AdminCustomer,
+  type PolicyCategory,
+} from "../api/admin";
 import type {
   HumanDecisionRequest,
   ReviewDetailResponse,
@@ -161,7 +167,8 @@ export const AdminDashboard = () => {
           {section === "claims" && (
             <Claims items={items} loading={loading} onRefresh={loadQueue} />
           )}
-          {!(["overview", "analytics", "claims"] as Section[]).includes(
+          {section === "users" && <CustomerManagement />}
+          {!(["overview", "analytics", "claims", "users"] as Section[]).includes(
             section,
           ) && (
             <Card>
@@ -984,3 +991,332 @@ function Metric({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+const POLICY_LABELS: Record<PolicyCategory, { label: string; desc: string; badge: string }> = {
+  full_comprehensive: {
+    label: "Full Comprehensive",
+    desc: "All Perils: Collision, fire, theft, flood, windscreen, vandalism & third-party liability.",
+    badge: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  },
+  partial_comprehensive: {
+    label: "Partial Comprehensive",
+    desc: "Fire, theft, flood, windscreen & third-party. Explicitly excludes ordinary own-vehicle collision.",
+    badge: "bg-blue-50 text-blue-800 border-blue-200",
+  },
+  third_party: {
+    label: "Third Party Liability",
+    desc: "Third-party bodily injury & property damage only. Explicitly excludes all own-vehicle damage.",
+    badge: "bg-amber-50 text-amber-800 border-amber-200",
+  },
+};
+
+function CustomerManagement() {
+  const [customers, setCustomers] = useState<AdminCustomer[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form state
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [policyType, setPolicyType] = useState<PolicyCategory>("full_comprehensive");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successInfo, setSuccessInfo] = useState<{
+    name: string;
+    email: string;
+    policyNumber: string;
+    policyType: PolicyCategory;
+  } | null>(null);
+
+  const loadCustomers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchCustomersList();
+      setCustomers(data.customers);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to load customer accounts."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadCustomers();
+  }, []);
+
+  const handleCreateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setSuccessInfo(null);
+
+    if (!name.trim()) {
+      setFormError("Full name is required.");
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      setFormError("A valid email address is required.");
+      return;
+    }
+    if (password.length < 8) {
+      setFormError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const created = await createCustomerAccount({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        policy_type: policyType,
+      });
+
+      setSuccessInfo({
+        name: created.name ?? name.trim(),
+        email: created.email,
+        policyNumber: created.policy_number,
+        policyType: created.policy_type,
+      });
+
+      // Clear inputs
+      setName("");
+      setEmail("");
+      setPassword("");
+      setPolicyType("full_comprehensive");
+
+      // Reload customer directory
+      await loadCustomers();
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, "Failed to create customer account."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <Header
+        title="Customer & Policy Access Management"
+        detail="Authorized internal provisioner: Create customer credentials with assigned motor-policy categories and manage customer access."
+      />
+
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Create Customer Form */}
+        <div className="lg:col-span-5">
+          <Card>
+            <div className="border-b border-[#eef2f2] pb-4">
+              <h3 className="text-base font-black text-[#142b3a]">
+                Create Customer Account
+              </h3>
+              <p className="mt-1 text-xs text-[#788990]">
+                Provision portal credentials and assign a binding motor-policy category.
+              </p>
+            </div>
+
+            {formError && (
+              <div
+                role="alert"
+                className="mt-4 rounded-lg border border-[#f1d7cd] bg-[#fffaf7] p-3 text-xs font-bold text-[#bd3e2b]"
+              >
+                {formError}
+              </div>
+            )}
+
+            {successInfo && (
+              <div
+                role="status"
+                className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"
+              >
+                <p className="font-black text-emerald-950">✓ Customer Account Created</p>
+                <p className="mt-1">
+                  <strong>{successInfo.name}</strong> ({successInfo.email}) has been provisioned with policy{" "}
+                  <strong>{successInfo.policyNumber}</strong> under{" "}
+                  <span className="font-bold underline">
+                    {POLICY_LABELS[successInfo.policyType]?.label ?? successInfo.policyType}
+                  </span>.
+                </p>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCustomer} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#142b3a]">
+                  Customer Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Johnathan Smith"
+                  required
+                  className="mt-1 w-full rounded-lg border border-[#dbe5e5] px-3 py-2 text-xs focus:border-[#123c42] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#142b3a]">
+                  Customer Email Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. jsmith@example.com"
+                  required
+                  className="mt-1 w-full rounded-lg border border-[#dbe5e5] px-3 py-2 text-xs focus:border-[#123c42] focus:outline-none"
+                />
+                <p className="mt-1 text-[11px] text-[#8b9a9f]">
+                  Must be unique across the organization.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#142b3a]">
+                  Initial Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Minimum 8 characters"
+                  minLength={8}
+                  required
+                  className="mt-1 w-full rounded-lg border border-[#dbe5e5] px-3 py-2 text-xs focus:border-[#123c42] focus:outline-none"
+                />
+                <p className="mt-1 text-[11px] text-[#8b9a9f]">
+                  Hashed securely using Argon2id before database storage.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#142b3a]">
+                  Motor-Policy Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={policyType}
+                  onChange={(e) => setPolicyType(e.target.value as PolicyCategory)}
+                  className="mt-1 w-full rounded-lg border border-[#dbe5e5] bg-white px-3 py-2 text-xs font-medium focus:border-[#123c42] focus:outline-none"
+                >
+                  <option value="full_comprehensive">Full Comprehensive</option>
+                  <option value="partial_comprehensive">Partial Comprehensive</option>
+                  <option value="third_party">Third Party Liability Only</option>
+                </select>
+
+                <div className="mt-2 rounded-lg bg-[#f8fafb] border border-[#e5ecec] p-2.5 text-[11px] text-[#4b5563]">
+                  <p className="font-semibold text-[#142b3a]">
+                    {POLICY_LABELS[policyType]?.label} Scope:
+                  </p>
+                  <p className="mt-0.5">{POLICY_LABELS[policyType]?.desc}</p>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-lg bg-[#123c42] py-2.5 text-xs font-bold text-white transition-colors hover:bg-[#1d4d52] disabled:opacity-50"
+              >
+                {submitting ? "Provisioning Customer Account…" : "Create Customer Account"}
+              </button>
+            </form>
+          </Card>
+        </div>
+
+        {/* Customer Directory Table */}
+        <div className="lg:col-span-7">
+          <Card>
+            <div className="flex items-center justify-between border-b border-[#eef2f2] pb-4">
+              <div>
+                <h3 className="text-base font-black text-[#142b3a]">
+                  Customer Directory ({customers.length})
+                </h3>
+                <p className="mt-1 text-xs text-[#788990]">
+                  Active customers and their linked motor policy categories.
+                </p>
+              </div>
+              <button
+                onClick={() => void loadCustomers()}
+                disabled={loading}
+                className="rounded-lg border border-[#dbe5e5] px-3 py-1.5 text-xs font-bold text-[#142b3a] hover:bg-slate-50 disabled:opacity-50"
+              >
+                {loading ? "Refreshing…" : "Refresh"}
+              </button>
+            </div>
+
+            {error && (
+              <div
+                role="alert"
+                className="mt-4 rounded-lg border border-[#f1d7cd] bg-[#fffaf7] p-3 text-xs font-bold text-[#bd3e2b]"
+              >
+                {error}
+              </div>
+            )}
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[#eef2f2] text-[11px] font-bold text-[#788990]">
+                    <th className="pb-2.5">Customer</th>
+                    <th className="pb-2.5">Policy Number</th>
+                    <th className="pb-2.5">Policy Category</th>
+                    <th className="pb-2.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f2f6f6]">
+                  {loading && customers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-[#8b9a9f]">
+                        Loading customer records…
+                      </td>
+                    </tr>
+                  ) : customers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-[#8b9a9f]">
+                        No customer accounts found. Use the form to create the first customer.
+                      </td>
+                    </tr>
+                  ) : (
+                    customers.map((c) => {
+                      const categoryInfo = c.policy_type ? POLICY_LABELS[c.policy_type] : null;
+                      return (
+                        <tr key={c.user_id} className="hover:bg-[#fbfcfc]">
+                          <td className="py-3">
+                            <p className="font-bold text-[#142b3a]">{c.name || "Customer"}</p>
+                            <p className="text-[11px] text-[#788990]">{c.email}</p>
+                          </td>
+                          <td className="py-3 font-mono text-[11px] text-[#4b5563]">
+                            {c.policy_number ?? "—"}
+                          </td>
+                          <td className="py-3">
+                            {categoryInfo ? (
+                              <span
+                                className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${categoryInfo.badge}`}
+                              >
+                                {categoryInfo.label}
+                              </span>
+                            ) : (
+                              <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500">
+                                None assigned
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3">
+                            <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                              Active
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </>
+  );
+}
+

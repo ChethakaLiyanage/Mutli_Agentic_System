@@ -23,7 +23,7 @@ from backend.app.security.jwt import (
     create_access_token,
     decode_access_token,
 )
-from backend.app.security.password import verify_password
+from backend.app.security.password import hash_password, verify_password
 from backend.app.security.roles import UserRole, role_is_allowed
 from backend.app.security.user_repository import InMemoryUserRepository
 
@@ -44,10 +44,18 @@ def auth_client() -> Iterator[tuple[TestClient, InMemoryUserRepository]]:
     app.dependency_overrides.clear()
 
 
-def register(client: TestClient, email: str = "customer@example.com"):
-    return client.post(
-        "/auth/register",
-        json={"email": email, "password": "securepass123"},
+def seed_user(
+    repository: InMemoryUserRepository,
+    email: str = "customer@example.com",
+    password: str = "securepass123",
+    role: UserRole = UserRole.CUSTOMER,
+):
+    return asyncio.run(
+        repository.create_user(
+            email=email,
+            password_hash=hash_password(password),
+            role=role,
+        )
     )
 
 
@@ -58,65 +66,25 @@ def login(client: TestClient, email: str = "customer@example.com"):
     )
 
 
-def test_registration_normalizes_email_and_stores_only_password_hash(
+def test_public_registration_is_strictly_disabled_and_returns_403(
     auth_client: tuple[TestClient, InMemoryUserRepository],
 ) -> None:
     client, repository = auth_client
 
-    response = register(client, "Customer@Example.COM")
+    response = client.post(
+        "/auth/register",
+        json={"email": "customer@example.com", "password": "securepass123"},
+    )
 
-    assert response.status_code == 201
-    body = response.json()
-    assert body["user_id"].startswith("USR-")
-    assert body["email"] == "customer@example.com"
-    assert body["role"] == "customer"
-    assert "password" not in body
-    assert "password_hash" not in body
-
-    stored = asyncio.run(repository.get_by_email("customer@example.com"))
-    assert stored is not None
-    assert stored.password_hash != "securepass123"
-    assert stored.password_hash.startswith("$argon2")
-    assert verify_password("securepass123", stored.password_hash)
-
-
-def test_duplicate_registration_returns_409(
-    auth_client: tuple[TestClient, InMemoryUserRepository],
-) -> None:
-    client, _ = auth_client
-    assert register(client).status_code == 201
-
-    response = register(client, "CUSTOMER@example.com")
-
-    assert response.status_code == 409
-    assert response.json() == {"detail": "Email is already registered"}
-
-
-@pytest.mark.parametrize(
-    "payload",
-    [
-        {"email": "not-an-email", "password": "securepass123"},
-        {"email": "customer@example.com", "password": "short"},
-        {
-            "email": "customer@example.com",
-            "password": "securepass123",
-            "role": "admin",
-        },
-    ],
-)
-def test_malformed_registration_returns_422(
-    auth_client: tuple[TestClient, InMemoryUserRepository],
-    payload: dict[str, str],
-) -> None:
-    client, _ = auth_client
-    assert client.post("/auth/register", json=payload).status_code == 422
+    assert response.status_code == 403
+    assert "Public customer registration is disabled" in response.json()["detail"]
 
 
 def test_login_uses_generic_failures_and_returns_bearer_token(
     auth_client: tuple[TestClient, InMemoryUserRepository],
 ) -> None:
-    client, _ = auth_client
-    register(client)
+    client, repository = auth_client
+    seed_user(repository, "customer@example.com", "securepass123")
 
     success = login(client)
     wrong_password = client.post(
@@ -168,7 +136,7 @@ def test_auth_me_requires_valid_token_and_uses_stored_role(
     auth_client: tuple[TestClient, InMemoryUserRepository],
 ) -> None:
     client, repository = auth_client
-    registered = register(client).json()
+    user = seed_user(repository, "customer@example.com", "securepass123")
     token = login(client).json()["access_token"]
 
     valid = client.get(
@@ -181,7 +149,7 @@ def test_auth_me_requires_valid_token_and_uses_stored_role(
         headers={"Authorization": "Bearer invalid-token"},
     )
     wrong_role_token = create_access_token(
-        registered["user_id"],
+        user.user_id,
         UserRole.ADMIN,
         TEST_SETTINGS,
     )
@@ -191,12 +159,12 @@ def test_auth_me_requires_valid_token_and_uses_stored_role(
     )
 
     assert valid.status_code == 200
-    assert valid.json()["user_id"] == registered["user_id"]
+    assert valid.json()["user_id"] == user.user_id
     assert valid.json()["role"] == "customer"
     assert missing.status_code == 401
     assert malformed.status_code == 401
     assert role_mismatch.status_code == 401
-    assert asyncio.run(repository.get_by_id(registered["user_id"])) is not None
+    assert asyncio.run(repository.get_by_id(user.user_id)) is not None
 
 
 def test_role_helpers_enforce_only_declared_roles() -> None:

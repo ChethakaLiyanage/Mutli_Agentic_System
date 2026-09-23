@@ -113,6 +113,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
             WorkflowStatus.RETRIEVAL_COMPLETE,
             WorkflowStatus.FRAUD_TRIAGE,
             WorkflowStatus.GUIDANCE_PROCESSING,
+            WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
             WorkflowStatus.COMPLETED,
             WorkflowStatus.FAILED,
         }

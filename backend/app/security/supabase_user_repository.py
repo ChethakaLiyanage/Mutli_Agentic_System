@@ -71,6 +71,26 @@ class SupabaseUserRepository:
     async def get_by_id(self, user_id: str) -> UserRecord | None:
         return await self._get_one("user_id", user_id)
 
+    async def list_users(self, role: UserRole | None = None) -> list[UserRecord]:
+        try:
+            def _query() -> Any:
+                builder = self._client.table("users").select("*")
+                if role is not None:
+                    builder = builder.eq("role", role.value)
+                return builder.order("created_at", desc=True).execute()
+
+            response = await asyncio.to_thread(_query)
+            rows = _response_data(response)
+            users: list[UserRecord] = []
+            for r in rows:
+                try:
+                    users.append(self._from_row(r))
+                except Exception:
+                    pass
+            return users
+        except Exception as error:
+            raise UserPersistenceError("Failed to list users") from error
+
     async def _get_one(self, column: str, value: str) -> UserRecord | None:
         try:
             response = await asyncio.to_thread(

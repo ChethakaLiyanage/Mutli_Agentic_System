@@ -63,18 +63,24 @@ def ownership_client() -> Iterator[
     app.dependency_overrides.clear()
 
 
-def register_and_login(client: TestClient, email: str) -> tuple[str, str]:
-    registered = client.post(
-        "/auth/register",
-        json={"email": email, "password": "securepass123"},
+def register_and_login(
+    client: TestClient, email: str, user_repository: InMemoryUserRepository | None = None
+) -> tuple[str, str]:
+    if user_repository is None:
+        user_repository = app.dependency_overrides[get_user_repository]()
+    user = asyncio.run(
+        user_repository.create_user(
+            email=email,
+            password_hash=hash_password("securepass123"),
+            role=UserRole.CUSTOMER,
+        )
     )
-    assert registered.status_code == 201
     login = client.post(
         "/auth/login",
         json={"email": email, "password": "securepass123"},
     )
     assert login.status_code == 200
-    return registered.json()["user_id"], login.json()["access_token"]
+    return user.user_id, login.json()["access_token"]
 
 
 def bearer(token: str) -> dict[str, str]:

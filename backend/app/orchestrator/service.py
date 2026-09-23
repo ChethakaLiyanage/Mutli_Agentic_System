@@ -45,10 +45,15 @@ from backend.app.orchestrator.repository import (
     WorkflowRepository,
 )
 from backend.app.schemas.intake import IntakeRequest, IntakeResponse
-from backend.app.retrieval.schemas import HistoricalClaim, RetrievalResponse
+from backend.app.retrieval.schemas import (
+    HistoricalClaim,
+    PolicyLookupContext,
+    RetrievalResponse,
+)
 from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
+    GuidanceResponseData,
     GuidanceTaskType,
 )
 from backend.app.guidance.fallbacks import build_deterministic_guidance_response
@@ -1172,12 +1177,86 @@ class OrchestratorService:
         )
         await self.workflow_repository.save(state)
 
+        intent = state.intake_result.data.intent.label if state.intake_result else None
+        raw_text_lower = (state.accumulated_text or "").lower()
+
+        personal_policy_indicators = (
+            "my policy", "my coverage", "my cover", "my insurance",
+            "am i covered", "what do i have", "what coverage do i have",
+            "what does my policy", "is collision damage covered", "is fire covered",
+            "is theft covered", "is flood covered", "under my policy",
+            "can i claim for", "do i have coverage", "covered under my",
+        )
+        is_personal = (
+            intent in {"coverage_question", "policy_question"}
+            or any(ind in raw_text_lower for ind in personal_policy_indicators)
+        )
+
+        policy_context_lookup = None
+        if is_personal and state.authenticated_user_id:
+            claim_repo = self.claim_repository
+            if claim_repo is None:
+                from backend.app.orchestrator.claim_repository import get_claim_repository
+                claim_repo = get_claim_repository()
+
+            user_policies = claim_repo.list_policies_for_customer(state.authenticated_user_id)
+            active_policies = [p for p in user_policies if p.get("status") == "active"]
+
+            if len(active_policies) == 0:
+                response = GuidanceResponse(
+                    status="success",
+                    response_type="coverage_answer",
+                    agent="guidance_agent",
+                    data=GuidanceResponseData(
+                        message="I couldn't find an active motor policy linked to your account, so I can't confirm your personal coverage.",
+                        next_steps=["contact_support"],
+                    ),
+                )
+                state.guidance_result = response.model_dump(mode="json")
+                self.update_status(
+                    state,
+                    WorkflowStatus.COMPLETED,
+                    message="No active motor policy found for customer",
+                    step="information_retrieval",
+                )
+                await self.workflow_repository.save(state)
+                return
+
+            if len(active_policies) > 1:
+                response = GuidanceResponse(
+                    status="success",
+                    response_type="manual_assistance_required",
+                    agent="guidance_agent",
+                    data=GuidanceResponseData(
+                        message="You have multiple active motor policies linked to your account. Please specify which policy you are inquiring about or contact an agent for assistance.",
+                        next_steps=["manual_assistance"],
+                    ),
+                )
+                state.guidance_result = response.model_dump(mode="json")
+                self.update_status(
+                    state,
+                    WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
+                    message="Multiple active motor policies found",
+                    step="information_retrieval",
+                )
+                await self.workflow_repository.save(state)
+                return
+
+            active_policy = active_policies[0]
+            resolved_ptype = active_policy.get("policy_type") or "full_comprehensive"
+            policy_context_lookup = PolicyLookupContext(
+                policy_id=active_policy.get("policy_id"),
+                policy_number=active_policy.get("policy_number"),
+                policy_type=resolved_ptype,
+            )
+
         try:
             retrieval_request = build_retrieval_request(
                 request_id=state.last_request_id,
                 authenticated_user_id=state.authenticated_user_id,
                 original_query=state.accumulated_text,
                 intake=state.intake_result,
+                policy_context=policy_context_lookup,
             )
             retrieval_response = await self.retrieval_client.retrieve(
                 retrieval_request

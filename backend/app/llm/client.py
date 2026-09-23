@@ -490,6 +490,32 @@ class MockLLMClient(BaseLLMClient):
                 "coverage details, and required documents. I don't have information on that topic, "
                 "but please let me know if you have any questions related to motor insurance!"
             )
+        elif "third_party" in evidence_text or "third party motor insurance" in evidence_text:
+            message = (
+                "Under your Third Party Motor Insurance Policy, statutory liability for bodily injury "
+                "and property damage caused to third parties is covered. However, any and all damage "
+                "to your own vehicle—including accidental collision damage, fire, theft, flood, and windscreen—"
+                "is strictly excluded from coverage."
+            )
+        elif "partial_comprehensive" in evidence_text or "partial comprehensive motor insurance" in evidence_text:
+            if "collision" in user_prompt.lower():
+                message = (
+                    "Under your Partial Comprehensive Motor Insurance Policy, accidental own-vehicle collision "
+                    "damage is strictly excluded from coverage. Your policy covers fire, theft, flood, and windscreen damage, "
+                    "but collision repairs for your vehicle are not covered."
+                )
+            else:
+                message = (
+                    "Under your Partial Comprehensive Motor Insurance Policy, coverage is provided for fire, theft, "
+                    "flood, windscreen damage, and third-party liabilities. Please note that ordinary accidental collision "
+                    "damage to your own vehicle is an explicit exclusion."
+                )
+        elif "full_comprehensive" in evidence_text or "full comprehensive motor insurance" in evidence_text:
+            message = (
+                "Under your Full Comprehensive Motor Insurance Policy, you have all-perils coverage including "
+                "accidental vehicle collision, fire, theft, flood and storm water-ingress, windscreen repair, "
+                "vandalism, and third-party legal liability, subject to your policy deductible and standard terms."
+            )
         elif "flood" in evidence_text or "water" in evidence_text or "water ingress" in evidence_text:
             message = (
                 "Some comprehensive motor policies may cover accidental flood or water-ingress "

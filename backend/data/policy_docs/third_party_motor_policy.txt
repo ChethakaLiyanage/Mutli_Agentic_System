@@ -1,0 +1,32 @@
+# THIRD PARTY MOTOR INSURANCE POLICY
+Document Type: Policy Manual
+Policy Category: Third Party (third_party)
+Scope: Synthetic university demonstration policy terms and coverage guidelines.
+
+SECTION 1: OVERVIEW AND STATUTORY LIABILITY COVERAGE
+This Third Party Motor Insurance Policy satisfies the minimum statutory legal insurance requirements for motor vehicles. It protects the policyholder against legal claims made by other people (third parties) when an accident involving the insured vehicle causes injury, death, or property damage.
+
+SECTION 2: THIRD-PARTY BODILY INJURY AND LIABILITY
+The policy provides unlimited indemnity for legal liability incurred by the policyholder for death or bodily injury caused to third parties, including passengers, pedestrians, and other road users.
+
+SECTION 3: THIRD-PARTY PROPERTY DAMAGE LIABILITY
+Provides legal liability protection for damage caused to third-party vehicles, street furniture, buildings, or other private property up to a maximum limit of £5,000,000 per incident.
+
+SECTION 4: OWN-VEHICLE DAMAGE STRICT EXCLUSION
+CRITICAL POLICY RESTRICTION: No coverage whatsoever is provided for damage to the insured vehicle itself.
+- Own-vehicle accidental collision damage is completely EXCLUDED.
+- Own-vehicle fire, lightning, and explosion damage is completely EXCLUDED.
+- Own-vehicle theft, break-in, and stolen vehicle loss is completely EXCLUDED.
+- Own-vehicle flood, water damage, and storm inundation is completely EXCLUDED.
+- Own-vehicle windscreen, side window, and glass breakage is completely EXCLUDED.
+- Vandalism, scratches, and tyre damage are completely EXCLUDED.
+The policyholder must pay 100% of all repair or replacement costs for their own vehicle in any and all circumstances.
+
+SECTION 5: LEGAL DEFENCE AND ACCIDENT ASSISTANCE
+The insurer will provide legal representation and cover approved defence costs in connection with any third-party claims or civil legal proceedings arising from an insured road traffic accident.
+
+SECTION 6: GENERAL EXCLUSIONS
+No liability cover is provided if:
+- The driver was not authorized under the policy or lacked a valid driving licence.
+- The vehicle was being used for unlawful purposes, unapproved commercial hire, or racing.
+- The accident occurred outside the designated territorial limits.

@@ -83,6 +83,7 @@ class KnowledgeRetriever:
         *,
         intent: str | None = None,
         document_type: KnowledgeDocumentType | None = None,
+        policy_type: str | None = None,
     ) -> list[EvidenceItem]:
         if top_k <= 0:
             raise ValueError("top_k must be positive")
@@ -99,14 +100,30 @@ class KnowledgeRetriever:
             matrix = self._matrix
         if not chunks or vectorizer is None or matrix is None:
             return []
-        query_vector = vectorizer.transform([normalized_query])
-        scores = cosine_similarity(query_vector, matrix).ravel()
-        ranked: list[tuple[float, KnowledgeChunk]] = []
-        for score, chunk in zip(scores, chunks):
+
+        # Policy metadata filter -> eligible chunks before TF-IDF ranking
+        eligible_indices: list[int] = []
+        eligible_chunks: list[KnowledgeChunk] = []
+        for idx, chunk in enumerate(chunks):
             if chunk.insurance_type != insurance_type:
                 continue
             if document_type is not None and chunk.document_type != document_type:
                 continue
+            chunk_policy_type = chunk.metadata.get("policy_type")
+            if policy_type is not None:
+                if chunk_policy_type is not None and chunk_policy_type != policy_type:
+                    continue
+            eligible_indices.append(idx)
+            eligible_chunks.append(chunk)
+
+        if not eligible_chunks:
+            return []
+
+        query_vector = vectorizer.transform([normalized_query])
+        eligible_matrix = matrix[eligible_indices]
+        scores = cosine_similarity(query_vector, eligible_matrix).ravel()
+        ranked: list[tuple[float, KnowledgeChunk]] = []
+        for score, chunk in zip(scores, eligible_chunks):
             if float(score) >= min_relevance_score:
                 ranked.append((float(score), chunk))
         ranked.sort(key=lambda item: (-item[0], item[1].chunk_id))

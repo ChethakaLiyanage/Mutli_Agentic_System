@@ -1,7 +1,7 @@
 """Intentionally ingest controlled insurance documents into Supabase.
 
 Run from the repository root, for example:
-python -m backend.scripts.upload_policy_docs path/to/docs --document-type policy_manual
+python -m backend.scripts.upload_policy_docs path/to/docs --document-type policy_manual --policy-type full_comprehensive
 """
 
 from __future__ import annotations
@@ -36,6 +36,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Ingest controlled policy documents")
     parser.add_argument("path", type=Path)
     parser.add_argument("--document-type", choices=DOCUMENT_TYPES, required=True)
+    parser.add_argument(
+        "--policy-type",
+        choices=["full_comprehensive", "partial_comprehensive", "third_party"],
+        default=None,
+        help="Optional policy category for filtering (e.g. full_comprehensive, partial_comprehensive, third_party)",
+    )
     args = parser.parse_args()
     if not args.path.exists():
         parser.error("path does not exist")
@@ -50,7 +56,9 @@ def main() -> int:
     for file_path in supported:
         try:
             result = ingestor.ingest_file(
-                file_path, document_type=args.document_type
+                file_path,
+                document_type=args.document_type,
+                policy_type=args.policy_type,
             )
             documents_processed += 1
             chunks_written += result.chunks_created_or_updated
