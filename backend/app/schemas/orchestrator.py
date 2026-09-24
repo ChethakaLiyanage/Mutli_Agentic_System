@@ -80,6 +80,8 @@ class ClarificationResponse(_OrchestratorContract):
     workflow_type: WorkflowType = WorkflowType.CLARIFICATION
     intake_result: IntakeResponse | None = None
     missing_fields: list[str] = Field(default_factory=list)
+    pending_field: str | None = None
+    pending_question: str | None = None
     questions: list[str] = Field(default_factory=list)
     reason: str | None = None
     message: str | None = None
@@ -110,6 +112,8 @@ class OrchestratorResponse(_OrchestratorContract):
     human_review_result: dict[str, Any] | None = None
     guidance_result: dict[str, Any] | None = None
     missing_fields: list[str] = Field(default_factory=list)
+    pending_field: str | None = None
+    pending_question: str | None = None
     missing_required_documents: list[str] = Field(default_factory=list)
     requires_clarification: bool = False
     errors: list[OrchestratorError] = Field(default_factory=list)

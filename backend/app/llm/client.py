@@ -635,6 +635,16 @@ class OpenAILLMClient(BaseLLMClient):
         super().__init__(settings)
         self.api_key = os.getenv("OPENAI_API_KEY", "")
         self.base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        if "groq.com" in self.base_url.lower() and self.settings.model_name in {
+            "llama3-70b-8192",
+            "llama3-8b-8192",
+            "llama-3.1-8b-instant",
+            "llama-3.1-70b-versatile",
+            "llama-3.3-70b-versatile",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "deepseek-r1-distill-llama-70b",
+        }:
+            self.settings.model_name = "openai/gpt-oss-20b"
 
     def generate_json(self, system_instruction: str, user_prompt: str) -> dict[str, Any]:
         if not self.api_key:
@@ -653,8 +663,9 @@ class OpenAILLMClient(BaseLLMClient):
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": self.settings.temperature,
-            "response_format": {"type": "json_object"},
         }
+        if "groq.com" not in self.base_url.lower():
+            payload["response_format"] = {"type": "json_object"}
 
         try:
             with httpx.Client(timeout=self.settings.timeout_seconds) as client:
@@ -662,7 +673,22 @@ class OpenAILLMClient(BaseLLMClient):
                 response.raise_for_status()
                 data = response.json()
                 raw_text = data["choices"][0]["message"]["content"]
-                return json.loads(raw_text)
+                if not isinstance(raw_text, str):
+                    raise ValueError("Model response was not a string")
+
+                try:
+                    parsed = json.loads(raw_text)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Groq/OpenAI returned non-JSON content; wrapping plain text as message payload. "
+                        "Raw response: %s",
+                        raw_text[:300],
+                    )
+                    parsed = {"message": raw_text.strip()}
+
+                if isinstance(parsed, dict):
+                    return parsed
+                raise TypeError("Model response was not a JSON object")
         except Exception as err:
             logger.error("OpenAI API call failed: %s", err)
             raise LLMClientError(f"OpenAI API generation error: {err}") from err

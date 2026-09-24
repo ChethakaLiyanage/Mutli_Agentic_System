@@ -41,6 +41,7 @@ class Settings:
     persistence_backend: str = "memory"
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
+    app_timezone: str = "Asia/Colombo"
 
     def __post_init__(self) -> None:
         if not self.jwt_secret:
@@ -78,4 +79,5 @@ def get_settings() -> Settings:
         persistence_backend=os.getenv("PERSISTENCE_BACKEND", "memory").lower(),
         supabase_url=os.getenv("SUPABASE_URL"),
         supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
+        app_timezone=os.getenv("APP_TIMEZONE", "Asia/Colombo"),
     )

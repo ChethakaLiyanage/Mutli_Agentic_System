@@ -36,9 +36,13 @@ class LLMSettings(BaseModel):
         else:
             provider = "mock"
 
-        default_model = (
-            "gemini-3.6-flash" if provider == "gemini" else "gpt-4o-mini"
-        )
+        base_url = os.getenv("OPENAI_BASE_URL", "")
+        if provider == "gemini":
+            default_model = "gemini-3.6-flash"
+        elif "groq.com" in base_url.lower():
+            default_model = "openai/gpt-oss-20b"
+        else:
+            default_model = "gpt-4o-mini"
         model_name = os.getenv("LLM_MODEL_NAME", default_model)
         temperature = float(os.getenv("LLM_TEMPERATURE", "0.0"))
 

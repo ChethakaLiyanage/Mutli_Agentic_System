@@ -87,6 +87,24 @@ _POLICY_LINK_REQUIRED_MESSAGE = (
     "before processing can continue."
 )
 _SOCIAL_INTENTS = frozenset({"greeting", "thanks", "goodbye", "acknowledgement"})
+_PURE_SOCIAL_INTENTS = {
+    "greeting": {
+        "hi", "hello", "hey", "greetings", "hello there", "hi there",
+        "good morning", "good afternoon", "good evening", "gud day",
+    },
+    "thanks": {
+        "thanks", "thank you", "thank u", "thx", "cheers", "many thanks",
+        "thanks a lot", "appreciate it", "appreciate your help",
+    },
+    "goodbye": {
+        "bye", "goodbye", "good bye", "see you", "see ya", "take care",
+        "talk later",
+    },
+    "acknowledgement": {
+        "ok", "okay", "alright", "all right", "got it", "understood",
+        "noted", "sure", "sounds good", "i understand",
+    },
+}
 
 
 class InvalidWorkflowTransition(ValueError):
@@ -203,6 +221,15 @@ class OrchestratorService:
         )
         return state
 
+    def _refresh_pending_field(self, state: WorkflowState) -> None:
+        """Keep the active clarification target aligned with the remaining claim fields."""
+        state.pending_field = state.missing_fields[0] if state.missing_fields else None
+        state.pending_question = (
+            CLARIFICATION_QUESTIONS.get(state.pending_field)
+            if state.pending_field
+            else None
+        )
+
     def mark_clarification_required(
         self,
         state: WorkflowState,
@@ -213,8 +240,10 @@ class OrchestratorService:
         """Represent a workflow pause without generating clarification text."""
 
         state.missing_fields = list(dict.fromkeys(missing_fields))
+        self._refresh_pending_field(state)
         state.requires_clarification = True
-        state.workflow_type = WorkflowType.CLARIFICATION
+        if state.workflow_type is WorkflowType.UNKNOWN:
+            state.workflow_type = WorkflowType.CLARIFICATION
         self.update_status(
             state,
             WorkflowStatus.AWAITING_CLARIFICATION,
@@ -243,8 +272,46 @@ class OrchestratorService:
         state.audit_trail[-1].status = AuditEventStatus.FAILED
         return state
 
+    @staticmethod
+    def _pending_field_answer_text(state: WorkflowState, text: str) -> bool:
+        if not state.pending_field or not text:
+            return False
+        candidate = text.strip()
+        if not candidate:
+            return False
+
+        if state.pending_field == "incident_date":
+            from backend.app.nlp.date_extraction import extract_date
+            _, normalized = extract_date(candidate)
+            return bool(normalized)
+        if state.pending_field == "location":
+            from backend.app.nlp.entity_extraction import extract_entities, normalize_location
+            for entity in extract_entities(candidate):
+                normalized = normalize_location(entity.value)
+                if normalized:
+                    return True
+            return bool(candidate) and not candidate.lower().startswith(("what ", "where ", "when ", "who ", "how "))
+        if state.pending_field == "incident_type":
+            from backend.app.nlp.incident_extraction import extract_incident_type
+            return bool(extract_incident_type(candidate))
+        return False
+
+    @staticmethod
+    def _looks_like_independent_question(text: str) -> bool:
+        candidate = text.strip()
+        if not candidate:
+            return False
+        lowered = candidate.casefold()
+        if lowered.startswith(("hi ", "hello ", "hey ", "thanks", "thank you", "goodbye", "bye ", "ok ", "okay ")):
+            return False
+        if lowered.startswith(("what ", "where ", "when ", "why ", "how ", "who ", "is ", "are ", "can ", "could ", "do ", "does ", "tell me ", "please tell me ", "i need to know ")):
+            return True
+        return any(term in lowered for term in ("insurance", "policy", "coverage", "claim status", "required documents"))
+
     def to_response(self, state: WorkflowState) -> OrchestratorResponse:
         """Create a public response snapshot from current workflow state."""
+
+        self._refresh_pending_field(state)
 
         retrieval_result = self._public_retrieval_result(
             state.retrieval_result,
@@ -302,6 +369,8 @@ class OrchestratorService:
             ),
             guidance_result=public_guidance,
             missing_fields=list(state.missing_fields),
+            pending_field=state.pending_field,
+            pending_question=state.pending_question,
             missing_required_documents=[],
             requires_clarification=state.requires_clarification,
             errors=list(state.errors),
@@ -682,6 +751,8 @@ class OrchestratorService:
             workflow_id=state.workflow_id,
             intake_result=state.intake_result,
             missing_fields=list(state.missing_fields),
+            pending_field=state.pending_field,
+            pending_question=state.pending_question,
             questions=[message] if message else [],
             reason=message,
             message=message,
@@ -773,6 +844,7 @@ class OrchestratorService:
         mapped_workflow = self.determine_workflow_type(state)
         state.workflow_type = mapped_workflow
         state.missing_fields = list(dict.fromkeys(intake_response.data.missing_fields))
+        self._refresh_pending_field(state)
 
         if (
             intake_response.data.intent.label in _SOCIAL_INTENTS
@@ -882,8 +954,8 @@ class OrchestratorService:
                 "Workflow is not awaiting clarification"
             )
 
-        # Treat an explicit cross-customer data request as an independent
-        # denied inquiry so the customer's pending claim remains resumable.
+        # Treat an explicit cross-customer data request as an independent denied
+        # inquiry so the customer's pending claim remains resumable.
         authorization_denial = deny_cross_customer_resource_request(
             request.text,
             authenticated_user_id=state.authenticated_user_id or "",
@@ -902,91 +974,97 @@ class OrchestratorService:
                 denied_response.pending_claim_workflow_id = state.workflow_id
             return denied_response
 
-        # Pre-screen the incoming message before assuming it is a continuation of the awaiting claim.
-        # If the user sent an independent information inquiry (e.g. policy question, coverage, documents,
-        # special reference code) or a pure social turn while clarifying an active claim,
-        # preserve the pending claim and handle the inquiry independently.
-        is_pending_claim = bool(
-            state.workflow_type == WorkflowType.CLAIM_SUBMISSION
-            or (state.intake_result and state.intake_result.data.intent.label == "claim_submission")
-        )
-        if is_pending_claim:
-            try:
-                from backend.app.nlp.intent_classifier import predict_intent, _PURE_SOCIAL_INTENTS
-                clean_text = request.text.strip().casefold()
+        # Respect the active claim workflow before any standalone classification.
+        # If the user is answering the pending field, keep the original workflow
+        # live even if the isolated text would otherwise look like a clean
+        # non-claim inquiry. If the message is a genuine independent insurance
+        # question, preserve the pending claim and route the new inquiry as a
+        # separate workflow while keeping the original claim in context.
+        try:
+            pending_field_answer = (
+                self._pending_field_answer_text(state, request.text)
+                if state.pending_field
+                else False
+            )
+            standalone_intake = None
+            standalone_intent = None
+            is_independent_intent = False
+            provides_missing_info = pending_field_answer
 
-                # 1. Pure social turn
-                is_pure_social = False
-                detected_social_intent = None
-                for s_intent, s_phrases in _PURE_SOCIAL_INTENTS.items():
-                    if clean_text in s_phrases:
-                        is_pure_social = True
-                        detected_social_intent = s_intent
-                        break
-
-                if is_pure_social and detected_social_intent:
-                    state.last_request_id = request.request_id
-                    state.guidance_result = None
-                    await self._run_customer_guidance(
-                        state,
-                        task_type=detected_social_intent,
-                        safe_customer_context={"customer_message": request.text},
-                    )
-                    await self.workflow_repository.save(state)
-                    return self._clarification_response(state)
-
-                # 2. Informational question / inquiry
-                inquiry_starters = (
-                    "what", "how", "when", "where", "why", "which", "who",
-                    "can", "could", "should", "does", "do", "is", "are", "tell me",
+            if not provides_missing_info and self._looks_like_independent_question(request.text):
+                standalone_intake = await self.claim_intake_client.analyze(
+                    IntakeRequest(request_id=request.request_id, text=request.text)
                 )
-                has_question_form = (
-                    clean_text.endswith("?")
-                    or any(clean_text.startswith(starter + " ") for starter in inquiry_starters)
-                    or clean_text in inquiry_starters
-                )
-                has_inquiry_topic = any(
-                    term in clean_text
-                    for term in (
-                        "reference", "code", "period", "deadline", "timeline", "timeframe",
-                        "days", "documents", "required", "papers", "procedure", "process",
-                        "cover", "coverage", "policy", "rules", "guidelines",
-                    )
-                )
-
-                intent_label, intent_conf = predict_intent(request.text)
-                is_independent_intent = (
-                    intent_label in {
+                if standalone_intake.status == "success":
+                    standalone_intent = standalone_intake.data.intent.label
+                    is_independent_intent = standalone_intent in {
                         "policy_question",
                         "coverage_question",
                         "required_documents_question",
                         "general_information",
                         "claim_status",
                     }
-                    and (has_question_form or has_inquiry_topic)
-                    and intent_conf >= 0.50
-                )
 
-                if is_independent_intent:
-                    logger.info(
-                        "Clarification input identified as independent intent %s (conf=%.2f); preserving pending claim %s and routing as new request",
-                        intent_label,
-                        intent_conf,
-                        state.workflow_id,
+                    if state.missing_fields:
+                        new_incident = standalone_intake.data.incident
+                        if new_incident is not None:
+                            if "incident_type" in state.missing_fields and new_incident.type:
+                                provides_missing_info = True
+                            if "incident_date" in state.missing_fields and (
+                                new_incident.date_text or new_incident.normalized_date
+                            ):
+                                provides_missing_info = True
+                            if "location" in state.missing_fields and new_incident.location:
+                                provides_missing_info = True
+                else:
+                    is_independent_intent = False
+
+            is_valid_social = (
+                standalone_intent in _SOCIAL_INTENTS
+                and not provides_missing_info
+                and (
+                    (
+                        standalone_intake is not None
+                        and standalone_intake.status == "success"
+                        and standalone_intake.data.intent.confidence >= 0.40
                     )
-                    await self.workflow_repository.save(state)
-                    info_response = await self.process_request(
-                        OrchestratorRequest(request_id=request.request_id, text=request.text),
-                        authenticated_user_id=state.authenticated_user_id,
-                        authenticated_user_role=state.authenticated_user_role,
-                    )
-                    if isinstance(info_response, OrchestratorResponse):
-                        info_response.pending_claim_workflow_id = state.workflow_id
-                    return info_response
-            except Exception:
-                logger.warning(
-                    "Clarification pre-screening failed; proceeding with normal clarification flow"
+                    or request.text.strip().casefold()
+                    in _PURE_SOCIAL_INTENTS.get(standalone_intent, set())
                 )
+            )
+
+            if is_valid_social:
+                state.last_request_id = request.request_id
+                state.guidance_result = None
+                await self._run_customer_guidance(
+                    state,
+                    task_type=standalone_intent,
+                    safe_customer_context={"customer_message": request.text},
+                )
+                await self.workflow_repository.save(state)
+                return self._clarification_response(state)
+
+            if is_independent_intent and not provides_missing_info:
+                logger.info(
+                    "Clarification input '%s' identified as independent intent %s (provides_missing=%s); routing as new request",
+                    request.text,
+                    standalone_intent,
+                    provides_missing_info,
+                )
+                await self.workflow_repository.save(state)
+                info_response = await self.process_request(
+                    OrchestratorRequest(request_id=request.request_id, text=request.text),
+                    authenticated_user_id=state.authenticated_user_id,
+                    authenticated_user_role=state.authenticated_user_role,
+                )
+                if isinstance(info_response, OrchestratorResponse):
+                    info_response.pending_claim_workflow_id = state.workflow_id
+                return info_response
+        except Exception:
+            logger.warning(
+                "Clarification pre-screening failed; proceeding with normal clarification flow",
+                exc_info=True,
+            )
 
         # The stored role remains authoritative for this workflow. Role-specific
         # reviewer behavior is intentionally outside this step.
@@ -1061,6 +1139,7 @@ class OrchestratorService:
         mapped_workflow = self.determine_workflow_type(state)
         state.workflow_type = mapped_workflow
         state.missing_fields = list(dict.fromkeys(intake_response.data.missing_fields))
+        self._refresh_pending_field(state)
         claim_fields_missing = (
             mapped_workflow is WorkflowType.CLAIM_SUBMISSION
             and bool(state.missing_fields)
