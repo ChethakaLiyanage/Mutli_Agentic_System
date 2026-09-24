@@ -419,6 +419,11 @@ class HumanReviewService:
             status=state.current_status.value,
             assigned_to=assignment.get("assigned_to") if assignment else None,
             assigned_at=assignment.get("assigned_at") if assignment else None,
+            missing_documents=(
+                [item.value for item in fraud.missing_documents]
+                if fraud
+                else []
+            ),
             reviewer_summary=(
                 (state.reviewer_guidance_result or {}).get("data", {}).get(
                     "reviewer_summary"

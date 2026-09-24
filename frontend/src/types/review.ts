@@ -119,6 +119,7 @@ export interface FraudAssessmentDetails {
   risk_level?: string;
   risk_score?: number | null;
   recommended_action?: string;
+  missing_documents?: string[];
   indicators?: FraudIndicatorDetails[];
 }
 
