@@ -200,6 +200,20 @@ def build_deterministic_guidance_response(
         message = _claim_progress_message(request)
     elif request.task_type == "manual_assistance_required":
         message = _claim_progress_message(request)
+    elif request.task_type == "authorization_denied":
+        resource_type = request.safe_customer_context.get(
+            "requested_resource_type", "information"
+        )
+        own_resource = {
+            "policy": "your own policy and coverage",
+            "claim": "your own claim and its status",
+            "claim_documents": "your own claim and submitted documents",
+            "personal_information": "information linked to your own account",
+        }.get(str(resource_type), "information linked to your own account")
+        message = (
+            "I can't provide protected information belonging to another customer. "
+            f"I can help you with {own_resource} instead."
+        )
     elif request.task_type in {
         "final_decision_explanation",
         "final_claim_decision",
