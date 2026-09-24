@@ -45,6 +45,8 @@ class WorkflowState(BaseModel):
     current_status: WorkflowStatus = WorkflowStatus.RECEIVED
 
     missing_fields: list[str] = Field(default_factory=list)
+    pending_field: str | None = None
+    pending_question: str | None = None
     requires_clarification: bool = False
 
     errors: list[OrchestratorError] = Field(default_factory=list)

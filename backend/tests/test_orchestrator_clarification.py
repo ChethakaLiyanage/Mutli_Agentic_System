@@ -489,3 +489,100 @@ def test_location_only_reply_leaves_only_the_still_missing_date() -> None:
         assert resumed.intake_result.data.incident.location == "Kandy"
 
     asyncio.run(scenario())
+
+
+def test_pending_field_is_exposed_and_maintained_across_claim_followups() -> None:
+    async def scenario() -> None:
+        repository = InMemoryWorkflowRepository()
+        service = OrchestratorService(LocalClaimIntakeClient(), repository)
+
+        first = await service.process_request(
+            OrchestratorRequest(
+                request_id="PEND-001",
+                text="I want to make a claim. A lorry hit my car and broke my windscreen.",
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+        assert isinstance(first, ClarificationResponse)
+        assert first.pending_field == "incident_date"
+        assert first.workflow_id
+        assert first.status is WorkflowStatus.AWAITING_CLARIFICATION
+
+        resumed = await service.resume_clarification(
+            first.workflow_id,
+            ClarificationRequest(
+                request_id="PEND-002",
+                text="23rd of septe,ber 2026",
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+
+        assert isinstance(resumed, ClarificationResponse)
+        assert resumed.pending_field == "location"
+        assert resumed.intake_result is not None
+        assert resumed.intake_result.data.incident.normalized_date == "2026-09-23"
+        assert resumed.missing_fields == ["location"]
+        saved = await repository.get(first.workflow_id)
+        assert saved is not None
+        assert saved.pending_field == "location"
+        assert saved.intake_result is not None
+        assert saved.intake_result.data.incident.normalized_date == "2026-09-23"
+
+    asyncio.run(scenario())
+
+
+def test_pending_field_date_variants_normalize_for_claim_followups() -> None:
+    agent = ClaimIntakeAgent(reference_date_provider=lambda: date(2026, 9, 18))
+    for raw_text in [
+        "2026.09.23",
+        "23.09.2026",
+        "23/09/2026",
+        "23-09-2026",
+        "2026-09-23",
+        "23 September 2026",
+        "23rd September 2026",
+        "23rd of September 2026",
+        "23rd of septe,ber 2026",
+        "september 23 2026",
+        "Sep 23 2026",
+    ]:
+        result = agent.analyze(IntakeRequest(request_id=f"DATE-{raw_text}", text=raw_text))
+        assert result.status == "success", raw_text
+        assert result.data.incident.normalized_date == "2026-09-23", (raw_text, result.data.incident.normalized_date)
+
+
+def test_side_intent_does_not_clear_pending_claim_context() -> None:
+    async def scenario() -> None:
+        repository = InMemoryWorkflowRepository()
+        service = OrchestratorService(LocalClaimIntakeClient(), repository)
+
+        first = await service.process_request(
+            OrchestratorRequest(
+                request_id="SIDE-001",
+                text="I want to make a claim. A lorry hit my car and broke my windscreen.",
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+        assert isinstance(first, ClarificationResponse)
+        assert first.pending_field == "incident_date"
+
+        resumed = await service.resume_clarification(
+            first.workflow_id,
+            ClarificationRequest(
+                request_id="SIDE-002",
+                text="What is third-party insurance?",
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+
+        assert isinstance(resumed, OrchestratorResponse)
+        assert resumed.workflow_id == first.workflow_id or resumed.workflow_id != first.workflow_id
+        saved = await repository.get(first.workflow_id)
+        assert saved is not None
+        assert saved.pending_field == "incident_date"
+
+    asyncio.run(scenario())

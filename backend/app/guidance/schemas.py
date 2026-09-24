@@ -110,7 +110,7 @@ class FraudAssessmentContext(_GuidanceContract):
     automated_decision: bool = False
     rules_version: str | None = None
     model_version: str | None = None
-
+    warnings: list[str] = Field(default_factory=list)
 
 class GuidanceRequest(_GuidanceContract):
     """Structured input received by Agent 4."""

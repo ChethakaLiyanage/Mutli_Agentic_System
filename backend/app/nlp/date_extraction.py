@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, timedelta
 
-
 _DATE_PATTERNS = (
     re.compile(r"\bthis\s+(?:morning|afternoon|evening)\b", re.IGNORECASE),
     re.compile(r"\bearlier\s+today\b", re.IGNORECASE),
@@ -15,8 +14,19 @@ _DATE_PATTERNS = (
     re.compile(r"\btoday\b", re.IGNORECASE),
     re.compile(r"\b\d{2}/\d{2}/\d{4}\b"),
     re.compile(r"\b\d{4}-\d{2}-\d{2}\b"),
+    re.compile(r"\b\d{4}\.\d{2}\.\d{2}\b"),
+    re.compile(r"\b\d{2}[.-]\d{2}[.-]\d{4}\b"),
+    re.compile(r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?[A-Za-z,]+\s+\d{4}\b", re.IGNORECASE),
+    re.compile(r"\b[A-Za-z,]+\s+\d{1,2}(?:st|nd|rd|th)?\s+\d{4}\b", re.IGNORECASE)
 )
 
+def _clean_date_string(date_str: str) -> str:
+    cleaned = date_str.lower()
+    cleaned = re.sub(r",", " ", cleaned)
+    cleaned = re.sub(r"(st|nd|rd|th)\b", "", cleaned)
+    cleaned = re.sub(r"\bof\b", "", cleaned)
+    cleaned = re.sub(r"\bsepte\s*ber\b", "september", cleaned)
+    return " ".join(cleaned.split())
 
 def _normalize_date(date_text: str, reference_date: date) -> str | None:
     lowered = date_text.casefold()
@@ -27,25 +37,25 @@ def _normalize_date(date_text: str, reference_date: date) -> str | None:
     if lowered == "two days ago":
         return (reference_date - timedelta(days=2)).isoformat()
 
-    date_format = "%d/%m/%Y" if "/" in date_text else "%Y-%m-%d"
-    try:
-        return datetime.strptime(date_text, date_format).date().isoformat()
-    except ValueError:
-        return None
+    cleaned = _clean_date_string(date_text)
+    
+    date_formats = [
+        "%d/%m/%Y", "%Y-%m-%d", "%Y.%m.%d", "%d.%m.%Y", "%d-%m-%Y",
+        "%d %B %Y", "%B %d %Y", "%d %b %Y", "%b %d %Y"
+    ]
+    for fmt in date_formats:
+        try:
+            return datetime.strptime(cleaned, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
 
-
-def extract_date(
-    text: str,
-    reference_date: date | None = None,
-) -> tuple[str | None, str | None]:
-    """Return the earliest supported date wording and its ISO normalization."""
-
+def extract_date(text: str, reference_date: date | None = None) -> tuple[str | None, str | None]:
     if not isinstance(text, str):
         raise TypeError("text must be a string")
 
     matches = [
-        match
-        for pattern in _DATE_PATTERNS
+        match for pattern in _DATE_PATTERNS
         if (match := pattern.search(text)) is not None
     ]
     if not matches:
@@ -56,13 +66,6 @@ def extract_date(
     normalized_date = _normalize_date(date_text, reference_date or date.today())
     return date_text, normalized_date
 
-
 class DateExtractor:
-    """Extract supported date wording and normalize it when unambiguous."""
-
-    def extract(
-        self,
-        text: str,
-        reference_date: date | None = None,
-    ) -> tuple[str | None, str | None]:
+    def extract(self, text: str, reference_date: date | None = None) -> tuple[str | None, str | None]:
         return extract_date(text, reference_date)

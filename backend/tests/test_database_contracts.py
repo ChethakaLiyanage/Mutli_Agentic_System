@@ -43,7 +43,7 @@ from backend.app.services.domain_row_mappers import (
 )
 
 
-SCHEMA = Path("backend/db/schema.sql").read_text(encoding="utf-8").lower()
+SCHEMA = (Path(__file__).parent.parent / "db" / "schema.sql").read_text(encoding="utf-8").lower()
 
 
 class RecordingQuery:

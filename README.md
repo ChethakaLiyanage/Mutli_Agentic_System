@@ -475,3 +475,14 @@ The agent produces:
 - **Recommended action:** continue processing, request documents, manual review, or escalate
 
 All fraud-risk results are stored in Supabase for traceability and are forwarded to the Reviewer Support Agent. Medium- and high-risk claims are routed for human review. The final claim decision remains the responsibility of an authorized human reviewer.
+
+## Document Retrieval Agent
+
+The Document Retrieval Agent is responsible for ingesting, processing, and extracting text from uploaded insurance documents (such as damage photos, estimates, and police reports). It acts as the bridge between raw file uploads and the structured evidence needed by downstream LLM agents.
+
+Key responsibilities:
+- **Document Ingestion:** Securely processes uploaded files and extracts raw text using appropriate extraction techniques for PDFs and images.
+- **Input Sanitization:** Applies strict sanitization to all extracted text to prevent prompt injection, remove unsafe control characters, and normalize inputs, while safely preserving critical identifiers like Claim IDs and dates.
+- **Context Generation:** Structures the sanitized document content into clear, well-formatted evidence chunks that downstream agents can safely consume for decision-making.
+
+All extracted document content is stored securely in the repository, with the original text preserved for audit purposes and the sanitized text used for active processing.
