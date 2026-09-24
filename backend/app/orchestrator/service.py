@@ -73,6 +73,9 @@ from backend.app.schemas.orchestrator import (
     OrchestratorRequest,
     OrchestratorResponse,
 )
+from backend.app.security.resource_authorization import (
+    deny_cross_customer_resource_request,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -631,6 +634,43 @@ class OrchestratorService:
             )
         state.reviewer_guidance_result = response.model_dump(mode="json")
 
+    async def _complete_authorization_denial(
+        self,
+        state: WorkflowState,
+        *,
+        safe_customer_context: dict[str, object],
+    ) -> OrchestratorResponse:
+        """Complete a denied request through Agent 4 without retrieving data."""
+
+        state.missing_fields = []
+        state.requires_clarification = False
+        self.append_audit_event(
+            state,
+            step="authorization",
+            status=AuditEventStatus.SUCCESS,
+            message="Protected cross-customer resource request denied",
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.GUIDANCE_PROCESSING,
+            message="Preparing privacy-safe guidance",
+            step="guidance",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self._run_customer_guidance(
+            state,
+            task_type="authorization_denied",
+            safe_customer_context=safe_customer_context,
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.COMPLETED,
+            message="Privacy-safe guidance completed",
+            step="guidance",
+        )
+        await self.workflow_repository.save(state)
+        return self.to_response(state)
+
     def _clarification_response(
         self,
         state: WorkflowState,
@@ -668,6 +708,18 @@ class OrchestratorService:
             step="claim_intake",
             audit_status=AuditEventStatus.STARTED,
         )
+
+        # Enforce ownership before intake, retrieval, or any model receives the
+        # original request. Agent 4 receives only the safe denial context.
+        authorization_denial = deny_cross_customer_resource_request(
+            state.accumulated_text,
+            authenticated_user_id=authenticated_user_id or "",
+        )
+        if authorization_denial is not None:
+            return await self._complete_authorization_denial(
+                state,
+                safe_customer_context=authorization_denial.to_safe_context(),
+            )
 
         try:
             intake_response = await self.claim_intake_client.analyze(
@@ -829,6 +881,26 @@ class OrchestratorService:
                 "Workflow is not awaiting clarification"
             )
 
+        # Treat an explicit cross-customer data request as an independent
+        # denied inquiry so the customer's pending claim remains resumable.
+        authorization_denial = deny_cross_customer_resource_request(
+            request.text,
+            authenticated_user_id=state.authenticated_user_id or "",
+        )
+        if authorization_denial is not None:
+            await self.workflow_repository.save(state)
+            denied_response = await self.process_request(
+                OrchestratorRequest(
+                    request_id=request.request_id,
+                    text=request.text,
+                ),
+                authenticated_user_id=state.authenticated_user_id,
+                authenticated_user_role=state.authenticated_user_role,
+            )
+            if isinstance(denied_response, OrchestratorResponse):
+                denied_response.pending_claim_workflow_id = state.workflow_id
+            return denied_response
+
         # Pre-screen the incoming message before assuming it is a continuation of the awaiting claim.
         # If the user sent an independent information inquiry (e.g. policy question, coverage, documents,
         # special reference code) or a pure social turn while clarifying an active claim,
@@ -896,8 +968,7 @@ class OrchestratorService:
 
                 if is_independent_intent:
                     logger.info(
-                        "Clarification input '%s' identified as independent intent %s (conf=%.2f); preserving pending claim %s and routing as new request",
-                        request.text,
+                        "Clarification input identified as independent intent %s (conf=%.2f); preserving pending claim %s and routing as new request",
                         intent_label,
                         intent_conf,
                         state.workflow_id,
@@ -998,6 +1069,16 @@ class OrchestratorService:
             or claim_fields_missing
             or mapped_workflow is WorkflowType.UNKNOWN
         )
+
+        authorization_denial = deny_cross_customer_resource_request(
+            state.accumulated_text,
+            authenticated_user_id=state.authenticated_user_id or "",
+        )
+        if authorization_denial is not None:
+            return await self._complete_authorization_denial(
+                state,
+                safe_customer_context=authorization_denial.to_safe_context(),
+            )
 
         if state.requires_clarification:
             if state.clarification_count >= MAX_CLARIFICATION_ATTEMPTS:

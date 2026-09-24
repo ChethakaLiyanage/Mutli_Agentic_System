@@ -35,6 +35,7 @@ GuidanceTaskType = Literal[
     "human_decision",
     "insufficient_evidence",
     "manual_assistance_required",
+    "authorization_denied",
     "safe_error",
     "reviewer_summary",
     "internal_claim_review_summary",
