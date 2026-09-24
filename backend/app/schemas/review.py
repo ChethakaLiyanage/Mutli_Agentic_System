@@ -60,6 +60,7 @@ class ReviewQueueItem(_ReviewContract):
     status: str | None = None
     assigned_to: str | None = None
     assigned_at: datetime | None = None
+    missing_documents: list[str] = Field(default_factory=list)
     reviewer_summary: dict[str, Any] | None = None
 
 

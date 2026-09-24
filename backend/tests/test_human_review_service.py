@@ -95,6 +95,7 @@ def test_queue_only_includes_pending_oldest_first_with_pagination_and_filter() -
     ))
     first = asyncio.run(service.list_queue(limit=1, offset=0))
     assert [item.workflow_id for item in first.items] == ["OLD"]
+    assert first.items[0].missing_documents == ["police_report"]
     second = asyncio.run(service.list_queue(limit=1, offset=1))
     assert [item.workflow_id for item in second.items] == ["NEW"]
     filtered = asyncio.run(service.list_queue(limit=20, offset=0, risk_level="low"))
