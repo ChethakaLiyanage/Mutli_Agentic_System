@@ -42,22 +42,13 @@ class GuidanceService:
             warnings.append(evidence_result.warning)
 
         if not evidence_result.is_sufficient:
-            insufficient_request = request.model_copy(
-                update={"task_type": "insufficient_evidence", "retrieved_evidence": []}
+            # Missing evidence is already an authoritative Agent 2 result.  Do
+            # not let an LLM collapse distinct repository/document states into
+            # a generic answer or speculate about absent policy content.
+            parsed_data = build_insufficient_evidence_fallback(
+                request=request,
+                custom_reason=evidence_result.reason,
             )
-            built_prompt = build_prompt(insufficient_request)
-            try:
-                raw_output = self.llm_client.generate_json(
-                    system_instruction=built_prompt.system_instruction,
-                    user_prompt=built_prompt.user_prompt,
-                )
-                parsed_data = GuidanceResponseData.model_validate(raw_output)
-                parsed_data = parsed_data.model_copy(update={"insufficient_evidence": True})
-            except Exception:
-                parsed_data = build_insufficient_evidence_fallback(
-                    request=request,
-                    custom_reason=evidence_result.reason,
-                )
             self._record_audit(request, parsed_data)
             evidence_warnings = list(warnings)
             if evidence_result.reason:

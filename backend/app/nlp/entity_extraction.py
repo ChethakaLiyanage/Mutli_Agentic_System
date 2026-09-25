@@ -12,6 +12,7 @@ import spacy
 from spacy.language import Language
 
 from backend.app.schemas.intake import ExtractedEntity
+from backend.app.nlp.claim_identifiers import CLAIM_ID_PATTERN
 
 
 _SPACY_LABEL_MAP = {
@@ -209,9 +210,36 @@ def extract_entities(text: str) -> list[ExtractedEntity]:
 
     entities: list[ExtractedEntity] = []
     seen: set[tuple[str, int, int]] = set()
+    claim_id_spans: list[tuple[int, int]] = []
+
+    def overlaps_claim_id(start: int, end: int) -> bool:
+        return any(
+            start < claim_end and end > claim_start
+            for claim_start, claim_end in claim_id_spans
+        )
+
+    # Claim IDs are controlled application identifiers rather than natural-
+    # language entities, so extract them deterministically before statistical
+    # NER. Their source offsets remain available to the orchestrator.
+    for match in CLAIM_ID_PATTERN.finditer(text):
+        start, end = match.span()
+        claim_id_spans.append((start, end))
+        seen.add(("CLAIM_ID", start, end))
+        entities.append(
+            ExtractedEntity(
+                entity_type="CLAIM_ID",
+                value=match.group(0).upper(),
+                start=start,
+                end=end,
+                confidence=1.0,
+            )
+        )
+
     document = _load_spacy_model()(text)
 
     for entity in document.ents:
+        if overlaps_claim_id(entity.start_char, entity.end_char):
+            continue
         entity_type = _SPACY_LABEL_MAP.get(entity.label_)
         if entity_type is None:
             continue
@@ -231,6 +259,8 @@ def extract_entities(text: str) -> list[ExtractedEntity]:
     for entity_type, pattern in _FALLBACK_PATTERNS.items():
         for match in pattern.finditer(text):
             start, end = match.span()
+            if overlaps_claim_id(start, end):
+                continue
             value = match.group(0)
             key = (entity_type, start, end)
             if key in seen:
@@ -250,6 +280,8 @@ def extract_entities(text: str) -> list[ExtractedEntity]:
     # exact source slice; ClaimIntakeAgent normalizes the selected display value.
     for match in _LOCATION_LEXICON_PATTERN.finditer(text):
         start, end = match.span()
+        if overlaps_claim_id(start, end):
+            continue
         key = ("LOCATION", start, end)
         if key in seen:
             continue
@@ -270,6 +302,8 @@ def extract_entities(text: str) -> list[ExtractedEntity]:
         for index in range(0, len(word_matches) - width + 1):
             selected = word_matches[index : index + width]
             start, end = selected[0].start(), selected[-1].end()
+            if overlaps_claim_id(start, end):
+                continue
             candidate = text[start:end]
             key = _location_key(candidate)
             if key in _LOCATION_CANONICAL:
@@ -295,6 +329,8 @@ def extract_entities(text: str) -> list[ExtractedEntity]:
         if extracted is None:
             continue
         value, start, end = extracted
+        if overlaps_claim_id(start, end):
+            continue
         key = ("LOCATION", start, end)
         if key in seen:
             continue

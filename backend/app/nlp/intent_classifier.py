@@ -28,7 +28,15 @@ from backend.app.nlp.lexical_normalization import (
     ControlledTextNormalizer,
     damerau_levenshtein_distance,
 )
+from backend.app.nlp.claim_identifiers import extract_claim_id
 from backend.app.schemas.intake import IntentResult
+from backend.app.security.resource_authorization import (
+    has_cross_customer_private_data_language,
+)
+from backend.app.security.privacy_context import (
+    is_sensitive_context_recall,
+    is_standalone_sensitive_disclosure,
+)
 
 
 INTENT_LABELS = (
@@ -397,6 +405,29 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
     clean_tokens = [re.sub(r"^[^\w]+|[^\w]+$", "", t.replace("'s", "")) for t in normalized_tokens]
     normalized_token_set = set(normalized_tokens) | {t for t in clean_tokens if t}
 
+    # Privacy-only turns are not evidence of a claim. The orchestrator handles
+    # sensitive recall before Agent 1; this arbitration keeps direct Agent 1
+    # callers semantically consistent and prevents bare identifiers from
+    # starting a claim workflow.
+    if is_sensitive_context_recall(text) or is_standalone_sensitive_disclosure(text):
+        return "general_information", 0.99
+
+    # Cross-customer disclosure language is an information/privacy request,
+    # never a request for claim paperwork.  The orchestrator independently
+    # performs the authoritative ownership denial before any retrieval.
+    if has_cross_customer_private_data_language(text):
+        return "general_information", 0.99
+
+    # An explicit claim identifier is strong evidence that this is an
+    # existing-claim query. Coverage wording remains a policy knowledge
+    # question, but every other explicit-ID lookup uses the ownership-checked
+    # claim-status workflow rather than required-document retrieval.
+    if extract_claim_id(text) is not None:
+        coverage_terms = {"cover", "covered", "coverage", "policy"}
+        if normalized_token_set.intersection(coverage_terms):
+            return "coverage_question", 0.99
+        return "claim_status", 0.99
+
     # A social turn is only recognised when the complete message is social.
     # This preserves normal insurance routing for mixed messages.
     for social_intent, phrases in _PURE_SOCIAL_INTENTS.items():
@@ -447,6 +478,32 @@ def _predict_with_model(text: str, model: Pipeline) -> tuple[str, float]:
         "code",
     }
     is_inquiry = bool(normalized_token_set.intersection(inquiry_markers))
+
+    document_terms = {
+        "document", "documents", "paperwork", "papers", "upload", "uploads",
+        "required", "requirement", "requirements",
+    }
+    document_requirement_terms = {
+        "attach", "bring", "collect", "need", "needed", "paperwork", "proof",
+        "require", "required", "requirements", "send", "submit", "upload",
+    }
+    coverage_terms = {"cover", "covered", "coverage"}
+    if (
+        normalized_token_set.intersection(coverage_terms)
+        and not normalized_token_set.intersection(document_terms)
+    ):
+        return "coverage_question", 0.99
+
+    # Requirement language plus document vocabulary is a direct request for a
+    # claim-document checklist. Resolve it before probability-mass arbitration,
+    # which can otherwise split short questions with broad words such as
+    # "motor insurance" between general and policy information.
+    if (
+        normalized_token_set.intersection(document_terms)
+        and normalized_token_set.intersection(document_requirement_terms)
+        and is_inquiry
+    ):
+        return "required_documents_question", 0.99
 
     if (
         "claim" in normalized_token_set

@@ -41,6 +41,8 @@ POLICY = {
     "policy_number": "MTR-FRAUD-FLOW",
     "customer_id": USER_ID,
     "status": "active",
+    "coverage_type": "full",
+    "policy_type": "full_comprehensive",
     "start_date": "2026-01-01",
     "end_date": "2027-01-01",
 }

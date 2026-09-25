@@ -14,6 +14,7 @@ from backend.app.retrieval.preprocessing import preprocess_for_retrieval
 from backend.app.retrieval.repository import RetrievalRepository
 from backend.app.retrieval.schemas import KnowledgeChunk, KnowledgeDocumentType
 from backend.app.schemas.domain import EvidenceItem
+from backend.app.policy_types import normalize_policy_type
 
 logger = logging.getLogger(__name__)
 
@@ -127,13 +128,23 @@ class KnowledgeRetriever:
 
             # Audience protection: Customer queries must never retrieve internal documents
             chunk_audience = chunk.metadata.get("audience", "customer")
-            if not allow_internal and chunk_audience == "internal":
-                continue
+            if not allow_internal:
+                allowed_audiences = (
+                    {"customer", "all"} if audience == "customer" else {audience, "all"}
+                )
+                if chunk_audience not in allowed_audiences:
+                    continue
 
             # Policy category pre-filtering
-            chunk_policy_type = chunk.metadata.get("policy_type")
+            chunk_policy_type = normalize_policy_type(
+                chunk.metadata.get("policy_type")
+            )
             if policy_type is not None:
-                if chunk_policy_type is not None and chunk_policy_type != policy_type:
+                if chunk_policy_type != normalize_policy_type(policy_type):
+                    continue
+                if chunk.document_type not in {"policy_document", "policy_manual"}:
+                    continue
+                if chunk_status != "active":
                     continue
             eligible_indices.append(idx)
             eligible_chunks.append(chunk)
@@ -173,6 +184,29 @@ class KnowledgeRetriever:
                 )
             )
         return evidence
+
+    def has_eligible_policy_chunks(
+        self,
+        policy_type: str,
+        *,
+        audience: str = "customer",
+    ) -> bool:
+        """Report whether an active, audience-safe policy corpus is indexed."""
+
+        if not self._loaded:
+            self.refresh()
+        with self._lock:
+            chunks = list(self._chunks)
+        return any(
+            chunk.insurance_type == "motor"
+            and chunk.document_type in {"policy_document", "policy_manual"}
+            and normalize_policy_type(chunk.metadata.get("policy_type"))
+            == normalize_policy_type(policy_type)
+            and chunk.metadata.get("status", "active") == "active"
+            and chunk.metadata.get("audience", "customer")
+            in ({"customer", "all"} if audience == "customer" else {audience})
+            for chunk in chunks
+        )
 
 
 _shared_knowledge_retriever: KnowledgeRetriever | None = None

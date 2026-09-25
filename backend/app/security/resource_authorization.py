@@ -7,8 +7,10 @@ import re
 
 
 _OTHER_CUSTOMER_REFERENCE = re.compile(
-    r"\b(?:another|other|different)\s+customers?(?:\s*['\N{RIGHT SINGLE QUOTATION MARK}]s?)?\b"
-    r"|\bsomeone\s+else(?:\s*['\N{RIGHT SINGLE QUOTATION MARK}]s)?\b",
+    r"\b(?:another|other|different|previous|prior|last|former)\s+"
+    r"(?:users?|customers?|policyholders?|persons?|people)"
+    r"(?:\s*['\N{RIGHT SINGLE QUOTATION MARK}]s?)?\b"
+    r"|\b(?:someone|somebody)\s+else(?:\s*['\N{RIGHT SINGLE QUOTATION MARK}]s)?\b",
     re.IGNORECASE,
 )
 _EXPLICIT_CUSTOMER_ID = re.compile(
@@ -53,8 +55,24 @@ _RESOURCE_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "account details",
             "address",
             "email",
+            "name",
             "phone number",
+            "telephone number",
+            "vehicle registration",
             "registration number",
+            "accident location",
+            "incident location",
+        ),
+    ),
+    (
+        "customer_information",
+        (
+            "information",
+            "details",
+            "data",
+            "conversation",
+            "message",
+            "messages",
         ),
     ),
 )
@@ -64,7 +82,35 @@ _ALLOWED_ALTERNATIVES: dict[str, tuple[str, ...]] = {
     "claim": ("own_claim_information", "own_claim_status"),
     "claim_documents": ("own_claim_information", "own_claim_documents"),
     "personal_information": ("own_account_information",),
+    "customer_information": (
+        "own_account_information",
+        "own_policy_information",
+        "own_claim_information",
+    ),
 }
+
+_DISCLOSURE_REQUEST = re.compile(
+    r"\b(?:what|show|give|tell|provide|reveal|share|display|list|read)\b",
+    re.IGNORECASE,
+)
+
+
+def has_cross_customer_private_data_language(text: str) -> bool:
+    """Identify semantic cross-customer disclosure language without data access.
+
+    This is suitable as an Agent 1 routing feature.  The authoritative denial
+    still happens separately with the authenticated customer identifier.
+    """
+
+    normalized = " ".join(text.casefold().split())
+    if not _OTHER_CUSTOMER_REFERENCE.search(normalized):
+        return False
+    has_resource = any(
+        re.search(rf"(?<!\w){re.escape(term)}(?!\w)", normalized)
+        for _, terms in _RESOURCE_TERMS
+        for term in terms
+    )
+    return has_resource or bool(_DISCLOSURE_REQUEST.search(normalized))
 
 
 @dataclass(frozen=True)
@@ -73,7 +119,7 @@ class AuthorizationDenial:
 
     requested_resource_type: str
     allowed_alternatives: tuple[str, ...]
-    reason: str = "ownership_required"
+    reason: str = "cross_user_private_data"
     ownership: str = "other_customer"
 
     def to_safe_context(self) -> dict[str, object]:
@@ -120,6 +166,8 @@ def deny_cross_customer_resource_request(
         ),
         None,
     )
+    if resource_type is None and _DISCLOSURE_REQUEST.search(normalized):
+        resource_type = "customer_information"
     if resource_type is None:
         return None
 

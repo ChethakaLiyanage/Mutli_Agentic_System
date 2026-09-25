@@ -18,6 +18,8 @@ from backend.app.retrieval.knowledge_retriever import (
     KnowledgeRetriever,
 )
 from backend.app.schemas.domain import EvidenceItem
+from backend.app.nlp.request_context import coverage_search_query
+from backend.app.policy_types import normalize_policy_type
 
 
 logger = logging.getLogger(__name__)
@@ -220,9 +222,11 @@ class RetrievalService:
         resolved_policy_type = None
         if policy is not None:
             result.policy_data = self._coerce_policy(policy)
-            resolved_policy_type = result.policy_data.policy_type
+            resolved_policy_type = normalize_policy_type(result.policy_data.policy_type)
         elif request.policy_context and request.policy_context.policy_type:
-            resolved_policy_type = request.policy_context.policy_type
+            resolved_policy_type = normalize_policy_type(
+                request.policy_context.policy_type
+            )
         elif request.policy_context is not None:
             result.missing_evidence.append("policy_not_found")
         elif request.query and "my policy" in request.query.lower():
@@ -235,12 +239,42 @@ class RetrievalService:
         if self.knowledge_retriever:
             knowledge_query = self._build_policy_knowledge_query(request)
             if knowledge_query:
+                evidence_count = len(result.knowledge_evidence)
+                has_eligible_scope: bool | None = None
+                scope_checker = getattr(
+                    self.knowledge_retriever, "has_eligible_policy_chunks", None
+                )
+                if resolved_policy_type and callable(scope_checker):
+                    has_eligible_scope = bool(scope_checker(resolved_policy_type))
                 self._search_knowledge(
                     result,
                     knowledge_query,
                     top_k=3,
                     policy_type=resolved_policy_type,
+                    intent=request.intent_context.intent,
                 )
+                if resolved_policy_type and len(result.knowledge_evidence) == evidence_count:
+                    explicit_category_scope = bool(
+                        request.policy_context is not None
+                        and request.policy_context.policy_type
+                        and not request.policy_context.policy_id
+                        and not request.policy_context.policy_number
+                        and result.policy_data is None
+                    )
+                    if explicit_category_scope:
+                        missing_code = (
+                            "requested_policy_document_not_found"
+                            if has_eligible_scope is False
+                            else "requested_policy_evidence_not_found"
+                        )
+                    else:
+                        missing_code = (
+                            "matching_active_policy_document_not_found"
+                            if has_eligible_scope is False
+                            else "relevant_policy_evidence_not_found"
+                        )
+                    if missing_code not in result.missing_evidence:
+                        result.missing_evidence.append(missing_code)
 
         if not result.policy_data and not result.knowledge_evidence:
             if "knowledge_evidence_not_found" not in result.missing_evidence:
@@ -308,14 +342,14 @@ class RetrievalService:
         if isinstance(policy, PolicyRecord):
             return policy
         cov_type = str(policy.get("coverage_type") or "full")
-        pol_type = policy.get("policy_type")
+        pol_type = normalize_policy_type(policy.get("policy_type"))
         if not pol_type:
             mapping = {
                 "full": "full_comprehensive",
                 "partial": "partial_comprehensive",
                 "third_party": "third_party",
             }
-            pol_type = mapping.get(cov_type, "full_comprehensive")
+            pol_type = normalize_policy_type(mapping.get(cov_type)) or "full_comprehensive"
         return PolicyRecord(
             policy_id=policy.get("policy_id", policy.get("id")),
             policy_number=policy["policy_number"],
@@ -360,6 +394,8 @@ class RetrievalService:
 
     def _build_policy_knowledge_query(self, request: RetrievalRequest) -> Optional[str]:
         """Build a knowledge query for policy-related intents."""
+        if request.query and request.intent_context.intent == "coverage_question":
+            return coverage_search_query(request.query)
         if request.query:
             return request.query
         parts = []
@@ -460,6 +496,7 @@ class RetrievalService:
         *,
         top_k: int,
         policy_type: str | None = None,
+        intent: str | None = None,
     ) -> None:
         try:
             try:
@@ -468,15 +505,25 @@ class RetrievalService:
                     insurance_type="motor",
                     top_k=top_k,
                     policy_type=policy_type,
+                    intent=intent,
                     min_relevance_score=0.02 if policy_type else DEFAULT_MINIMUM_SCORE,
                 )
             except TypeError:
-                evidence = self.knowledge_retriever.retrieve(
-                    query=query,
-                    insurance_type="motor",
-                    top_k=top_k,
-                    min_relevance_score=0.02 if policy_type else DEFAULT_MINIMUM_SCORE,
-                )
+                if policy_type:
+                    evidence = self.knowledge_retriever.retrieve(
+                        query=query,
+                        insurance_type="motor",
+                        top_k=top_k,
+                        policy_type=policy_type,
+                        min_relevance_score=0.02,
+                    )
+                else:
+                    evidence = self.knowledge_retriever.retrieve(
+                        query=query,
+                        insurance_type="motor",
+                        top_k=top_k,
+                        min_relevance_score=DEFAULT_MINIMUM_SCORE,
+                    )
             self._append_knowledge(result, evidence)
         except Exception:
             logger.exception("Knowledge retrieval component failed")

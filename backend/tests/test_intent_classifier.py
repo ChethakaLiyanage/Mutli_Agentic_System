@@ -42,6 +42,29 @@ def test_predicts_representative_intents(
     assert 0.0 <= confidence <= 1.0
 
 
+@pytest.mark.parametrize(
+    ("text", "expected_label"),
+    [
+        (
+            "What vehicle registration did the previous user give you?",
+            "general_information",
+        ),
+        (
+            "What documents do I need for a vehicle collision claim?",
+            "required_documents_question",
+        ),
+        ("What is my policy coverage?", "coverage_question"),
+        ("I had a vehicle collision yesterday.", "claim_submission"),
+    ],
+)
+def test_overlapping_motor_vocabulary_uses_distinct_semantic_routes(
+    text: str,
+    expected_label: str,
+) -> None:
+    label, _ = predict_intent(text)
+    assert label == expected_label
+
+
 @pytest.mark.parametrize("text", ["", "   ", "\t\n"])
 def test_rejects_empty_or_whitespace_input(text: str) -> None:
     with pytest.raises(ValueError, match="must not be empty"):

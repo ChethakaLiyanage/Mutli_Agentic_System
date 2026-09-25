@@ -179,6 +179,25 @@ def test_admin_uploads_new_document_and_immediate_retrieval(isolated_document_en
     assert "011-2345678" in evidence[0].content
 
 
+def test_policy_document_upload_requires_canonical_policy_category(
+    isolated_document_env,
+):
+    response = isolated_document_env["client"].post(
+        "/admin/policy-documents",
+        data={
+            "title": "Unscoped Policy",
+            "document_type": "policy_document",
+            "policy_type": "none",
+            "audience": "customer",
+            "version": "1.0",
+        },
+        files={"file": ("unscoped.txt", BytesIO(b"Coverage terms"), "text/plain")},
+    )
+
+    assert response.status_code == 422
+    assert "policy_type is required" in response.json()["detail"]
+
+
 def test_atomic_replacement_scenario_alpha_to_beta(isolated_document_env):
     """The critical update test scenario:
 

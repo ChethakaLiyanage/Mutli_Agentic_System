@@ -43,6 +43,7 @@ from backend.app.schemas.admin_documents import (
 from backend.app.schemas.auth import AuthenticatedUser
 from backend.app.security.dependencies import get_current_admin
 from backend.app.services.supabase_service import get_supabase_client
+from backend.app.policy_types import CANONICAL_POLICY_TYPES, normalize_policy_type
 
 logger = logging.getLogger(__name__)
 
@@ -57,12 +58,7 @@ ALLOWED_DOCUMENT_TYPES = {
     "manual",
     "other",
 }
-ALLOWED_POLICY_TYPES = {
-    "full_comprehensive",
-    "partial_comprehensive",
-    "third_party",
-    None,
-}
+ALLOWED_POLICY_TYPES = CANONICAL_POLICY_TYPES | {None}
 ALLOWED_AUDIENCES = {"customer", "internal", "all"}
 
 
@@ -239,12 +235,13 @@ async def upload_new_document(
 
     if policy_type in ("", "none", "null"):
         policy_type = None
-    if policy_type is not None and policy_type not in ALLOWED_POLICY_TYPES:
+    try:
+        policy_type = normalize_policy_type(policy_type, strict=policy_type is not None)
+    except ValueError as error:
         raise HTTPException(
             status_code=422,
             detail=f"Invalid policy_type. Allowed: {sorted(str(x) for x in ALLOWED_POLICY_TYPES)}",
-        )
-
+        ) from error
     if audience not in ALLOWED_AUDIENCES:
         raise HTTPException(
             status_code=422,
@@ -259,6 +256,11 @@ async def upload_new_document(
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported format '{suffix}'. Allowed: {sorted(SUPPORTED_EXTENSIONS)}",
+        )
+    if document_type == "policy_document" and policy_type is None:
+        raise HTTPException(
+            status_code=422,
+            detail="policy_type is required when document_type is policy_document",
         )
 
     content_bytes = await file.read()

@@ -157,6 +157,38 @@ class MockLLMClient(BaseLLMClient):
                 "automated_decision": False,
             }
 
+        if "TASK: Respond naturally to a request to reproduce retained personal" in user_prompt:
+            return {
+                "message": (
+                    "I avoid reproducing a collection of personal or identifying details. "
+                    "Customer information is used only when it is relevant to the insurance "
+                    "task you are working on. I can help with your current request, your own "
+                    "policy information, or your own claim information."
+                ),
+                "next_steps": [
+                    "Continue the current insurance request",
+                    "Ask about your own policy or claim",
+                ],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
+        if "TASK: Acknowledge a standalone disclosure of personal information" in user_prompt:
+            return {
+                "message": (
+                    "I will use personal details only when they are relevant to a specific "
+                    "insurance task, without repeating them unnecessarily. Tell me whether "
+                    "you want help with a claim, your policy, or another motor-insurance question."
+                ),
+                "next_steps": [],
+                "evidence_used": [],
+                "requires_human_review": False,
+                "insufficient_evidence": False,
+                "automated_decision": False,
+            }
+
         if "TASK: Give a short, customer-safe technical failure" in user_prompt:
             return {
                 "message": "I'm sorry, I couldn't continue this request safely. Please try again.",
@@ -483,57 +515,23 @@ class MockLLMClient(BaseLLMClient):
             }
 
         generic_scope = "specific_policy_not_available" in user_prompt
-        evidence_text = " ".join(evidence_contents).casefold()
         if not evidence_contents:
             message = (
                 "I am an AI assistant specialized in motor insurance claims, policy questions, "
                 "coverage details, and required documents. I don't have information on that topic, "
                 "but please let me know if you have any questions related to motor insurance!"
             )
-        elif "third_party" in evidence_text or "third party motor insurance" in evidence_text:
+        elif generic_scope:
             message = (
-                "Under your Third Party Motor Insurance Policy, statutory liability for bodily injury "
-                "and property damage caused to third parties is covered. However, any and all damage "
-                "to your own vehicle—including accidental collision damage, fire, theft, flood, and windscreen—"
-                "is strictly excluded from coverage."
-            )
-        elif "partial_comprehensive" in evidence_text or "partial comprehensive motor insurance" in evidence_text:
-            if "collision" in user_prompt.lower():
-                message = (
-                    "Under your Partial Comprehensive Motor Insurance Policy, accidental own-vehicle collision "
-                    "damage is strictly excluded from coverage. Your policy covers fire, theft, flood, and windscreen damage, "
-                    "but collision repairs for your vehicle are not covered."
-                )
-            else:
-                message = (
-                    "Under your Partial Comprehensive Motor Insurance Policy, coverage is provided for fire, theft, "
-                    "flood, windscreen damage, and third-party liabilities. Please note that ordinary accidental collision "
-                    "damage to your own vehicle is an explicit exclusion."
-                )
-        elif "full_comprehensive" in evidence_text or "full comprehensive motor insurance" in evidence_text:
-            message = (
-                "Under your Full Comprehensive Motor Insurance Policy, you have all-perils coverage including "
-                "accidental vehicle collision, fire, theft, flood and storm water-ingress, windscreen repair, "
-                "vandalism, and third-party legal liability, subject to your policy deductible and standard terms."
-            )
-        elif "flood" in evidence_text or "water" in evidence_text or "water ingress" in evidence_text:
-            message = (
-                "Some comprehensive motor policies may cover accidental flood or water-ingress "
-                "damage. However, coverage depends on your specific policy terms, exclusions, "
-                "excess, and endorsements, so the general guidance alone cannot confirm "
-                "whether your own policy covers it."
-            )
-        elif "exclusion" in evidence_text or "general exclusions" in evidence_text or "deliberate" in evidence_text:
-            message = (
-                "Common exclusions may include loss outside the policy period, use of the vehicle "
-                "outside permitted conditions, intentional damage, certain unauthorized commercial "
-                "use, driving without the required legal authorization, and some mechanical or "
-                "electrical failures. Exact exclusions depend on the customer's actual policy wording."
+                "This is general policy information and does not confirm coverage "
+                "under your specific policy.\n\n"
+                + "\n\n".join(" ".join(item.split()) for item in evidence_contents[:3])
             )
         else:
             message = (
-                "The available controlled policy material contains information relevant to your "
-                "question, but it does not by itself confirm the outcome for an individual claim."
+                "Your active policy document contains these relevant terms:\n\n"
+                + "\n\n".join(" ".join(item.split()) for item in evidence_contents[:3])
+                + "\n\nCoverage remains subject to the policy conditions, exclusions, excess, and endorsements."
             )
         return {
             "message": message,

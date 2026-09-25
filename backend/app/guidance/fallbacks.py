@@ -121,6 +121,38 @@ def _claim_progress_message(request: GuidanceRequest) -> str:
     return "Your request has been updated."
 
 
+def _claim_information_message(request: GuidanceRequest) -> str:
+    claim = request.safe_customer_context.get("claim")
+    if not isinstance(claim, dict):
+        return "I couldn't retrieve accessible claim information for this request."
+
+    labels = (
+        ("claim_id", "Claim ID"),
+        ("claim_reference", "Claim reference"),
+        ("incident_type", "Incident type"),
+        ("incident_date", "Incident date"),
+        ("incident_time", "Incident time"),
+        ("incident_location", "Incident location"),
+        ("incident_description", "Incident description"),
+        ("damage_areas", "Damage"),
+        ("vehicle_registration", "Vehicle registration"),
+        ("claim_status", "Claim status"),
+    )
+    details: list[str] = []
+    for key, label in labels:
+        value = claim.get(key)
+        if value in (None, "", []):
+            continue
+        if isinstance(value, list):
+            value = ", ".join(str(item).replace("_", " ") for item in value)
+        elif key in {"incident_type", "claim_status"}:
+            value = str(value).replace("_", " ")
+        details.append(f"{label}: {value}")
+    return "Here is the claim information available on your account:\n" + "\n".join(
+        f"- {item}" for item in details
+    )
+
+
 def _decision_message(request: GuidanceRequest) -> str:
     decision = request.human_decision
     if decision is None:
@@ -200,6 +232,19 @@ def build_deterministic_guidance_response(
         message = _claim_progress_message(request)
     elif request.task_type == "manual_assistance_required":
         message = _claim_progress_message(request)
+    elif request.task_type == "sensitive_context_recall":
+        message = (
+            "I avoid reproducing a collection of personal or identifying details. "
+            "I use customer information only when it is relevant to the insurance "
+            "task you are working on. I can still help with your current request, "
+            "your own policy information, or your own claim information."
+        )
+    elif request.task_type == "sensitive_context_notice":
+        message = (
+            "I will use personal details only when they are relevant to a specific "
+            "insurance task, without repeating them unnecessarily. Tell me whether "
+            "you want help with a claim, your policy, or another motor-insurance question."
+        )
     elif request.task_type == "authorization_denied":
         resource_type = request.safe_customer_context.get(
             "requested_resource_type", "information"
@@ -209,11 +254,20 @@ def build_deterministic_guidance_response(
             "claim": "your own claim and its status",
             "claim_documents": "your own claim and submitted documents",
             "personal_information": "information linked to your own account",
+            "customer_information": "your own account, policy, or claim information",
         }.get(str(resource_type), "information linked to your own account")
-        message = (
-            "I can't provide protected information belonging to another customer. "
-            f"I can help you with {own_resource} instead."
-        )
+        if request.safe_customer_context.get("ownership") == "not_accessible":
+            message = (
+                "I can't provide information for that record because customer "
+                f"information is private. I can help you with {own_resource} instead."
+            )
+        else:
+            message = (
+                "I can't provide protected information belonging to another customer. "
+                f"I can help you with {own_resource} instead."
+            )
+    elif request.task_type == "claim_information":
+        message = _claim_information_message(request)
     elif request.task_type in {
         "final_decision_explanation",
         "final_claim_decision",
@@ -234,52 +288,24 @@ def build_deterministic_guidance_response(
             "answer that confidently."
         )
     elif request.task_type == "coverage_answer":
-        evidence_text = " ".join(item.content for item in request.retrieved_evidence).casefold()
-        if "third party" in evidence_text and ("only" in evidence_text or "statutory" in evidence_text or "liability" in evidence_text):
-            if "fire" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
-                message = "Under your Third Party policy, own-vehicle fire damage is strictly excluded. Third party coverage protects only against legal liabilities to others."
-            elif "theft" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
-                message = "Under your Third Party policy, own-vehicle theft and break-in loss is strictly excluded."
-            elif "collision" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
-                message = "Under your Third Party policy, own-vehicle collision damage is strictly excluded."
-            elif "windscreen" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
-                message = "Under your Third Party policy, windscreen and glass damage to your own vehicle is strictly excluded."
-            elif "flood" in evidence_text and ("excluded" in evidence_text or "no coverage" in evidence_text):
-                message = "Under your Third Party policy, flood and water damage to your own vehicle is strictly excluded."
-            else:
-                message = "Your Third Party policy covers third-party bodily injury and property damage liabilities only. All damage to your own vehicle (collision, fire, theft, flood, windscreen) is strictly excluded."
-        elif "partial comprehensive" in evidence_text or "collision damage exclusion" in evidence_text:
-            if "collision" in evidence_text and ("excluded" in evidence_text or "not covered" in evidence_text):
-                message = "Under your Partial Comprehensive policy, ordinary own-vehicle collision damage is strictly excluded. The policy covers fire, theft, flood, and windscreen damage."
-            elif "fire" in evidence_text:
-                message = "Under your Partial Comprehensive policy, loss or damage caused by fire, explosion, or lightning is covered."
-            elif "theft" in evidence_text:
-                message = "Under your Partial Comprehensive policy, theft and attempted theft damage are covered."
-            elif "flood" in evidence_text:
-                message = "Under your Partial Comprehensive policy, flood and natural disaster water damage are covered."
-            elif "windscreen" in evidence_text or "glass" in evidence_text:
-                message = "Under your Partial Comprehensive policy, windscreen and window glass damage is covered."
-            else:
-                message = "Your Partial Comprehensive policy covers fire, theft, flood, windscreen glass, and third-party liability, but excludes own-vehicle collision damage."
-        elif "full comprehensive" in evidence_text or "total coverage" in evidence_text or "accidental damage" in evidence_text:
-            if "fire" in evidence_text:
-                message = "Under your Full Comprehensive policy, loss or damage caused by accidental fire, explosion, or lightning is fully covered."
-            elif "theft" in evidence_text:
-                message = "Under your Full Comprehensive policy, vehicle theft, attempted theft, and break-in damages are fully covered."
-            elif "collision" in evidence_text:
-                message = "Under your Full Comprehensive policy, accidental own-vehicle collision damage to all vehicle panels is fully covered."
-            elif "flood" in evidence_text or "water" in evidence_text:
-                message = "Under your Full Comprehensive policy, storm, flood, and rising surface water damage are fully covered."
-            elif "windscreen" in evidence_text or "glass" in evidence_text:
-                message = "Under your Full Comprehensive policy, windscreen and window glass repair and replacement are fully covered."
-            else:
-                message = "Your Full Comprehensive policy provides full cover for accidental own-vehicle collision damage, fire, theft, flood, windscreen glass, vandalism, and third-party liabilities."
-        elif "excluded" in evidence_text or "exclusion" in evidence_text:
-            message = "Based on your retrieved policy terms, this type of own-vehicle damage is not covered under your policy category."
+        grounded_sections = []
+        for item in request.retrieved_evidence[:3]:
+            content = " ".join(item.content.split())
+            if content:
+                label = item.section or item.document_name
+                grounded_sections.append(f"{label}: {content}")
+        if "specific_policy_not_available" in request.retrieval_warnings:
+            message = (
+                "This is general policy information and does not confirm coverage "
+                "under your specific policy.\n\n" + "\n\n".join(grounded_sections)
+            )
         else:
             message = (
-                "Coverage depends on your specific policy terms, exclusions, and endorsements. "
-                "Please check your policy schedule or contact customer support for details on your individual cover."
+                "Your active policy document contains the following relevant coverage terms:\n\n"
+                + "\n\n".join(grounded_sections)
+                + "\n\nCoverage remains subject to the policy's conditions, exclusions, excess, and endorsements."
+                if grounded_sections
+                else "I couldn't find grounded coverage terms in the active policy document."
             )
     elif request.task_type == "policy_answer":
         evidence_text = " ".join(item.content for item in request.retrieved_evidence).casefold()
@@ -362,9 +388,9 @@ def build_deterministic_guidance_response(
         )
     elif request.retrieved_evidence:
         top_item = request.retrieved_evidence[0]
-        clean_title = (top_item.source_title or "Official Policy Documentation").replace("_", " ").title()
+        clean_title = (top_item.document_name or "Official Policy Documentation").replace("_", " ").title()
         message = (
-            f"Based on the active documentation ({clean_title}):\n\n"
+            f"Relevant controlled policy information from the active documentation ({clean_title}):\n\n"
             f"{top_item.content}"
         )
     else:

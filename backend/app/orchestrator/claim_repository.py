@@ -13,6 +13,7 @@ from backend.app.config import get_settings
 from backend.app.schemas.domain import ClaimContext
 from backend.app.services.domain_row_mappers import claim_from_row, claim_to_row
 from backend.app.services.supabase_service import get_supabase_client
+from backend.app.policy_types import normalize_policy_type
 
 logger = logging.getLogger(__name__)
 
@@ -301,19 +302,20 @@ class SupabaseClaimRepository:
 
 def _normalize_policy_record(row: dict[str, Any]) -> dict[str, Any]:
     data = dict(row)
-    cov_type = str(data.get("coverage_type") or "full")
-    pol_type = data.get("policy_type")
+    raw_coverage_type = data.get("coverage_type")
+    cov_type = str(raw_coverage_type) if raw_coverage_type else None
+    pol_type = normalize_policy_type(data.get("policy_type"))
     if not pol_type:
         meta = data.get("metadata") or {}
         if isinstance(meta, dict) and meta.get("policy_type"):
-            pol_type = str(meta["policy_type"])
+            pol_type = normalize_policy_type(meta["policy_type"])
         else:
             mapping = {
                 "full": "full_comprehensive",
                 "partial": "partial_comprehensive",
                 "third_party": "third_party",
             }
-            pol_type = mapping.get(cov_type, "full_comprehensive")
+            pol_type = normalize_policy_type(mapping.get(cov_type)) if cov_type else None
     data["policy_type"] = pol_type
     return data
 
@@ -328,7 +330,7 @@ def _build_policy_payload(
     start_date: str = "2026-01-01",
     end_date: str = "2027-01-01",
 ) -> dict[str, Any]:
-    norm_policy_type = policy_type.strip().lower()
+    norm_policy_type = normalize_policy_type(policy_type, strict=True)
     cov_mapping = {
         "full_comprehensive": "full",
         "partial_comprehensive": "partial",
