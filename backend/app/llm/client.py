@@ -6,8 +6,6 @@ and live API clients using HTTP transport.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 import json
 import logging
 import os
@@ -16,6 +14,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 import httpx
+from backend.app.core.time import get_time_aware_greeting
 from backend.app.llm.config import LLMSettings
 
 logger = logging.getLogger(__name__)
@@ -62,21 +61,9 @@ class MockLLMClient(BaseLLMClient):
         )
 
         if "TASK: Give a brief, friendly" in user_prompt:
-            hour = datetime.now().hour
             cust_match = re.search(r'"customer_message":\s*"([^"]+)"', user_prompt)
             user_msg = cust_match.group(1).lower() if cust_match else ""
-            if "good afternoon" in user_msg:
-                time_greeting = "Good afternoon!"
-            elif "good evening" in user_msg:
-                time_greeting = "Good evening!"
-            elif "good morning" in user_msg:
-                time_greeting = "Good morning!"
-            elif 4 <= hour < 12:
-                time_greeting = "Good morning!"
-            elif 12 <= hour < 17:
-                time_greeting = "Good afternoon!"
-            else:
-                time_greeting = "Good evening!"
+            time_greeting = get_time_aware_greeting(user_msg)
 
             options = [
                 f"{time_greeting} How can I help with your motor insurance today?",
@@ -84,7 +71,7 @@ class MockLLMClient(BaseLLMClient):
                 f"{time_greeting} I'm ready to assist with your motor insurance. What would you like to do?",
                 f"Hello! {time_greeting} How may I help you with your insurance today?",
             ]
-            chosen_msg = options[(len(user_msg) + datetime.now().second) % len(options)]
+            chosen_msg = options[(len(user_msg) + len(time_greeting)) % len(options)]
             return {
                 "message": chosen_msg,
                 "next_steps": [],

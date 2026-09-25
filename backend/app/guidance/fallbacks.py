@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
+from backend.app.core.time import get_time_aware_greeting
 from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
@@ -33,31 +32,15 @@ def _format_friendly_incident_type(incident_type: str | None) -> str:
 
 
 def _get_time_aware_greeting(user_text: str | None = None) -> str:
-    """Return a natural, time-aware or time-matched greeting with dynamic phrasing."""
-    current_hour = datetime.now().hour
-    if 4 <= current_hour < 12:
-        salutation = "Good morning!"
-    elif 12 <= current_hour < 17:
-        salutation = "Good afternoon!"
-    else:
-        salutation = "Good evening!"
-
-    if user_text:
-        lowered = user_text.casefold()
-        if "good afternoon" in lowered:
-            salutation = "Good afternoon!"
-        elif "good evening" in lowered:
-            salutation = "Good evening!"
-        elif "good morning" in lowered:
-            salutation = "Good morning!"
-
+    """Return a natural, timezone-aware greeting with dynamic phrasing."""
+    salutation = get_time_aware_greeting(user_text)
     variations = [
         f"{salutation} How can I help with your motor insurance claims or questions today?",
         f"{salutation} What can I assist you with regarding your policy or claims?",
         f"{salutation} I'm here to help with your insurance questions or claims. What's on your mind?",
         f"Hello! {salutation} How may I assist you with your motor insurance questions or claims today?",
     ]
-    idx = (len(user_text or "") + datetime.now().second) % len(variations)
+    idx = (len(user_text or "") + int(get_time_aware_greeting(user_text).count("!"))) % len(variations)
     return variations[idx]
 
 
