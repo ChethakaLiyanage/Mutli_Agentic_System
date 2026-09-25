@@ -293,6 +293,16 @@ class OrchestratorService:
         if not candidate:
             return False
 
+        lowered = candidate.casefold()
+        if lowered.endswith("?") or lowered.startswith(
+            (
+                "what ", "where ", "when ", "who ", "why ", "how ",
+                "is ", "are ", "can ", "could ", "do ", "does ",
+                "did ", "which ", "tell me ", "please tell me ",
+            )
+        ):
+            return False
+
         if state.pending_field == "incident_date":
             from backend.app.nlp.date_extraction import extract_date
             _, normalized = extract_date(candidate)
@@ -1299,6 +1309,17 @@ class OrchestratorService:
                         "claim_status",
                     }
 
+                    if state.missing_fields and not self._looks_like_independent_question(request.text):
+                        new_incident = standalone_intake.data.incident
+                        if new_incident is not None:
+                            if "incident_type" in state.missing_fields and new_incident.type:
+                                provides_missing_info = True
+                            if "incident_date" in state.missing_fields and (
+                                new_incident.date_text or new_incident.normalized_date
+                            ):
+                                provides_missing_info = True
+                            if "location" in state.missing_fields and new_incident.location:
+                                provides_missing_info = True
                 else:
                     is_independent_intent = False
 

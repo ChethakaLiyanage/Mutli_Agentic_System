@@ -36,6 +36,14 @@ class GuidanceService:
         """Execute the end-to-end Guidance Agent pipeline."""
         warnings: list[str] = []
 
+        if request.task_type == "greeting":
+            fallback = build_deterministic_guidance_response(
+                request,
+                warning="Greeting uses the centralized timezone-aware fallback.",
+            )
+            self._record_audit(request, fallback.data)
+            return fallback
+
         # 1. Pre-LLM Evidence Validation & Sufficiency check
         evidence_result = validate_evidence(request)
         if evidence_result.warning:
