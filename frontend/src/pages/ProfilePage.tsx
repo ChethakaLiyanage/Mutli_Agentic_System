@@ -112,7 +112,7 @@ export const ProfilePage = () => {
       <header className="profile-header">
         <h1>Profile</h1>
         <Link to="/claim-assistant" className="button button-primary button-small">
-          ← Back to Assistant
+           Back to Assistant
         </Link>
       </header>
 

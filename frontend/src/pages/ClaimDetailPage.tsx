@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { apiClient } from "../api/client";
 import { fetchClaimDetail } from "../api/claims";
+import { DocumentUploadModal } from "../components/DocumentUploadModal";
 import type { ClaimDetailCustomer } from "../types/claim";
 
 const formatIncidentType = (type: string | null | undefined): string => {
@@ -24,6 +25,34 @@ export const ClaimDetailPage = () => {
   const [claim, setClaim] = useState<ClaimDetailCustomer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+
+  const loadClaim = useCallback(() => {
+    if (!claimId) return;
+    setLoading(true);
+    setError(null);
+    void fetchClaimDetail(claimId)
+      .then((data) => {
+        setClaim(data);
+        const action = new URLSearchParams(window.location.search).get("action");
+        if (
+          action === "upload-documents" &&
+          data.workflow_id &&
+          (data.workflow_status === "more_information_required" ||
+            data.workflow_status === "awaiting_documents")
+        ) {
+          setUploadModalOpen(true);
+        }
+      })
+      .catch((err) => {
+        setError(
+          err.response?.status === 404
+            ? "Claim not found."
+            : "Unable to load claim details.",
+        );
+      })
+      .finally(() => setLoading(false));
+  }, [claimId]);
 
   const handleOpenDocument = async (docId: string) => {
     try {
@@ -57,28 +86,8 @@ export const ClaimDetailPage = () => {
   };
 
   useEffect(() => {
-    if (!claimId) return;
-    let active = true;
-    fetchClaimDetail(claimId)
-      .then((data) => {
-        if (active) setClaim(data);
-      })
-      .catch((err) => {
-        if (active) {
-          setError(
-            err.response?.status === 404
-              ? "Claim not found."
-              : "Unable to load claim details.",
-          );
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [claimId]);
+    loadClaim();
+  }, [loadClaim]);
 
   if (loading) {
     return (
@@ -105,6 +114,7 @@ export const ClaimDetailPage = () => {
   const isRejected = claim.decision === "reject" || claim.claim_status === "rejected" || claim.workflow_status === "rejected";
   const isMoreInfo = claim.decision === "request_more_information" || claim.workflow_status === "more_information_required";
   const isUnderReview = claim.workflow_status === "under_human_review" || claim.workflow_status === "awaiting_assignment" || claim.workflow_status === "awaiting_human_review";
+  const workflowId = claim.workflow_id || new URLSearchParams(window.location.search).get("workflowId");
 
   return (
     <div style={{ maxWidth: "860px", margin: "0 auto", padding: "2rem 1.5rem" }}>
@@ -216,6 +226,25 @@ export const ClaimDetailPage = () => {
                     {claim.rejection_reason}
                   </span>
                 </div>
+              )}
+              {workflowId && (
+                <button
+                  type="button"
+                  onClick={() => setUploadModalOpen(true)}
+                  style={{
+                    marginTop: "14px",
+                    cursor: "pointer",
+                    backgroundColor: "#123c42",
+                    color: "white",
+                    border: "none",
+                    padding: "9px 14px",
+                    borderRadius: "6px",
+                    fontSize: "13px",
+                    fontWeight: "700",
+                  }}
+                >
+                  Provide Missing Documents
+                </button>
               )}
             </div>
           </div>
@@ -393,6 +422,15 @@ export const ClaimDetailPage = () => {
           </div>
         )}
       </section>
+
+      {uploadModalOpen && workflowId && (
+        <DocumentUploadModal
+          workflowId={workflowId}
+          missingDocuments={[]}
+          onClose={() => setUploadModalOpen(false)}
+          onUploadComplete={() => loadClaim()}
+        />
+      )}
     </div>
   );
 };
