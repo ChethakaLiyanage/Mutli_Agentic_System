@@ -28,6 +28,7 @@ class OrchestratorRequest(_OrchestratorContract):
 
     request_id: str
     text: str
+    context_workflow_id: str | None = Field(default=None, max_length=100)
 
     @field_validator("request_id")
     @classmethod
@@ -47,6 +48,14 @@ class OrchestratorRequest(_OrchestratorContract):
         if len(value) > 3000:
             raise ValueError("text must contain at most 3000 characters")
         return value
+
+    @field_validator("context_workflow_id")
+    @classmethod
+    def validate_context_workflow_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
 
 class ClarificationRequest(OrchestratorRequest):

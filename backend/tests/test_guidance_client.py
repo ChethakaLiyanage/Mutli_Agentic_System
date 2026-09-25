@@ -31,6 +31,23 @@ def test_no_policy_evidence_returns_safe_uncertainty() -> None:
     assert "couldn't find enough information" in response.data.message.lower()
 
 
+def test_missing_policy_document_and_irrelevant_evidence_have_distinct_guidance() -> None:
+    missing_document = asyncio.run(LocalGuidanceClient().generate(GuidanceRequest(
+        request_id="REQ-NO-DOC", audience="customer",
+        task_type="coverage_answer", retrieved_evidence=[],
+        retrieval_warnings=["matching_active_policy_document_not_found"],
+    )))
+    no_relevant_evidence = asyncio.run(LocalGuidanceClient().generate(GuidanceRequest(
+        request_id="REQ-NO-EVIDENCE", audience="customer",
+        task_type="coverage_answer", retrieved_evidence=[],
+        retrieval_warnings=["relevant_policy_evidence_not_found"],
+    )))
+
+    assert "no active customer policy document" in missing_document.data.message.lower()
+    assert "did not contain relevant evidence" in no_relevant_evidence.data.message.lower()
+    assert missing_document.data.message != no_relevant_evidence.data.message
+
+
 def test_generic_evidence_does_not_confirm_customer_specific_coverage() -> None:
     response = asyncio.run(LocalGuidanceClient().generate(GuidanceRequest(
         request_id="REQ-GENERIC", audience="customer",

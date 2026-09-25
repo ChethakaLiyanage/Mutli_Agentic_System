@@ -339,8 +339,16 @@ def test_service_integration_with_knowledge():
             return None
 
     class MockKnowledgeRet:
-        def retrieve(self, query, insurance_type="motor", top_k=3, min_relevance_score=0.7):
-            if "flood" in query.lower():
+        def retrieve(
+            self,
+            query,
+            insurance_type="motor",
+            top_k=3,
+            min_relevance_score=0.7,
+            policy_type=None,
+            intent=None,
+        ):
+            if "coverage" in query.lower():
                 return [
                     KnowledgeEvidence(
                         evidence_id="FLOOD_TEST",
@@ -350,7 +358,13 @@ def test_service_integration_with_knowledge():
                         document_type="policy_manual",
                         content="Flood damage coverage details...",
                         relevance_score=0.9,
-                        metadata={"insurance_type": "motor"}
+                        metadata={
+                            "insurance_type": "motor",
+                            "policy_type": policy_type,
+                            "status": "active",
+                            "audience": "customer",
+                            "query_intent": intent,
+                        }
                     )
                 ]
             return []

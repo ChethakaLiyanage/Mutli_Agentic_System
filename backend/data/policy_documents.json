@@ -79,16 +79,17 @@
     "storage_path": "backend\\data\\policy_docs\\third_party_motor_policy.txt",
     "checksum": "5d51d130008ba0440d2b5a0db4bfc57b047eefa5bc3f9c484499d2d9f9da5638",
     "status": "active",
-    "chunks_count": 0,
+    "chunks_count": 7,
     "previous_version_id": null,
     "change_summary": null,
     "uploaded_by": "system",
     "created_at": "2026-09-23T09:19:14.310714+00:00",
     "activated_at": "2026-09-23T09:19:14.310689+00:00",
     "superseded_at": null,
-    "updated_at": "2026-09-23T09:19:14.310719+00:00",
+    "updated_at": "2026-09-25T04:35:29.570847+00:00",
     "metadata": {
-      "initial_corpus": true
+      "initial_corpus": true,
+      "linked_source_document_id": "doc-cf2d406b0c9f8e3dc680e543"
     }
   },
   {
@@ -799,16 +800,17 @@
     "storage_path": "backend\\data\\policy_docs\\partial_comprehensive_motor_policy.txt",
     "checksum": "b1c49d385d1057d83395af824707140cb7d47a1bac840b85b0906c41d728fb18",
     "status": "active",
-    "chunks_count": 0,
+    "chunks_count": 9,
     "previous_version_id": null,
     "change_summary": null,
     "uploaded_by": "system",
     "created_at": "2026-09-23T09:19:08.499826+00:00",
     "activated_at": "2026-09-23T09:19:08.499602+00:00",
     "superseded_at": null,
-    "updated_at": "2026-09-23T09:19:08.499844+00:00",
+    "updated_at": "2026-09-25T04:35:29.012846+00:00",
     "metadata": {
-      "initial_corpus": true
+      "initial_corpus": true,
+      "linked_source_document_id": "doc-a3b0821bf3ebdb0d94f73480"
     }
   },
   {
@@ -943,16 +945,17 @@
     "storage_path": "backend\\data\\policy_docs\\full_comprehensive_motor_policy.txt",
     "checksum": "50cbb11eead5a886b8554db54039fcf3d3621804d6d39eb2b818e4f106ec632b",
     "status": "active",
-    "chunks_count": 0,
+    "chunks_count": 10,
     "previous_version_id": null,
     "change_summary": null,
     "uploaded_by": "system",
     "created_at": "2026-09-23T09:19:07.285551+00:00",
     "activated_at": "2026-09-23T09:19:07.285516+00:00",
     "superseded_at": null,
-    "updated_at": "2026-09-23T09:19:07.285561+00:00",
+    "updated_at": "2026-09-25T04:35:28.590459+00:00",
     "metadata": {
-      "initial_corpus": true
+      "initial_corpus": true,
+      "linked_source_document_id": "doc-5f23500339592b9596697832"
     }
   },
   {

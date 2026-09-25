@@ -11,6 +11,7 @@ from typing import Protocol
 
 from backend.app.retrieval.preprocessing import preprocess_for_retrieval
 from backend.app.retrieval.schemas import KnowledgeChunk, KnowledgeDocumentType
+from backend.app.policy_types import normalize_policy_type
 
 
 SUPPORTED_EXTENSIONS = frozenset({".txt", ".pdf", ".docx"})
@@ -285,7 +286,7 @@ class DocumentIngestor:
         raw_bytes = file_path.read_bytes()
         content_hash = sha256(raw_bytes).hexdigest()
         title = source_title or file_path.stem
-        inferred_policy_type = policy_type
+        inferred_policy_type = normalize_policy_type(policy_type)
         if not inferred_policy_type:
             lowered_stem = file_path.stem.lower()
             if "full_comprehensive" in lowered_stem:

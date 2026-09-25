@@ -77,6 +77,17 @@ from backend.app.schemas.orchestrator import (
 from backend.app.security.resource_authorization import (
     deny_cross_customer_resource_request,
 )
+from backend.app.security.privacy_context import (
+    PrivacyContextDecision,
+    classify_privacy_context,
+    minimized_workflow_text,
+)
+from backend.app.nlp.claim_identifiers import extract_claim_id
+from backend.app.nlp.request_context import is_personal_policy_query
+from backend.app.policy_types import (
+    extract_requested_policy_type,
+    normalize_policy_type,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -156,19 +167,21 @@ class OrchestratorService:
         *,
         authenticated_user_id: str | None = None,
         authenticated_user_role: str | None = None,
+        stored_text: str | None = None,
     ) -> WorkflowState:
         """Create received state; authentication context comes from outside."""
 
         self.validate_request(request)
         sanitized = sanitize_user_text(request.text)
+        persisted_text = stored_text or sanitized
         workflow_id = f"WF-{uuid4().hex.upper()}"
         state = WorkflowState(
             workflow_id=workflow_id,
             request_id=request.request_id,
             last_request_id=request.request_id,
-            raw_text=request.text,
-            original_text=sanitized,
-            accumulated_text=sanitized,
+            raw_text=persisted_text,
+            original_text=persisted_text,
+            accumulated_text=persisted_text,
             authenticated_user_id=authenticated_user_id,
             authenticated_user_role=authenticated_user_role,
         )
@@ -278,6 +291,16 @@ class OrchestratorService:
             return False
         candidate = text.strip()
         if not candidate:
+            return False
+
+        lowered = candidate.casefold()
+        if lowered.endswith("?") or lowered.startswith(
+            (
+                "what ", "where ", "when ", "who ", "why ", "how ",
+                "is ", "are ", "can ", "could ", "do ", "does ",
+                "did ", "which ", "tell me ", "please tell me ",
+            )
+        ):
             return False
 
         if state.pending_field == "incident_date":
@@ -402,7 +425,8 @@ class OrchestratorService:
         safe_evidence = []
         allowed_metadata = {
             "source_document_id", "chunk_id", "document_type",
-            "insurance_type", "page", "query_intent",
+            "insurance_type", "page", "query_intent", "policy_type",
+            "status", "version", "audience",
         }
         for item in result.get("knowledge_evidence", []):
             evidence = dict(item)
@@ -592,6 +616,8 @@ class OrchestratorService:
         *,
         task_type: GuidanceTaskType,
         safe_customer_context: dict[str, object] | None = None,
+        include_claim_data: bool = True,
+        include_known_fields: bool = True,
     ) -> GuidanceRequest:
         intent = (
             state.intake_result.data.intent.label
@@ -602,10 +628,12 @@ class OrchestratorService:
             request_id=state.last_request_id,
             audience="customer",
             task_type=task_type,
-            claim=state.claim_context,
+            claim=state.claim_context if include_claim_data else None,
             intent=intent,
             workflow_status=state.current_status.value,
-            known_fields=self._known_customer_fields(state),
+            known_fields=(
+                self._known_customer_fields(state) if include_known_fields else {}
+            ),
             missing_fields=state.missing_fields,
             safe_customer_context=safe_customer_context,
         )
@@ -616,6 +644,8 @@ class OrchestratorService:
         *,
         task_type: GuidanceTaskType,
         safe_customer_context: dict[str, object] | None = None,
+        include_claim_data: bool = True,
+        include_known_fields: bool = True,
     ) -> GuidanceResponse:
         """Ask Agent 4 to verbalize state without granting workflow authority."""
 
@@ -623,6 +653,8 @@ class OrchestratorService:
             state,
             task_type=task_type,
             safe_customer_context=safe_customer_context,
+            include_claim_data=include_claim_data,
+            include_known_fields=include_known_fields,
         )
         if self.guidance_client is None:
             response = build_deterministic_guidance_response(request)
@@ -712,6 +744,7 @@ class OrchestratorService:
     ) -> OrchestratorResponse:
         """Complete a denied request through Agent 4 without retrieving data."""
 
+        state.workflow_type = WorkflowType.INFORMATION_REQUEST
         state.missing_fields = []
         state.requires_clarification = False
         self.append_audit_event(
@@ -731,11 +764,179 @@ class OrchestratorService:
             state,
             task_type="authorization_denied",
             safe_customer_context=safe_customer_context,
+            include_claim_data=False,
+            include_known_fields=False,
         )
         self.update_status(
             state,
             WorkflowStatus.COMPLETED,
             message="Privacy-safe guidance completed",
+            step="guidance",
+        )
+        await self.workflow_repository.save(state)
+        return self.to_response(state)
+
+    async def _complete_privacy_context_request(
+        self,
+        state: WorkflowState,
+        *,
+        decision: PrivacyContextDecision,
+    ) -> OrchestratorResponse:
+        """Complete a privacy-only turn without intake, retrieval, or raw PII."""
+
+        state.workflow_type = WorkflowType.INFORMATION_REQUEST
+        state.missing_fields = []
+        state.requires_clarification = False
+        self.append_audit_event(
+            state,
+            step="privacy_safety",
+            status=AuditEventStatus.SUCCESS,
+            message="Privacy context request minimized before insurance routing",
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.GUIDANCE_PROCESSING,
+            message="Preparing minimum-necessary privacy guidance",
+            step="guidance",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self._run_customer_guidance(
+            state,
+            task_type=decision.guidance_task,
+            safe_customer_context=decision.to_safe_context(),
+            include_claim_data=False,
+            include_known_fields=False,
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.COMPLETED,
+            message="Privacy-safe context guidance completed",
+            step="guidance",
+        )
+        await self.workflow_repository.save(state)
+        return self.to_response(state)
+
+    @staticmethod
+    def _customer_safe_claim_context(claim: ClaimContext) -> dict[str, object]:
+        """Select only customer-facing claim fields for Agent 4."""
+
+        values: dict[str, object | None] = {
+            "claim_id": claim.claim_id,
+            "claim_reference": claim.claim_reference,
+            "incident_type": (
+                claim.incident_type.value if claim.incident_type else None
+            ),
+            "incident_date": (
+                claim.incident_date.isoformat() if claim.incident_date else None
+            ),
+            "incident_location": claim.incident_location,
+            "incident_description": claim.incident_description,
+            "damage_areas": list(claim.damage_areas) or None,
+            "vehicle_registration": claim.vehicle_registration,
+            "claim_status": claim.claim_status,
+        }
+        return {
+            key: value for key, value in values.items() if value not in (None, "", [])
+        }
+
+    async def _route_explicit_claim_query(
+        self,
+        state: WorkflowState,
+        *,
+        claim_id: str,
+        coverage_question: bool,
+    ) -> OrchestratorResponse:
+        """Look up an explicit claim, enforce ownership, then route safely."""
+
+        state.workflow_type = (
+            WorkflowType.INFORMATION_REQUEST
+            if coverage_question
+            else WorkflowType.CLAIM_STATUS
+        )
+        state.requires_clarification = False
+        state.missing_fields = []
+
+        claim = None
+        if self.claim_repository is not None:
+            try:
+                claim = await asyncio.to_thread(
+                    self.claim_repository.get_by_id,
+                    claim_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Owned claim lookup failed for workflow %s",
+                    state.workflow_id,
+                )
+                self.mark_failed(
+                    state,
+                    code="CLAIM_LOOKUP_FAILED",
+                    message="Claim information could not be retrieved safely",
+                    step="claim_lookup",
+                )
+                await self.workflow_repository.save(state)
+                return self.to_response(state)
+
+        if (
+            claim is None
+            or claim.customer_id is None
+            or claim.customer_id != state.authenticated_user_id
+        ):
+            return await self._complete_authorization_denial(
+                state,
+                safe_customer_context={
+                    "authorization_result": "denied",
+                    "requested_resource_type": "claim",
+                    "reason": "ownership_required",
+                    "ownership": "not_accessible",
+                    "allowed_alternatives": [
+                        "own_claim_information",
+                        "own_claim_status",
+                    ],
+                    "authenticated_customer": True,
+                },
+            )
+
+        state.claim_context = claim
+        self.append_audit_event(
+            state,
+            step="claim_lookup",
+            status=AuditEventStatus.SUCCESS,
+            message="Owned claim retrieved after authorization check",
+        )
+
+        if coverage_question:
+            await self.workflow_repository.save(state)
+            await self._advance_after_intake(
+                state,
+                completion_message="Owned claim context resolved for coverage retrieval",
+                completion_step="claim_lookup",
+            )
+            await self.workflow_repository.save(state)
+            return self.to_response(state)
+
+        self.update_status(
+            state,
+            WorkflowStatus.GUIDANCE_PROCESSING,
+            message="Preparing customer-safe claim information",
+            step="guidance",
+            audit_status=AuditEventStatus.STARTED,
+        )
+        await self._run_customer_guidance(
+            state,
+            task_type="claim_information",
+            safe_customer_context={
+                "authorization_result": "allowed",
+                "requested_resource_type": "claim",
+                "ownership": "authenticated_customer",
+                "claim": self._customer_safe_claim_context(claim),
+            },
+            include_claim_data=False,
+        )
+        self.update_status(
+            state,
+            WorkflowStatus.COMPLETED,
+            message="Customer-safe claim information completed",
             step="guidance",
         )
         await self.workflow_repository.save(state)
@@ -768,29 +969,55 @@ class OrchestratorService:
     ) -> OrchestratorResponse | ClarificationResponse:
         """Run intake, then stop at clarification or a downstream-ready state."""
 
+        authorization_denial = deny_cross_customer_resource_request(
+            request.text,
+            authenticated_user_id=authenticated_user_id or "",
+        )
+        privacy_decision = (
+            None
+            if authorization_denial is not None
+            else classify_privacy_context(request.text)
+        )
+        if privacy_decision is not None:
+            stored_text = minimized_workflow_text(privacy_decision)
+        elif authorization_denial is not None:
+            stored_text = "[protected resource request minimized]"
+        else:
+            stored_text = None
+
         state = self.create_initial_state(
             request,
             authenticated_user_id=authenticated_user_id,
             authenticated_user_role=authenticated_user_role,
+            stored_text=stored_text,
         )
         self.update_status(
             state,
             WorkflowStatus.INTAKE_PROCESSING,
-            message="Claim intake started",
-            step="claim_intake",
+            message=(
+                "Privacy and authorization screening started"
+                if authorization_denial is not None or privacy_decision is not None
+                else "Claim intake started"
+            ),
+            step=(
+                "privacy_safety"
+                if authorization_denial is not None or privacy_decision is not None
+                else "claim_intake"
+            ),
             audit_status=AuditEventStatus.STARTED,
         )
 
         # Enforce ownership before intake, retrieval, or any model receives the
         # original request. Agent 4 receives only the safe denial context.
-        authorization_denial = deny_cross_customer_resource_request(
-            state.accumulated_text,
-            authenticated_user_id=authenticated_user_id or "",
-        )
         if authorization_denial is not None:
             return await self._complete_authorization_denial(
                 state,
                 safe_customer_context=authorization_denial.to_safe_context(),
+            )
+        if privacy_decision is not None:
+            return await self._complete_privacy_context_request(
+                state,
+                decision=privacy_decision,
             )
 
         try:
@@ -840,6 +1067,57 @@ class OrchestratorService:
             status=AuditEventStatus.SUCCESS,
             message="Claim intake completed",
         )
+
+        explicit_claim_id = next(
+            (
+                entity.value.upper()
+                for entity in intake_response.data.entities
+                if entity.entity_type == "CLAIM_ID"
+            ),
+            None,
+        ) or extract_claim_id(state.accumulated_text)
+
+        if (
+            explicit_claim_id is None
+            and request.context_workflow_id is not None
+            and intake_response.data.intent.label == "coverage_question"
+            and any(
+                phrase in state.accumulated_text.casefold()
+                for phrase in (
+                    "that damage",
+                    "this damage",
+                    "the damage",
+                    "that claim",
+                    "this claim",
+                    "the claim",
+                )
+            )
+        ):
+            prior_state = await self.workflow_repository.get(
+                request.context_workflow_id
+            )
+            if (
+                prior_state is not None
+                and prior_state.authenticated_user_id == authenticated_user_id
+                and prior_state.claim_context is not None
+                and prior_state.claim_context.customer_id == authenticated_user_id
+            ):
+                state.claim_context = prior_state.claim_context.model_copy(deep=True)
+                self.append_audit_event(
+                    state,
+                    step="claim_context",
+                    status=AuditEventStatus.SUCCESS,
+                    message="Owned prior claim context resolved for coverage follow-up",
+                )
+
+        if explicit_claim_id is not None:
+            return await self._route_explicit_claim_query(
+                state,
+                claim_id=explicit_claim_id,
+                coverage_question=(
+                    intake_response.data.intent.label == "coverage_question"
+                ),
+            )
 
         mapped_workflow = self.determine_workflow_type(state)
         state.workflow_type = mapped_workflow
@@ -974,6 +1252,24 @@ class OrchestratorService:
                 denied_response.pending_claim_workflow_id = state.workflow_id
             return denied_response
 
+        privacy_decision = classify_privacy_context(request.text)
+        if (
+            privacy_decision is not None
+            and privacy_decision.request_type == "sensitive_context_recall"
+        ):
+            await self.workflow_repository.save(state)
+            privacy_response = await self.process_request(
+                OrchestratorRequest(
+                    request_id=request.request_id,
+                    text=request.text,
+                ),
+                authenticated_user_id=state.authenticated_user_id,
+                authenticated_user_role=state.authenticated_user_role,
+            )
+            if isinstance(privacy_response, OrchestratorResponse):
+                privacy_response.pending_claim_workflow_id = state.workflow_id
+            return privacy_response
+
         # Respect the active claim workflow before any standalone classification.
         # If the user is answering the pending field, keep the original workflow
         # live even if the isolated text would otherwise look like a clean
@@ -981,9 +1277,17 @@ class OrchestratorService:
         # question, preserve the pending claim and route the new inquiry as a
         # separate workflow while keeping the original claim in context.
         try:
+            is_pending_claim = (
+                state.workflow_type is WorkflowType.CLAIM_SUBMISSION
+                or (
+                    state.intake_result is not None
+                    and state.intake_result.data.intent.label == "claim_submission"
+                )
+            )
+            looks_like_question = self._looks_like_independent_question(request.text)
             pending_field_answer = (
                 self._pending_field_answer_text(state, request.text)
-                if state.pending_field
+                if is_pending_claim and state.pending_field and not looks_like_question
                 else False
             )
             standalone_intake = None
@@ -991,7 +1295,7 @@ class OrchestratorService:
             is_independent_intent = False
             provides_missing_info = pending_field_answer
 
-            if not provides_missing_info and self._looks_like_independent_question(request.text):
+            if is_pending_claim and not provides_missing_info and looks_like_question:
                 standalone_intake = await self.claim_intake_client.analyze(
                     IntakeRequest(request_id=request.request_id, text=request.text)
                 )
@@ -1005,7 +1309,7 @@ class OrchestratorService:
                         "claim_status",
                     }
 
-                    if state.missing_fields:
+                    if state.missing_fields and not self._looks_like_independent_question(request.text):
                         new_incident = standalone_intake.data.incident
                         if new_incident is not None:
                             if "incident_type" in state.missing_fields and new_incident.type:
@@ -1046,8 +1350,8 @@ class OrchestratorService:
 
             if is_independent_intent and not provides_missing_info:
                 logger.info(
-                    "Clarification input '%s' identified as independent intent %s (provides_missing=%s); routing as new request",
-                    request.text,
+                    "Clarification input identified as independent intent %s "
+                    "(provides_missing=%s); routing as new request",
                     standalone_intent,
                     provides_missing_info,
                 )
@@ -1353,49 +1657,94 @@ class OrchestratorService:
         await self.workflow_repository.save(state)
 
         intent = state.intake_result.data.intent.label if state.intake_result else None
-        raw_text_lower = (state.accumulated_text or "").lower()
-
-        personal_policy_indicators = (
-            "my policy", "my coverage", "my cover", "my insurance",
-            "am i covered", "what do i have", "what coverage do i have",
-            "what does my policy", "under my policy",
-            "can i claim for", "do i have coverage", "covered under my",
-        )
-        is_personal = any(ind in raw_text_lower for ind in personal_policy_indicators)
+        query_text = state.accumulated_text or ""
+        requested_policy_type = extract_requested_policy_type(query_text)
+        is_personal = is_personal_policy_query(query_text)
 
         policy_context_lookup = None
-        if state.authenticated_user_id and self.claim_repository is not None:
+        if requested_policy_type is not None:
+            # An explicitly named category is query scope, not ownership. Do
+            # not attach or alter the authenticated customer's assignment.
+            policy_context_lookup = PolicyLookupContext(
+                policy_type=requested_policy_type,
+            )
+        elif (
+            is_personal
+            and state.authenticated_user_id
+            and self.claim_repository is not None
+        ):
             user_policies = self.claim_repository.list_policies_for_customer(state.authenticated_user_id)
-            active_policies = [p for p in user_policies if p.get("status") == "active"]
+            active_policies = [
+                p for p in user_policies
+                if str(p.get("status") or "").casefold() == "active"
+            ]
 
-            if is_personal:
-                if len(active_policies) == 0:
-                    response = GuidanceResponse(
-                        status="success",
-                        response_type="coverage_answer",
-                        agent="guidance_agent",
-                        data=GuidanceResponseData(
-                            message="I couldn't find an active motor policy linked to your account, so I can't confirm your personal coverage.",
-                            next_steps=["contact_support"],
-                        ),
-                    )
-                    state.guidance_result = response.model_dump(mode="json")
-                    self.update_status(
-                        state,
-                        WorkflowStatus.COMPLETED,
-                        message="No active motor policy found for customer",
-                        step="information_retrieval",
-                    )
-                    await self.workflow_repository.save(state)
-                    return
+            linked_active_policies = [
+                policy
+                for policy in active_policies
+                if state.claim_context is not None
+                and state.claim_context.policy_id is not None
+                and policy.get("policy_id") == state.claim_context.policy_id
+            ]
+            if len(linked_active_policies) == 1:
+                active_policies = linked_active_policies
 
-                if len(active_policies) > 1:
+            if len(active_policies) == 0:
+                response = GuidanceResponse(
+                    status="success",
+                    response_type="coverage_answer",
+                    agent="guidance_agent",
+                    data=GuidanceResponseData(
+                        message="I couldn't find an active motor policy linked to your account, so I can't confirm your personal coverage.",
+                        next_steps=["contact_support"],
+                    ),
+                )
+                state.guidance_result = response.model_dump(mode="json")
+                self.update_status(
+                    state,
+                    WorkflowStatus.COMPLETED,
+                    message="No active motor policy found for customer",
+                    step="information_retrieval",
+                )
+                await self.workflow_repository.save(state)
+                return
+
+            if len(active_policies) > 1:
+                response = GuidanceResponse(
+                    status="success",
+                    response_type="manual_assistance_required",
+                    agent="guidance_agent",
+                    data=GuidanceResponseData(
+                        message="You have multiple active motor policies linked to your account. Please specify which policy you are inquiring about or contact an agent for assistance.",
+                        next_steps=["manual_assistance"],
+                    ),
+                )
+                state.guidance_result = response.model_dump(mode="json")
+                self.update_status(
+                    state,
+                    WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
+                    message="Multiple active motor policies found",
+                    step="information_retrieval",
+                )
+                await self.workflow_repository.save(state)
+                return
+
+            if len(active_policies) == 1:
+                active_policy = active_policies[0]
+                resolved_ptype = normalize_policy_type(
+                    active_policy.get("policy_type")
+                    or active_policy.get("coverage_type")
+                )
+                if resolved_ptype is None:
                     response = GuidanceResponse(
                         status="success",
                         response_type="manual_assistance_required",
                         agent="guidance_agent",
                         data=GuidanceResponseData(
-                            message="You have multiple active motor policies linked to your account. Please specify which policy you are inquiring about or contact an agent for assistance.",
+                            message=(
+                                "Your active motor policy is missing a valid policy category, "
+                                "so I can't select the correct coverage document yet."
+                            ),
                             next_steps=["manual_assistance"],
                         ),
                     )
@@ -1403,15 +1752,11 @@ class OrchestratorService:
                     self.update_status(
                         state,
                         WorkflowStatus.MANUAL_ASSISTANCE_REQUIRED,
-                        message="Multiple active motor policies found",
+                        message="Active motor policy category is missing or invalid",
                         step="information_retrieval",
                     )
                     await self.workflow_repository.save(state)
                     return
-
-            if len(active_policies) == 1:
-                active_policy = active_policies[0]
-                resolved_ptype = active_policy.get("policy_type") or "full_comprehensive"
                 policy_context_lookup = PolicyLookupContext(
                     policy_id=active_policy.get("policy_id"),
                     policy_number=active_policy.get("policy_number"),
@@ -1424,6 +1769,7 @@ class OrchestratorService:
                 authenticated_user_id=state.authenticated_user_id,
                 original_query=state.accumulated_text,
                 intake=state.intake_result,
+                claim=state.claim_context,
                 policy_context=policy_context_lookup,
             )
             retrieval_response = await self.retrieval_client.retrieve(

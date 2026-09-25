@@ -148,6 +148,7 @@ class PolicyContext(_DomainContract):
     customer_id: str | None = None
     status: str | None = None
     coverage_type: str = "full"
+    policy_type: str | None = None
     start_date: date | None = None
     end_date: date | None = None
     coverage_details: dict[str, Any] = Field(default_factory=dict)

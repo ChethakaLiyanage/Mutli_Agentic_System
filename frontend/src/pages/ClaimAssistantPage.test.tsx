@@ -338,6 +338,39 @@ describe("ClaimAssistantPage", () => {
     expect(await screen.findByText("The available policy evidence describes how flood claims are assessed.")).toBeInTheDocument();
   });
 
+  it("sends the owned claim workflow as context for a natural coverage follow-up", async () => {
+    const claimDetailResponse = workflowResponse({
+      workflow_id: "WF-CLAIM-DETAIL",
+      claim_id: "CLM-OWN-TEST",
+      status: "completed",
+      workflow_type: "claim_status",
+      message: "Claim CLM-OWN-TEST records windscreen damage.",
+      guidance_result: {
+        status: "success",
+        response_type: "claim_information",
+        agent: "guidance_agent",
+        data: {
+          message: "Claim CLM-OWN-TEST records windscreen damage.",
+          grounded: true,
+        },
+      },
+    });
+    vi.mocked(processRequest)
+      .mockResolvedValueOnce(claimDetailResponse)
+      .mockResolvedValueOnce(completedInformationResponse);
+    render(<ClaimAssistantPage />);
+
+    await sendMessage("Show me claim CLM-OWN-TEST");
+    await screen.findByText("Claim CLM-OWN-TEST records windscreen damage.");
+    await sendMessage("Is that damage covered by my policy?");
+
+    expect(processRequest).toHaveBeenLastCalledWith({
+      request_id: expect.stringMatching(/^REQ-/),
+      text: "Is that damage covered by my policy?",
+      context_workflow_id: "WF-CLAIM-DETAIL",
+    });
+  });
+
   it("shows a safe insufficient-evidence response without inventing an answer", async () => {
     vi.mocked(processRequest).mockResolvedValue(workflowResponse({
       ...completedInformationResponse,

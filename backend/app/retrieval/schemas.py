@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from backend.app.policy_types import normalize_policy_type
 
 
 class UserContext(BaseModel):
@@ -31,6 +33,13 @@ class PolicyLookupContext(BaseModel):
     policy_id: str | None = None
     policy_number: str | None = None
     policy_type: str | None = None
+
+    @field_validator("policy_type", mode="before")
+    @classmethod
+    def canonicalize_policy_type(cls, value):
+        if value is None:
+            return None
+        return normalize_policy_type(value, strict=True)
 
 
 class ClaimLookupContext(BaseModel):
@@ -73,6 +82,11 @@ class PolicyRecord(BaseModel):
     coverage_details: dict[str, Any] = Field(
         default_factory=dict
     )
+
+    @field_validator("policy_type", mode="before")
+    @classmethod
+    def canonicalize_policy_type(cls, value):
+        return normalize_policy_type(value, strict=True)
 
 
 class ClaimRecord(BaseModel):
