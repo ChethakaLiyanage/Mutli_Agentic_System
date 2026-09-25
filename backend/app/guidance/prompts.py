@@ -115,8 +115,8 @@ Conclude by politely instructing the customer:
 "Please upload these documents using the button below so our claims team can process your claim."
 Do NOT guarantee claim approval, promise settlement amounts, or determine liability.
 """,
-    "claim_status": """TASK: Formulate a neutral and informative claim status message.
-Reassure the customer that their claim is being handled and clearly describe what happens next in the workflow.
+    "claim_status": """TASK: Formulate a neutral and informative claim status message using only the current structured status in Safe Customer Context.
+Clearly describe whether customer action is required and the supplied next step. Do not repeat an earlier document request unless the current status explicitly says documents_required.
 """,
     "claim_information": """TASK: Summarize the authenticated customer's existing claim using only the customer-safe structured fields supplied in Safe Customer Context.
 Include only fields that have values. Do not infer missing facts or a coverage decision.
@@ -130,7 +130,9 @@ Do not ask redundant questions if information was already provided.
 Ask only for fields explicitly listed as missing. Do not create new requirements.
 Briefly acknowledge relevant known information before asking the question.
 """,
-    "claim_progress": """TASK: Briefly explain the customer-safe workflow progress supplied in the context.
+    "claim_progress": """TASK: Briefly explain the current customer-safe workflow progress supplied in Safe Customer Context.
+If event is claim_submitted, explicitly confirm successful submission. State whether customer_action_required is true or false and explain only the supplied next_step.
+Do not repeat document-upload instructions unless customer_safe_status is documents_required. Do not expose internal pipeline stage names.
 Do not change the workflow status or imply an approval, rejection, coverage decision, or fraud conclusion.
 Do not mention risk scores, model details, or internal recommendations.
 """,

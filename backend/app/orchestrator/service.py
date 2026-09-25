@@ -29,6 +29,7 @@ from backend.app.orchestrator.adapters import (
     retrieval_to_policy_context,
 )
 from backend.app.orchestrator.claim_repository import ClaimRepository
+from backend.app.orchestrator.customer_status import customer_status_context
 from backend.app.orchestrator.constants import (
     ALLOWED_STATUS_TRANSITIONS,
     AuditEventStatus,
@@ -473,23 +474,13 @@ class OrchestratorService:
     def _public_message(
         self, state: WorkflowState, retrieval_status: str | None
     ) -> str:
-        if self.guidance_client is not None and state.current_status is not WorkflowStatus.RECEIVED:
+        if state.current_status is not WorkflowStatus.RECEIVED:
             self._ensure_customer_guidance_fallback(state, retrieval_status)
         if state.guidance_result:
             data = state.guidance_result.get("data") or {}
             message = str(data.get("message") or "").strip()
             if message:
                 return message
-        if state.current_status in {
-            WorkflowStatus.AWAITING_HUMAN_REVIEW,
-            WorkflowStatus.AWAITING_ASSIGNMENT,
-            WorkflowStatus.UNDER_HUMAN_REVIEW,
-            WorkflowStatus.DOCUMENTS_SUBMITTED,
-            WorkflowStatus.FRAUD_TRIAGE,
-            WorkflowStatus.FRAUD_TRIAGE_COMPLETE,
-            WorkflowStatus.REVIEW_SUMMARY_GENERATION,
-        }:
-            return "Your claim has been submitted successfully and is waiting for review."
         if state.retrieval_result:
             return self._retrieval_message(retrieval_status) or "Policy information retrieval completed."
         return (
@@ -689,6 +680,57 @@ class OrchestratorService:
             message=f"Agent 4 produced customer guidance for {task_type}",
         )
         return response
+
+    @staticmethod
+    def _stamp_status_guidance(state: WorkflowState, *, event: str) -> None:
+        """Mark cached guidance with the authoritative state it explains."""
+
+        if state.guidance_result is not None:
+            state.guidance_result["_workflow_status"] = state.current_status.value
+            state.guidance_result["_event"] = event
+
+    @staticmethod
+    def _status_guidance_is_current(state: WorkflowState) -> bool:
+        if not state.guidance_result:
+            return False
+        has_message = bool(
+            str((state.guidance_result.get("data") or {}).get("message") or "").strip()
+        )
+        if not has_message:
+            return False
+        if state.guidance_result.get("_workflow_status") == state.current_status.value:
+            return True
+        # Pre-marker document guidance is still valid, but only for the one
+        # lifecycle state where the customer genuinely needs those documents.
+        return bool(
+            state.current_status is WorkflowStatus.AWAITING_DOCUMENTS
+            and state.guidance_result.get("response_type")
+            in {"claim_document_requirements", "required_documents"}
+        )
+
+    async def _run_current_status_guidance(
+        self,
+        state: WorkflowState,
+        *,
+        event: str,
+    ) -> None:
+        """Have Agent 4 explain current state from customer-safe semantics only."""
+
+        context = customer_status_context(
+            state.current_status,
+            workflow_id=state.workflow_id,
+            claim_id=state.claim_context.claim_id if state.claim_context else None,
+            event=event,
+        )
+        state.guidance_result = None
+        await self._run_customer_guidance(
+            state,
+            task_type="claim_progress",
+            safe_customer_context=context,
+            include_claim_data=False,
+            include_known_fields=False,
+        )
+        self._stamp_status_guidance(state, event=event)
 
     async def _run_reviewer_guidance(
         self,
@@ -1070,6 +1112,26 @@ class OrchestratorService:
             status=AuditEventStatus.SUCCESS,
             message="Claim intake completed",
         )
+
+        # A typed status question in an active claim conversation is a read of
+        # that persisted workflow, not a new claim workflow.  Resolve ownership
+        # in get_customer_workflow_result and do not rerun intake/fraud/review.
+        if (
+            intake_response.data.intent.label == "claim_status"
+            and request.context_workflow_id is not None
+            and authenticated_user_id is not None
+        ):
+            prior_state = await self.workflow_repository.get(
+                request.context_workflow_id
+            )
+            if (
+                prior_state is not None
+                and prior_state.workflow_type is WorkflowType.CLAIM_SUBMISSION
+            ):
+                return await self.get_customer_workflow_result(
+                    request.context_workflow_id,
+                    authenticated_user_id=authenticated_user_id,
+                )
 
         explicit_claim_id = next(
             (
@@ -2143,7 +2205,7 @@ class OrchestratorService:
         *,
         authenticated_user_id: str,
     ) -> OrchestratorResponse:
-        """Return an owner-only result, generating post-decision guidance once."""
+        """Return an owner-only, status-current customer result."""
         state = await self.workflow_repository.get(workflow_id)
         if state is None:
             raise WorkflowNotFoundError("Workflow not found")
@@ -2157,12 +2219,21 @@ class OrchestratorService:
             WorkflowStatus.MORE_INFORMATION_REQUIRED,
             WorkflowStatus.ESCALATED,
         }
-        if (
-            state.current_status in final_statuses
-            and state.guidance_result is None
-            and state.human_review_result is not None
-        ):
-            await self._run_post_decision_guidance(state)
+        if not self._status_guidance_is_current(state):
+            if (
+                state.current_status in final_statuses
+                and state.human_review_result is not None
+            ):
+                state.guidance_result = None
+                await self._run_post_decision_guidance(state)
+                self._stamp_status_guidance(state, event="status_checked")
+                await self.workflow_repository.save(state)
+            elif state.workflow_type is WorkflowType.CLAIM_SUBMISSION:
+                await self._run_current_status_guidance(
+                    state,
+                    event="status_checked",
+                )
+                await self.workflow_repository.save(state)
         return self.to_response(state)
 
     async def _run_post_decision_guidance(self, state: WorkflowState) -> None:
@@ -2314,7 +2385,10 @@ class OrchestratorService:
             WorkflowStatus.MORE_INFORMATION_REQUIRED,
             WorkflowStatus.ESCALATED,
         }:
-            return self.to_response(state)
+            return await self.get_customer_workflow_result(
+                workflow_id,
+                authenticated_user_id=authenticated_user_id,
+            )
 
         if state.current_status not in {
             WorkflowStatus.AWAITING_DOCUMENTS,
@@ -2574,6 +2648,14 @@ class OrchestratorService:
             message="Claim submitted successfully, awaiting officer assignment",
             step="claim_submission",
             audit_status=AuditEventStatus.AWAITING_INPUT,
+        )
+        if state.claim_context is not None:
+            state.claim_context = state.claim_context.model_copy(
+                update={"claim_status": WorkflowStatus.AWAITING_ASSIGNMENT.value}
+            )
+        await self._run_current_status_guidance(
+            state,
+            event="claim_submitted",
         )
         await self.workflow_repository.save(state)
 

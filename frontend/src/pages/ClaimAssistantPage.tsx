@@ -43,6 +43,21 @@ const TRACKED_WORKFLOW_STATUSES = new Set<WorkflowStatus>([
   "more_information_required",
 ]);
 
+const SUBMITTED_CLAIM_STATUSES = new Set<WorkflowStatus>([
+  "documents_submitted",
+  "fraud_triage",
+  "fraud_triage_complete",
+  "review_summary_generation",
+  "awaiting_assignment",
+  "under_human_review",
+  "awaiting_human_review",
+  "more_information_required",
+  "escalated",
+  "approved",
+  "rejected",
+  "completed",
+]);
+
 const isPureGreetingResponse = (response: WorkflowResponse): boolean =>
   isOrchestratorResponse(response) &&
   response.status === "completed" &&
@@ -80,6 +95,18 @@ const resultMessage = (response: WorkflowResponse): string => {
   return "We couldn't display the assistant's response. Please try again.";
 };
 
+const submittedClaimMessage = (response: OrchestratorResponse): string => {
+  const currentMessage = resultMessage(response);
+  if (!SUBMITTED_CLAIM_STATUSES.has(response.status)) return currentMessage;
+  return [
+    "Current claim status",
+    currentMessage,
+    "",
+    "Status updates",
+    "You can check your claim status through your profile, or simply ask me here in chat.",
+  ].join("\n");
+};
+
 export const ClaimAssistantPage = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const requestedWorkflowId = searchParams.get("workflowId");
@@ -90,7 +117,6 @@ export const ClaimAssistantPage = () => {
   const [trackedWorkflow, setTrackedWorkflow] = useState<WorkflowResponse | null>(null);
   const [sending, setSending] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [submittingClaim, setSubmittingClaim] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -105,7 +131,7 @@ export const ClaimAssistantPage = () => {
         ? trackedWorkflow
         : workflow;
   const canClarify = activeClaimWf?.status === "awaiting_clarification";
-  const canSend = !sending && !restoring && !refreshing;
+  const canSend = !sending && !restoring;
   const hasConversation = messages.length > 0 || workflow !== null;
 
   const applyWorkflow = useCallback((response: WorkflowResponse) => {
@@ -242,31 +268,6 @@ export const ClaimAssistantPage = () => {
     }
   };
 
-  const refreshWorkflow = async (target: OrchestratorResponse) => {
-    if (refreshing) return;
-    setError(null);
-    setRefreshing(true);
-    try {
-      const response = await getWorkflow(target.workflow_id);
-      applyWorkflow(response);
-      setMessages((current) => [
-        ...current,
-        createMessage("system", resultMessage(response)),
-      ]);
-    } catch (requestError) {
-      if (isWorkflowNotFoundError(requestError)) {
-        sessionStorage.removeItem(ACTIVE_WORKFLOW_KEY);
-        setTrackedWorkflow(null);
-        setWorkflow((current) =>
-          current?.workflow_id === target.workflow_id ? null : current,
-        );
-      }
-      setError(getOrchestratorErrorMessage(requestError));
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -320,11 +321,7 @@ export const ClaimAssistantPage = () => {
       applyWorkflow(response);
       setMessages((prev) => [
         ...prev,
-        createMessage(
-          "system",
-          resultMessage(response) ||
-            "Your claim has been submitted successfully and queued for assignment to a claims officer.",
-        ),
+        createMessage("system", submittedClaimMessage(response)),
       ]);
     } catch (submitErr) {
       setError(getOrchestratorErrorMessage(submitErr));
@@ -347,7 +344,6 @@ export const ClaimAssistantPage = () => {
     setTrackedWorkflow(null);
     setSending(false);
     setRestoring(false);
-    setRefreshing(false);
     setError(null);
     sessionStorage.removeItem(ACTIVE_WORKFLOW_KEY);
   };
@@ -450,16 +446,6 @@ export const ClaimAssistantPage = () => {
                 activeOrchWf.status === "awaiting_assignment") && (
                 <div className="chat-action-card">
                   <WorkflowStatusBadge status={activeOrchWf.status} />
-                  <div className="chat-action-buttons">
-                    <button
-                      className="button button-secondary"
-                      type="button"
-                      onClick={() => void refreshWorkflow(activeOrchWf)}
-                      disabled={refreshing}
-                    >
-                      {refreshing ? "Checking status…" : "Check status"}
-                    </button>
-                  </div>
                 </div>
               )}
 
@@ -471,16 +457,6 @@ export const ClaimAssistantPage = () => {
                   <p className="chat-action-detail">
                     Your claim is assigned to a claims officer.
                   </p>
-                  <div className="chat-action-buttons">
-                    <button
-                      className="button button-primary"
-                      type="button"
-                      onClick={() => void refreshWorkflow(activeOrchWf)}
-                      disabled={refreshing}
-                    >
-                      {refreshing ? "Checking status…" : "Check status"}
-                    </button>
-                  </div>
                 </div>
               )}
 
@@ -491,16 +467,6 @@ export const ClaimAssistantPage = () => {
                 <p className="chat-action-detail">
                   Tracked workflow: {trackedOrchWf.workflow_id}
                 </p>
-                <div className="chat-action-buttons">
-                  <button
-                    className="button button-secondary"
-                    type="button"
-                    onClick={() => void refreshWorkflow(trackedOrchWf)}
-                    disabled={refreshing}
-                  >
-                    {refreshing ? "Checking…" : "Check status"}
-                  </button>
-                </div>
               </div>
             )}
 
