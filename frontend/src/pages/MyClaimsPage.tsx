@@ -213,7 +213,7 @@ export const MyClaimsPage = () => {
                           fontSize: "13px",
                         }}
                       >
-                        View details →
+                        View details 
                       </Link>
                     </td>
                   </tr>

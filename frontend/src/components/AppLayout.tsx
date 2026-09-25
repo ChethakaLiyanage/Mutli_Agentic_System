@@ -26,10 +26,6 @@ export const AppLayout = () => {
           </div>
         </NavLink>
 
-        <nav className="header-nav" aria-label="Primary navigation">
-          {!isCustomer && <NavLink to="/admin-dashboard">Dashboard</NavLink>}
-        </nav>
-
         <div className="user-menu" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {isCustomer && <NotificationBell />}
           {isCustomer && (

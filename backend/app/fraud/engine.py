@@ -11,6 +11,7 @@ from backend.app.fraud.history_checks import (
     flag_duplicate_claim,
     flag_duplicate_police_report,
     flag_repeated_claims,
+    flag_same_day_claims,
 )
 from backend.app.fraud.rules import (
     flag_late_reporting,
@@ -67,6 +68,10 @@ class FraudDetectionEngine:
                 historical_claims=historical_claims,
             ),
             flag_repeated_claims(
+                historical_claims=historical_claims,
+            ),
+            flag_same_day_claims(
+                claim=claim,
                 historical_claims=historical_claims,
             ),
             flag_duplicate_police_report(

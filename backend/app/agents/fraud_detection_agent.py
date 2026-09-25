@@ -15,6 +15,7 @@ from backend.app.fraud.rules import (
 from backend.app.fraud.history_checks import (
     flag_duplicate_claim,
     flag_duplicate_police_report,
+    flag_same_day_claims,
 )
 from backend.app.fraud.scoring import (
     calculate_rule_score,
@@ -95,6 +96,10 @@ def fraud_detection_agent(state: dict) -> dict:
             submitted_date=date.today()
         ),
         flag_duplicate_claim(
+            claim=claim,
+            historical_claims=historical_claims
+        ),
+        flag_same_day_claims(
             claim=claim,
             historical_claims=historical_claims
         ),

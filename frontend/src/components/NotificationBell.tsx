@@ -56,7 +56,24 @@ export const NotificationBell = () => {
       }
     }
     setIsOpen(false);
-    if (item.claim_id) {
+    const needsDocuments =
+      Boolean(item.workflow_id) &&
+      (item.notification_type === "missing_documents" ||
+        item.notification_type === "documents_required" ||
+        item.notification_type === "more_information_required" ||
+        /missing|required document|additional information/i.test(
+          `${item.title} ${item.message}`,
+        ));
+
+    if (needsDocuments && item.workflow_id && item.claim_id) {
+      navigate(
+        `/dashboard/claims/${encodeURIComponent(item.claim_id)}?workflowId=${encodeURIComponent(item.workflow_id)}&action=upload-documents`,
+      );
+    } else if (needsDocuments && item.workflow_id) {
+      navigate(
+        `/claim-assistant?workflowId=${encodeURIComponent(item.workflow_id)}&action=upload-documents`,
+      );
+    } else if (item.claim_id) {
       navigate(`/dashboard/claims/${encodeURIComponent(item.claim_id)}`);
     }
   };

@@ -187,6 +187,7 @@ describe("ClaimAssistantPage", () => {
     vi.clearAllMocks();
     vi.mocked(isWorkflowNotFoundError).mockReturnValue(false);
     sessionStorage.clear();
+    window.history.replaceState({}, "", "/claim-assistant");
   });
 
   it("preserves claim intake details and stores an awaiting-review workflow in clean chat", async () => {
@@ -489,6 +490,27 @@ describe("ClaimAssistantPage", () => {
     expect(getWorkflow).toHaveBeenCalledWith("WF-CLAIM");
     expect(screen.queryByRole("button", { name: /check status/i })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
+  });
+
+  it("resumes a missing-document workflow from a notification link", async () => {
+    const awaitingDocsWf = workflowResponse({
+      status: "awaiting_documents",
+      claim_id: "CLM-123",
+      missing_required_documents: ["police_report"],
+      message: "Please upload the required documents to proceed with your claim.",
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/claim-assistant?workflowId=WF-CLAIM&action=upload-documents",
+    );
+    vi.mocked(getWorkflow).mockResolvedValue(awaitingDocsWf);
+
+    render(<ClaimAssistantPage />);
+
+    expect(await screen.findByRole("heading", { name: "Upload Claim Documents" })).toBeInTheDocument();
+    expect(getWorkflow).toHaveBeenCalledWith("WF-CLAIM");
+    expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBe("WF-CLAIM");
   });
 
   it("clears an unavailable restored workflow and returns to the empty assistant", async () => {

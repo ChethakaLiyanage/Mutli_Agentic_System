@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { apiClient } from "../api/client";
 import { fetchClaimDetail } from "../api/claims";
+import { recheckWorkflowDocuments } from "../api/orchestrator";
+import { DocumentUploadModal } from "../components/DocumentUploadModal";
 import type { ClaimDetailCustomer } from "../types/claim";
 
 const formatIncidentType = (type: string | null | undefined): string => {
@@ -24,6 +26,39 @@ export const ClaimDetailPage = () => {
   const [claim, setClaim] = useState<ClaimDetailCustomer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [rechecking, setRechecking] = useState(false);
+  const [recheckMessage, setRecheckMessage] = useState<string | null>(null);
+
+  const loadClaim = useCallback(() => {
+    if (!claimId) return;
+    setLoading(true);
+    setError(null);
+    void fetchClaimDetail(claimId)
+      .then((data) => {
+        setClaim(data);
+        const action = new URLSearchParams(window.location.search).get("action");
+        if (
+          action === "upload-documents" &&
+          data.workflow_id &&
+          (data.workflow_status === "more_information_required" ||
+            data.workflow_status === "awaiting_documents")
+        ) {
+          setUploadModalOpen(true);
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete("action");
+          window.history.replaceState({}, "", cleanUrl.toString());
+        }
+      })
+      .catch((err) => {
+        setError(
+          err.response?.status === 404
+            ? "Claim not found."
+            : "Unable to load claim details.",
+        );
+      })
+      .finally(() => setLoading(false));
+  }, [claimId]);
 
   const handleOpenDocument = async (docId: string) => {
     try {
@@ -56,29 +91,24 @@ export const ClaimDetailPage = () => {
     }
   };
 
+  const handleRecheckDocuments = async () => {
+    if (!workflowId || rechecking) return;
+    setRechecking(true);
+    setRecheckMessage(null);
+    try {
+      const response = await recheckWorkflowDocuments(workflowId);
+      setRecheckMessage(response.message);
+      await loadClaim();
+    } catch {
+      setRecheckMessage("We could not recheck the documents. Please try again.");
+    } finally {
+      setRechecking(false);
+    }
+  };
+
   useEffect(() => {
-    if (!claimId) return;
-    let active = true;
-    fetchClaimDetail(claimId)
-      .then((data) => {
-        if (active) setClaim(data);
-      })
-      .catch((err) => {
-        if (active) {
-          setError(
-            err.response?.status === 404
-              ? "Claim not found."
-              : "Unable to load claim details.",
-          );
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [claimId]);
+    loadClaim();
+  }, [loadClaim]);
 
   if (loading) {
     return (
@@ -92,7 +122,7 @@ export const ClaimDetailPage = () => {
     return (
       <div style={{ maxWidth: "860px", margin: "0 auto", padding: "3rem 1.5rem" }}>
         <Link to="/dashboard/claims" style={{ color: "#1967a3", textDecoration: "none", fontSize: "14px" }}>
-          ← Back to My Claims
+          Back to My Claims
         </Link>
         <div style={{ marginTop: "1.5rem", backgroundColor: "#fff0ed", border: "1px solid #f1d7cd", color: "#bd3e2b", padding: "16px", borderRadius: "8px" }}>
           {error || "Claim not found."}
@@ -105,6 +135,7 @@ export const ClaimDetailPage = () => {
   const isRejected = claim.decision === "reject" || claim.claim_status === "rejected" || claim.workflow_status === "rejected";
   const isMoreInfo = claim.decision === "request_more_information" || claim.workflow_status === "more_information_required";
   const isUnderReview = claim.workflow_status === "under_human_review" || claim.workflow_status === "awaiting_assignment" || claim.workflow_status === "awaiting_human_review";
+  const workflowId = claim.workflow_id || new URLSearchParams(window.location.search).get("workflowId");
 
   return (
     <div style={{ maxWidth: "860px", margin: "0 auto", padding: "2rem 1.5rem" }}>
@@ -113,7 +144,7 @@ export const ClaimDetailPage = () => {
           to="/dashboard/claims"
           style={{ color: "#1967a3", textDecoration: "none", fontSize: "14px", fontWeight: "600" }}
         >
-          ← Back to My Claims
+          Back to My Claims
         </Link>
       </div>
 
@@ -216,6 +247,48 @@ export const ClaimDetailPage = () => {
                     {claim.rejection_reason}
                   </span>
                 </div>
+              )}
+              {workflowId && (
+                <div style={{ marginTop: "14px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => setUploadModalOpen(true)}
+                    style={{
+                      cursor: "pointer",
+                      backgroundColor: "#123c42",
+                      color: "white",
+                      border: "none",
+                      padding: "9px 14px",
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    Provide Missing Documents
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRecheckDocuments()}
+                    disabled={rechecking}
+                    style={{
+                      cursor: rechecking ? "wait" : "pointer",
+                      backgroundColor: "white",
+                      color: "#123c42",
+                      border: "1px solid #123c42",
+                      padding: "9px 14px",
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    {rechecking ? "Rechecking…" : "Recheck Documents"}
+                  </button>
+                </div>
+              )}
+              {recheckMessage && (
+                <p style={{ margin: "10px 0 0", color: "#526b75", fontSize: "13px" }} role="status">
+                  {recheckMessage}
+                </p>
               )}
             </div>
           </div>
@@ -368,7 +441,7 @@ export const ClaimDetailPage = () => {
                       fontWeight: "bold",
                     }}
                   >
-                    View ↗
+                    View
                   </button>
                   <button
                     type="button"
@@ -393,6 +466,15 @@ export const ClaimDetailPage = () => {
           </div>
         )}
       </section>
+
+      {uploadModalOpen && workflowId && (
+        <DocumentUploadModal
+          workflowId={workflowId}
+          missingDocuments={[]}
+          onClose={() => setUploadModalOpen(false)}
+          onUploadComplete={() => loadClaim()}
+        />
+      )}
     </div>
   );
 };

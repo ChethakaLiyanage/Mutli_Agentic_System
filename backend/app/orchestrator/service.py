@@ -66,7 +66,10 @@ from backend.app.schemas.domain import (
     HumanDecision,
     HumanDecisionContext,
     PolicyContext,
+    RecommendedAction,
 )
+from backend.app.fraud.document_checks import get_missing_documents
+from backend.app.fraud.schemas import DocumentFacts
 from backend.app.schemas.orchestrator import (
     AuditEvent,
     ClarificationRequest,
@@ -2657,6 +2660,85 @@ class OrchestratorService:
         await self.workflow_repository.save(state)
 
         return self.to_response(state)
+
+    async def recheck_documents(
+        self,
+        workflow_id: str,
+        *,
+        authenticated_user_id: str,
+    ) -> OrchestratorResponse:
+        """Recalculate missing documents without advancing claim workflow status."""
+        state = await self.workflow_repository.get(workflow_id)
+        if state is None:
+            raise WorkflowNotFoundError("Workflow not found")
+        if state.authenticated_user_id != authenticated_user_id:
+            raise WorkflowAccessDeniedError(
+                "You are not authorized to access this workflow"
+            )
+        if state.claim_context is None or not state.claim_context.claim_id:
+            raise InvalidWorkflowTransition("Workflow has no active claim draft")
+
+        from backend.app.services.document_service import get_document_repository
+
+        docs = await get_document_repository().get_documents_for_claim(
+            state.claim_context.claim_id,
+            authenticated_user_id,
+        )
+        document_facts = [
+            DocumentFacts(
+                document_id=document["document_id"],
+                document_type=document.get("document_type", "other"),
+            )
+            for document in docs
+        ]
+        incident_type = state.claim_context.incident_type
+        claim_type = (
+            "motor_accident"
+            if incident_type and incident_type.value == "vehicle_collision"
+            else "vehicle_theft"
+            if incident_type and incident_type.value == "theft_or_break_in"
+            else incident_type.value if incident_type else "motor_accident"
+        )
+        missing = get_missing_documents(claim_type, document_facts)
+
+        if state.fraud_result:
+            assessment = FraudAssessmentContext.model_validate(state.fraud_result)
+            assessment = assessment.model_copy(
+                update={
+                    "missing_documents": [DocumentType(item) for item in missing],
+                    "recommended_action": (
+                        RecommendedAction.REQUEST_DOCUMENTS
+                        if missing
+                        else RecommendedAction.CONTINUE_PROCESSING
+                    ),
+                }
+            )
+            state.fraud_result = assessment.model_dump(mode="json")
+            if self.fraud_repository is not None:
+                await asyncio.to_thread(
+                    self.fraud_repository.save_canonical_assessment,
+                    assessment,
+                )
+
+        self.append_audit_event(
+            state,
+            step="document_recheck",
+            status=AuditEventStatus.SUCCESS,
+            message=(
+                "Document recheck completed: "
+                f"{len(missing)} required document(s) still missing"
+            ),
+        )
+        await self.workflow_repository.save(state)
+
+        response = self.to_response(state)
+        response.missing_required_documents = missing
+        response.message = (
+            "All required documents are present."
+            if not missing
+            else f"{len(missing)} required document(s) are still missing."
+        )
+        return response
 
     async def route_next_step(self, _state: WorkflowState) -> None:
         """Placeholder for future agent routing and human-review coordination."""

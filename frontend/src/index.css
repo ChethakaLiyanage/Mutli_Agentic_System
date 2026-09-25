@@ -300,7 +300,7 @@ a:focus-visible {
 .app-header {
   min-height: 76px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 2rem;
   padding: 0.8rem clamp(1rem, 4vw, 3.5rem);
@@ -342,6 +342,7 @@ a:focus-visible {
   justify-content: flex-end;
   align-items: center;
   gap: 1rem;
+  justify-self: end;
 }
 
 .user-summary {

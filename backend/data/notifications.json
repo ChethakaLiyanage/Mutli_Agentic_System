@@ -520,16 +520,42 @@
     "read_at": null
   },
   {
-    "id": "NOTIF-22C44FD2EBA1463EBA2A017B5D00A763",
-    "user_id": "USR-A79517080A224D748A6C0D128C72B0ED",
-    "workflow_id": "WF-9C6BD3BDF0434C4FAC8F1685C58393E1",
-    "claim_id": "CLM-1B1AB7C1C8E351D7A9420E7B995F43AB",
-    "type": "claim_rejected",
-    "notification_type": "claim_rejected",
-    "title": "Claim Rejected",
-    "message": "Your claim has been reviewed and rejected. Reason: no doc",
+    "id": "NOTIF-A303CEFBD5C240BAB5F40F2ED655959A",
+    "user_id": "USR-E61314C96CE44EE98A52406F98D48D7E",
+    "workflow_id": "WF-9487258719814C20944ABEAEBED06368",
+    "claim_id": "CLM-253BD131CC79514F9DD38BC1E0EFA80C",
+    "type": "more_information_required",
+    "notification_type": "more_information_required",
+    "title": "Additional Information Required",
+    "message": "A claims officer has requested more information: provide the repair estimate document",
     "is_read": true,
-    "created_at": "2026-09-25T09:15:05.608961+00:00",
-    "read_at": "2026-09-25T09:15:58.456946+00:00"
+    "created_at": "2026-09-25T04:28:16.093199+00:00",
+    "read_at": "2026-09-25T04:29:59.601219+00:00"
+  },
+  {
+    "id": "NOTIF-21C96E2ECBDD4C098600F533932EC17C",
+    "user_id": "USR-E61314C96CE44EE98A52406F98D48D7E",
+    "workflow_id": "WF-D7B730593B8D494E83C136F7520928BB",
+    "claim_id": "CLM-AC216AF0BA3E56EA89E25F08ED119AAD",
+    "type": "more_information_required",
+    "notification_type": "more_information_required",
+    "title": "Additional Information Required",
+    "message": "A claims officer has requested more information: You havent provided the police report",
+    "is_read": true,
+    "created_at": "2026-09-25T05:04:42.439043+00:00",
+    "read_at": "2026-09-25T05:05:28.674111+00:00"
+  },
+  {
+    "id": "NOTIF-3B3AE3D793654176BF42C5F7A4D50AE4",
+    "user_id": "USR-E61314C96CE44EE98A52406F98D48D7E",
+    "workflow_id": "WF-FDF8B2DBB9794BB9B27ED28004A3E0E8",
+    "claim_id": "CLM-B5200467F1585D3BB397F0CBC8E588F7",
+    "type": "claim_approved",
+    "notification_type": "claim_approved",
+    "title": "Claim Approved",
+    "message": "Your motor insurance claim has been approved by a claims officer.",
+    "is_read": true,
+    "created_at": "2026-09-25T06:59:32.469490+00:00",
+    "read_at": "2026-09-25T07:05:06.528648+00:00"
   }
 ]
