@@ -275,7 +275,7 @@ export const ProfilePage = () => {
                           to={`/dashboard/claims/${encodeURIComponent(claim.claim_id)}`}
                           className="profile-claim-link"
                         >
-                          View details →
+                          View details
                         </Link>
                       </td>
                     </tr>

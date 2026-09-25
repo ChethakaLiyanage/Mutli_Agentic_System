@@ -48,6 +48,15 @@ export const submitClaim = async (
   return response.data;
 };
 
+export const recheckWorkflowDocuments = async (
+  workflowId: string,
+): Promise<OrchestratorResponse> => {
+  const response = await apiClient.post<OrchestratorResponse>(
+    `/orchestrator/workflows/${encodeURIComponent(workflowId)}/recheck-documents`,
+  );
+  return response.data;
+};
+
 export const uploadWorkflowDocument = async (
   workflowId: string,
   file: File,

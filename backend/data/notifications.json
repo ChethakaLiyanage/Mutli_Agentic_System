@@ -544,5 +544,18 @@
     "is_read": true,
     "created_at": "2026-09-25T05:04:42.439043+00:00",
     "read_at": "2026-09-25T05:05:28.674111+00:00"
+  },
+  {
+    "id": "NOTIF-3B3AE3D793654176BF42C5F7A4D50AE4",
+    "user_id": "USR-E61314C96CE44EE98A52406F98D48D7E",
+    "workflow_id": "WF-FDF8B2DBB9794BB9B27ED28004A3E0E8",
+    "claim_id": "CLM-B5200467F1585D3BB397F0CBC8E588F7",
+    "type": "claim_approved",
+    "notification_type": "claim_approved",
+    "title": "Claim Approved",
+    "message": "Your motor insurance claim has been approved by a claims officer.",
+    "is_read": true,
+    "created_at": "2026-09-25T06:59:32.469490+00:00",
+    "read_at": "2026-09-25T07:05:06.528648+00:00"
   }
 ]

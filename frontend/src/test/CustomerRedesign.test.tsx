@@ -43,7 +43,7 @@ describe("Customer Redesign — Layout and Components", () => {
       expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
     });
 
-    it("renders 'Motor Insurance' and Dashboard link for admin users", () => {
+    it("renders 'Motor Insurance' for admin users without a Dashboard nav link", () => {
       render(
         <MemoryRouter initialEntries={["/admin-dashboard"]}>
           <TestAuthProvider value={createAuthValue({ user: adminUser })}>
@@ -53,7 +53,7 @@ describe("Customer Redesign — Layout and Components", () => {
       );
 
       expect(screen.getByText("Motor Insurance")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Your profile" })).not.toBeInTheDocument();
       expect(screen.getByText("admin")).toBeInTheDocument();
     });
@@ -190,7 +190,7 @@ describe("Customer Redesign — Layout and Components", () => {
       expect(await screen.findByText("CLM-2026-001")).toBeInTheDocument();
       expect(screen.getByText("Collision")).toBeInTheDocument();
       expect(screen.getByText("Approved")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "View details →" })).toHaveAttribute(
+      expect(screen.getByRole("link", { name: "View details" })).toHaveAttribute(
         "href",
         "/dashboard/claims/claim-1",
       );
