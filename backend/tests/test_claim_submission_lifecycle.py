@@ -326,6 +326,9 @@ def test_full_claim_submission_and_review_lifecycle(lifecycle_env):
 
     # Status must be awaiting_assignment
     assert sub_data["status"] == "awaiting_assignment"
+    assert sub_data["guidance_result"]["response_type"] == "claim_progress"
+    assert "submitted" in sub_data["message"].lower()
+    assert "upload" not in sub_data["message"].lower()
 
     # CRITICAL PRIVACY: response must never contain fraud score, risk level, or internal staff summary
     assert "fraud_result" not in sub_data

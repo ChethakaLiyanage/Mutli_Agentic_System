@@ -7,6 +7,7 @@ import {
   getWorkflow,
   isWorkflowNotFoundError,
   processRequest,
+  submitClaim,
 } from "../api/orchestrator";
 import type {
   ClarificationResponse,
@@ -392,29 +393,47 @@ describe("ClaimAssistantPage", () => {
     expect(screen.queryByText(/your policy covers/i)).not.toBeInTheDocument();
   });
 
-  it("refreshes an awaiting-review workflow through the owner endpoint", async () => {
+  it("shows the current workflow status without an in-chat status button", async () => {
     vi.mocked(processRequest).mockResolvedValue(workflowResponse());
-    vi.mocked(getWorkflow).mockResolvedValue(workflowResponse({
-      status: "approved",
-      message: "Your claim has been approved by a claims officer.",
+    render(<ClaimAssistantPage />);
+    await sendMessage("I want to submit my complete claim.");
+
+    expect(await screen.findByText("Awaiting Human Review")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /check status/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the fresh backend submission guidance instead of document instructions", async () => {
+    vi.mocked(processRequest).mockResolvedValue(workflowResponse({
+      status: "awaiting_documents",
+      message: "Please upload the required documents.",
       guidance_result: {
         status: "success",
-        response_type: "final_decision_explanation",
+        response_type: "claim_document_requirements",
+        agent: "guidance_agent",
+        data: { message: "Please upload the required documents." },
+      },
+    }));
+    vi.mocked(submitClaim).mockResolvedValue(workflowResponse({
+      status: "awaiting_assignment",
+      message: "Your claim has been submitted successfully and is waiting to be assigned.",
+      guidance_result: {
+        status: "success",
+        response_type: "claim_progress",
         agent: "guidance_agent",
         data: {
-          message: "Your claim was approved after human review.",
-          next_steps: ["Keep your claim reference for future correspondence."],
-          grounded: true,
+          message: "Your claim has been submitted successfully and is waiting to be assigned.",
         },
       },
     }));
     render(<ClaimAssistantPage />);
-    const user = await sendMessage("I want to submit my complete claim.");
+    const user = await sendMessage("My car was stolen yesterday in Kandy.");
 
-    await user.click(await screen.findByRole("button", { name: "Check status" }));
+    await user.click(await screen.findByRole("button", { name: "Submit Claim" }));
 
-    expect(getWorkflow).toHaveBeenCalledWith("WF-CLAIM");
-    expect(await screen.findByText("Your claim was approved after human review.")).toBeInTheDocument();
+    expect(submitClaim).toHaveBeenCalledWith("WF-CLAIM");
+    expect(await screen.findByText(/Current claim status/)).toBeInTheDocument();
+    expect(screen.getByText(/check your claim status through your profile, or simply ask me here in chat/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /check status/i })).not.toBeInTheDocument();
   });
 
   it("keeps a pending claim trackable while a new policy workflow runs", async () => {
@@ -430,7 +449,7 @@ describe("ClaimAssistantPage", () => {
     expect(processRequest).toHaveBeenCalledTimes(2);
     expect(clarifyWorkflow).not.toHaveBeenCalled();
     expect(await screen.findByText("The available policy evidence describes how flood claims are assessed.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Check status" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /check status/i })).not.toBeInTheDocument();
     expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBe("WF-CLAIM");
   });
 
@@ -468,7 +487,7 @@ describe("ClaimAssistantPage", () => {
 
     expect(await screen.findByText("Awaiting Human Review")).toBeInTheDocument();
     expect(getWorkflow).toHaveBeenCalledWith("WF-CLAIM");
-    expect(screen.getByRole("button", { name: "Check status" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /check status/i })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Your message" })).toBeEnabled();
   });
 

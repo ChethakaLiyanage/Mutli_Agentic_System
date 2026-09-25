@@ -78,6 +78,27 @@ def _clarification_message(request: GuidanceRequest) -> str:
 
 
 def _claim_progress_message(request: GuidanceRequest) -> str:
+    context = request.safe_customer_context
+    safe_status = context.get("customer_safe_status")
+    event = context.get("event")
+    if safe_status == "documents_required":
+        return "Your claim draft still needs the required supporting documents before it can be submitted."
+    if safe_status in {"submitted", "processing", "awaiting_officer_assignment"}:
+        prefix = "Your claim has been submitted successfully. " if event == "claim_submitted" else "Your claim is submitted. "
+        return prefix + "No action is needed from you now; it is waiting to be assigned to a claims officer."
+    if safe_status == "awaiting_officer_review":
+        return "Your claim is waiting for a claims officer to review it. No action is needed from you right now."
+    if safe_status == "under_officer_review":
+        return "A claims officer is reviewing your claim. No action is needed from you right now."
+    if safe_status == "more_information_required":
+        return "A claims officer needs more information before the review can continue. Please provide the requested information."
+    if safe_status == "additional_review":
+        return "Your claim needs additional specialist review. No approval or rejection has been recorded."
+    if safe_status == "approved":
+        return "A claims officer has approved your claim."
+    if safe_status == "rejected":
+        return "A claims officer has rejected your claim."
+
     status = request.workflow_status
     location = request.known_fields.get("location")
     if status in {"awaiting_human_review", "awaiting_assignment", "under_human_review", "documents_submitted", "fraud_triage_complete", "review_summary_generation"}:
