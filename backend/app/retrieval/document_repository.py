@@ -10,7 +10,9 @@ import logging
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from backend.app.policy_types import normalize_policy_type
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,13 @@ class PolicyDocument(BaseModel):
     superseded_at: str | None = None
     updated_at: str = Field(default_factory=_utc_now_iso)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("policy_type", mode="before")
+    @classmethod
+    def canonicalize_policy_type(cls, value):
+        if value is None or str(value).strip().casefold() in {"", "none", "null"}:
+            return None
+        return normalize_policy_type(value, strict=True)
 
 
 @runtime_checkable

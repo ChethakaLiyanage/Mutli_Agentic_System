@@ -161,6 +161,10 @@ export const PolicyKnowledgeManagement: React.FC = () => {
       setAddError("Please select a document file (.txt, .pdf, or .docx).");
       return;
     }
+    if (addDocType === "policy_document" && addPolicyType === "none") {
+      setAddError("Policy category is required for a policy document.");
+      return;
+    }
 
     setSubmittingAdd(true);
     try {
@@ -526,9 +530,14 @@ export const PolicyKnowledgeManagement: React.FC = () => {
                   <select
                     value={addPolicyType}
                     onChange={(e) => setAddPolicyType(e.target.value)}
+                    required={addDocType === "policy_document"}
                     className="w-full rounded-lg border border-[#cfdede] px-3 py-2 text-xs outline-none focus:border-[#123c42]"
                   >
-                    <option value="none">Not Policy Specific (Common)</option>
+                    <option value="none" disabled={addDocType === "policy_document"}>
+                      {addDocType === "policy_document"
+                        ? "Select a policy category"
+                        : "Not Policy Specific (Common)"}
+                    </option>
                     <option value="full_comprehensive">Full Comprehensive</option>
                     <option value="partial_comprehensive">Partial Comprehensive</option>
                     <option value="third_party">Third Party</option>

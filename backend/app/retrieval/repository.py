@@ -13,6 +13,7 @@ from backend.app.retrieval.schemas import (
     KnowledgeDocumentType,
     PolicyRecord,
 )
+from backend.app.policy_types import normalize_policy_type
 
 
 class RetrievalRepository:
@@ -23,12 +24,24 @@ class RetrievalRepository:
 
     @staticmethod
     def policy_from_row(row: dict[str, Any]) -> PolicyRecord:
+        coverage_type = str(row.get("coverage_type") or "full")
+        metadata = row.get("metadata") or {}
+        policy_type = normalize_policy_type(row.get("policy_type"))
+        if not policy_type and isinstance(metadata, dict):
+            policy_type = normalize_policy_type(metadata.get("policy_type"))
+        if not policy_type:
+            policy_type = normalize_policy_type({
+                "full": "full_comprehensive",
+                "partial": "partial_comprehensive",
+                "third_party": "third_party",
+            }.get(coverage_type)) or "full_comprehensive"
         return PolicyRecord(
             policy_id=row.get("policy_id") or row.get("id"),
             policy_number=row["policy_number"],
             customer_id=row["customer_id"],
             status=row["status"],
-            coverage_type=row.get("coverage_type") or "full",
+            coverage_type=coverage_type,
+            policy_type=str(policy_type),
             start_date=str(row["start_date"]),
             end_date=str(row["end_date"]),
             coverage_details=row.get("coverage_details") or {},

@@ -176,3 +176,71 @@ def test_retrieval_service_respects_policy_lookup_context(
 
     for ev in response.result.knowledge_evidence:
         assert ev.metadata.get("policy_type") == "third_party"
+
+
+def test_policy_retrieval_distinguishes_missing_active_document() -> None:
+    repo = MemoryRetrievalRepository()
+    service = RetrievalService(
+        repository=repo,
+        knowledge_retriever=KnowledgeRetriever(repository=repo),
+    )
+    response = service.retrieve(
+        RetrievalRequest(
+            request_id="REQ-NO-ACTIVE-DOC",
+            query="What is my policy coverage?",
+            user_context=UserContext(user_id="USR-1"),
+            intent_context=IntentContext(intent="coverage_question"),
+            policy_context=PolicyLookupContext(
+                policy_number="POL-1",
+                policy_type="full_comprehensive",
+            ),
+        )
+    )
+
+    assert "matching_active_policy_document_not_found" in response.result.missing_evidence
+    assert response.result.knowledge_evidence == []
+
+
+def test_explicit_category_missing_document_is_not_described_as_own_policy() -> None:
+    repo = MemoryRetrievalRepository()
+    service = RetrievalService(
+        repository=repo,
+        knowledge_retriever=KnowledgeRetriever(repository=repo),
+    )
+    response = service.retrieve(
+        RetrievalRequest(
+            request_id="REQ-NO-EXPLICIT-DOC",
+            query="Tell me about third party policy",
+            user_context=UserContext(user_id="USR-1"),
+            intent_context=IntentContext(intent="policy_question"),
+            policy_context=PolicyLookupContext(policy_type="third_party"),
+        )
+    )
+
+    assert "requested_policy_document_not_found" in response.result.missing_evidence
+    assert "matching_active_policy_document_not_found" not in response.result.missing_evidence
+
+
+def test_policy_retrieval_distinguishes_active_document_without_relevant_evidence(
+    policy_corpus_repo: MemoryRetrievalRepository,
+) -> None:
+    service = RetrievalService(
+        repository=policy_corpus_repo,
+        knowledge_retriever=KnowledgeRetriever(repository=policy_corpus_repo),
+    )
+    response = service.retrieve(
+        RetrievalRequest(
+            request_id="REQ-NO-RELEVANT-EVIDENCE",
+            query="quantum spacecraft propulsion",
+            user_context=UserContext(user_id="USR-1"),
+            intent_context=IntentContext(intent="coverage_question"),
+            policy_context=PolicyLookupContext(
+                policy_number="POL-1",
+                policy_type="full_comprehensive",
+            ),
+        )
+    )
+
+    assert "relevant_policy_evidence_not_found" in response.result.missing_evidence
+    assert "matching_active_policy_document_not_found" not in response.result.missing_evidence
+    assert response.result.knowledge_evidence == []

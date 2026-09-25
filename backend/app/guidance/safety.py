@@ -49,6 +49,17 @@ _CUSTOMER_LEAKAGE_PATTERNS = [
     re.compile(r"internal\s+investigator\s+notes?", re.IGNORECASE),
 ]
 
+_PERSONAL_IDENTIFIER_PATTERNS = [
+    re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE),
+    re.compile(r"(?<!\d)(?:\+?94|0)?7\d{8}(?!\d)"),
+    re.compile(
+        r"\b(?:vehicle\s+(?:registration|number)|registration\s+number|"
+        r"policy\s+number|claim\s+number)\s*(?:is|:|=)\s*"
+        r"[A-Z0-9][A-Z0-9-]{2,}\b",
+        re.IGNORECASE,
+    ),
+]
+
 
 class SafetyCheckResult(NamedTuple):
     """Result of post-generation safety verification."""
@@ -106,6 +117,24 @@ def check_customer_role_leakage(text: str, audience: Audience) -> list[str]:
     return violations
 
 
+def check_sensitive_context_disclosure(
+    text: str,
+    request: GuidanceRequest,
+) -> list[str]:
+    """Reject identifier-shaped output for privacy-minimization tasks."""
+
+    if request.task_type not in {
+        "sensitive_context_recall",
+        "sensitive_context_notice",
+    }:
+        return []
+    return [
+        "Privacy minimization violation: guidance contained an identifying value."
+        for pattern in _PERSONAL_IDENTIFIER_PATTERNS
+        if pattern.search(text)
+    ]
+
+
 def enforce_safety(
     data: GuidanceResponseData,
     request: GuidanceRequest,
@@ -126,6 +155,7 @@ def enforce_safety(
         audience=request.audience,
     )
     all_violations.extend(leakage_violations)
+    all_violations.extend(check_sensitive_context_disclosure(data.message, request))
 
     # If reviewer summary exists, check that as well
     if data.reviewer_summary:
@@ -163,14 +193,43 @@ def build_insufficient_evidence_fallback(
     Follows Section 6.1 and 11.4 of the design guide.
     """
     if request.audience == "customer":
-        msg = (
-            "I couldn't find enough information in the available policy documents "
-            "to confirm the answer reliably."
-        )
-        steps = [
-            "Try asking another motor insurance question",
-            "Check your policy documents for more details",
-        ]
+        warning_codes = set(request.retrieval_warnings)
+        if "matching_active_policy_document_not_found" in warning_codes:
+            msg = (
+                "I found your active policy assignment, but there is no active "
+                "customer policy document for its category in the knowledge base."
+            )
+            steps = ["Ask an administrator to verify the active policy document"]
+        elif "requested_policy_document_not_found" in warning_codes:
+            msg = (
+                "There is no active customer document for the requested policy "
+                "category in the knowledge base."
+            )
+            steps = ["Ask an administrator to verify that policy category's document"]
+        elif "requested_policy_evidence_not_found" in warning_codes:
+            msg = (
+                "I found the active document for the requested policy category, "
+                "but it did not contain relevant evidence for this question."
+            )
+            steps = ["Ask a more specific question about that policy category"]
+        elif "relevant_policy_evidence_not_found" in warning_codes:
+            msg = (
+                "I found the active document for your policy category, but it did "
+                "not contain relevant evidence for this question."
+            )
+            steps = ["Ask a more specific coverage question or review your policy schedule"]
+        elif "policy_not_found" in warning_codes:
+            msg = "I couldn't find an active motor policy linked to your account."
+            steps = ["Ask a claims officer to verify your policy assignment"]
+        else:
+            msg = (
+                "I couldn't find enough information in the available policy documents "
+                "to confirm the answer reliably."
+            )
+            steps = [
+                "Try asking another motor insurance question",
+                "Check your policy documents for more details",
+            ]
     else:
         reason_detail = f" ({custom_reason})" if custom_reason else ""
         msg = (

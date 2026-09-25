@@ -40,6 +40,7 @@ export type AuditEventStatus =
 export interface OrchestratorRequest {
   request_id: string;
   text: string;
+  context_workflow_id?: string;
 }
 
 export type ClarificationRequest = OrchestratorRequest;
@@ -131,6 +132,8 @@ export type GuidanceResponseType =
   | "required_documents_information"
   | "claim_document_requirements"
   | "claim_status"
+  | "claim_information"
+  | "authorization_denied"
   | "next_steps"
   | "clarification_question"
   | "reviewer_summary"

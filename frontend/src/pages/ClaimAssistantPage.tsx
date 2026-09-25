@@ -201,7 +201,17 @@ export const ClaimAssistantPage = () => {
     setInput("");
 
     try {
-      const request = { request_id: makeId("REQ"), text };
+      const contextWorkflowId =
+        workflow && isOrchestratorResponse(workflow) && workflow.claim_id
+          ? workflow.workflow_id
+          : undefined;
+      const request = {
+        request_id: makeId("REQ"),
+        text,
+        ...(contextWorkflowId
+          ? { context_workflow_id: contextWorkflowId }
+          : {}),
+      };
       const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening)\b/i.test(text);
       const isQuestion = /^(can|does|what|where|how|tell me|is|are|why)\b/i.test(text);
       const targetWorkflow = activeClaimWf;

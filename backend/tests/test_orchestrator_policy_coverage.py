@@ -33,6 +33,7 @@ from backend.app.security.roles import UserRole
 class MemoryRetrievalRepository:
     def __init__(self, chunks: list[KnowledgeChunk] | None = None) -> None:
         self.chunks: list[KnowledgeChunk] = list(chunks or [])
+        self.policies: dict[str, PolicyRecord] = {}
 
     def list_knowledge_chunks(
         self,
@@ -47,10 +48,18 @@ class MemoryRetrievalRepository:
         ]
 
     def get_policy_by_number(self, policy_number: str, user_id: str | None = None) -> PolicyRecord | None:
-        return None
+        return next(
+            (
+                policy for policy in self.policies.values()
+                if policy.policy_number == policy_number
+                and policy.customer_id == user_id
+            ),
+            None,
+        )
 
     def get_policy_by_id(self, policy_id: str, user_id: str | None = None) -> PolicyRecord | None:
-        return None
+        policy = self.policies.get(policy_id)
+        return policy if policy is not None and policy.customer_id == user_id else None
 
     def get_knowledge_chunks_by_source(self, source_document_id: str) -> list[KnowledgeChunk]:
         return [item for item in self.chunks if item.source_document_id == source_document_id]
@@ -70,9 +79,10 @@ def orchestrator_setup():
     ingestor = DocumentIngestor(corpus_repo)
 
     docs_dir = Path(__file__).resolve().parents[1] / "data" / "policy_docs"
-    ingestor.ingest_file(docs_dir / "full_comprehensive_motor_policy.txt", document_type="policy_manual", policy_type="full_comprehensive")
-    ingestor.ingest_file(docs_dir / "partial_comprehensive_motor_policy.txt", document_type="policy_manual", policy_type="partial_comprehensive")
-    ingestor.ingest_file(docs_dir / "third_party_motor_policy.txt", document_type="policy_manual", policy_type="third_party")
+    active_metadata = {"status": "active", "audience": "customer", "version": "1.0"}
+    ingestor.ingest_file(docs_dir / "full_comprehensive_motor_policy.txt", document_type="policy_manual", policy_type="full_comprehensive", metadata=active_metadata)
+    ingestor.ingest_file(docs_dir / "partial_comprehensive_motor_policy.txt", document_type="policy_manual", policy_type="partial_comprehensive", metadata=active_metadata)
+    ingestor.ingest_file(docs_dir / "third_party_motor_policy.txt", document_type="policy_manual", policy_type="third_party", metadata=active_metadata)
 
     retriever = KnowledgeRetriever(repository=corpus_repo)
     retrieval_service = RetrievalService(repository=corpus_repo, knowledge_retriever=retriever)
@@ -88,9 +98,13 @@ def orchestrator_setup():
     cust_none = "USR-CUST-NONE-004"
     cust_multi = "USR-CUST-MULTI-005"
 
-    claim_repo.create_customer_policy(customer_id=cust_full, policy_type="full_comprehensive")
-    claim_repo.create_customer_policy(customer_id=cust_partial, policy_type="partial_comprehensive")
-    claim_repo.create_customer_policy(customer_id=cust_tp, policy_type="third_party")
+    created_policies = [
+        claim_repo.create_customer_policy(customer_id=cust_full, policy_type="full_comprehensive"),
+        claim_repo.create_customer_policy(customer_id=cust_partial, policy_type="partial_comprehensive"),
+        claim_repo.create_customer_policy(customer_id=cust_tp, policy_type="third_party"),
+    ]
+    for policy in created_policies:
+        corpus_repo.policies[policy["policy_id"]] = PolicyRecord.model_validate(policy)
 
     # Multi-policy customer
     claim_repo.create_customer_policy(customer_id=cust_multi, policy_type="full_comprehensive")
@@ -221,3 +235,152 @@ def test_third_party_customer_retrieval_confirms_own_vehicle_exclusion(orchestra
     # Verify that third party liability is stated and own vehicle damage is not claimed as covered
     assert "third party" in msg
     assert "exclusion" in msg or "excluded" in msg or "not covered" in msg or "liability" in msg
+
+
+@pytest.mark.parametrize(
+    ("customer_key", "policy_type"),
+    [
+        ("cust_full", "full_comprehensive"),
+        ("cust_partial", "partial_comprehensive"),
+        ("cust_tp", "third_party"),
+    ],
+)
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What is my policy coverage?",
+        "Does my policy cover windscreen damage?",
+    ],
+)
+def test_authenticated_policy_queries_use_only_the_active_category_corpus(
+    orchestrator_setup,
+    customer_key: str,
+    policy_type: str,
+    query: str,
+) -> None:
+    svc: OrchestratorService = orchestrator_setup["orchestrator"]
+    response = asyncio.run(
+        svc.process_request(
+            OrchestratorRequest(
+                request_id=f"REQ-SCOPE-{customer_key}-{len(query)}",
+                text=query,
+            ),
+            authenticated_user_id=orchestrator_setup[customer_key],
+            authenticated_user_role="customer",
+        )
+    )
+
+    assert response.intake_result is not None
+    assert response.intake_result.data.intent.label == "coverage_question"
+    assert response.status is WorkflowStatus.COMPLETED
+    assert response.retrieval_result is not None
+    assert response.retrieval_result["status"] == "success"
+    result = response.retrieval_result["result"]
+    assert result["policy_data"]["policy_type"] == policy_type
+    assert result["knowledge_evidence"]
+    for evidence in result["knowledge_evidence"]:
+        assert evidence["metadata"]["policy_type"] == policy_type
+        assert evidence["metadata"]["status"] == "active"
+        assert evidence["metadata"]["audience"] == "customer"
+        assert evidence["document_type"] in {"policy_document", "policy_manual"}
+    assert response.guidance_result is not None
+    assert response.guidance_result["response_type"] == "coverage_answer"
+    assert response.guidance_result["data"]["insufficient_evidence"] is False
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What is my coverage?",
+        "What is my policy coverage?",
+        "What does my policy cover?",
+        "What coverage do I have?",
+        "Does my policy cover fire?",
+        "Am I covered for theft?",
+        "Does my insurance cover flood damage?",
+        "Does my policy cover windscreen damage?",
+    ],
+)
+def test_personal_coverage_wording_resolves_authenticated_policy_context(
+    orchestrator_setup,
+    query: str,
+) -> None:
+    response = asyncio.run(
+        orchestrator_setup["orchestrator"].process_request(
+            OrchestratorRequest(
+                request_id=f"REQ-PERSONAL-{abs(hash(query))}",
+                text=query,
+            ),
+            authenticated_user_id=orchestrator_setup["cust_full"],
+            authenticated_user_role="customer",
+        )
+    )
+
+    assert response.intake_result is not None
+    assert response.intake_result.data.intent.label == "coverage_question"
+    assert response.retrieval_result is not None
+    result = response.retrieval_result["result"]
+    assert result["policy_data"]["policy_type"] == "full_comprehensive"
+    assert result["knowledge_evidence"]
+    assert all(
+        evidence["metadata"]["policy_type"] == "full_comprehensive"
+        for evidence in result["knowledge_evidence"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_policy_type", "expected_title"),
+    [
+        (
+            "Tell me about full comprehensive policy",
+            "full_comprehensive",
+            "full_comprehensive_motor_policy",
+        ),
+        (
+            "Tell me about partial policy",
+            "partial_comprehensive",
+            "partial_comprehensive_motor_policy",
+        ),
+        (
+            "Tell me about third party policy",
+            "third_party",
+            "third_party_motor_policy",
+        ),
+        (
+            "Does third party insurance cover windscreen damage?",
+            "third_party",
+            "third_party_motor_policy",
+        ),
+    ],
+)
+def test_explicit_policy_type_overrides_authenticated_customer_category(
+    orchestrator_setup,
+    query: str,
+    expected_policy_type: str,
+    expected_title: str,
+) -> None:
+    response = asyncio.run(
+        orchestrator_setup["orchestrator"].process_request(
+            OrchestratorRequest(
+                request_id=f"REQ-EXPLICIT-{abs(hash(query))}",
+                text=query,
+            ),
+            # This customer owns full comprehensive, even when asking about
+            # partial or third-party policy knowledge.
+            authenticated_user_id=orchestrator_setup["cust_full"],
+            authenticated_user_role="customer",
+        )
+    )
+
+    assert response.status is WorkflowStatus.COMPLETED
+    assert response.retrieval_result is not None
+    result = response.retrieval_result["result"]
+    assert result["policy_data"] is None
+    assert result["knowledge_evidence"]
+    assert all(
+        evidence["metadata"]["policy_type"] == expected_policy_type
+        for evidence in result["knowledge_evidence"]
+    )
+    assert expected_title in {
+        evidence["source_title"] for evidence in result["knowledge_evidence"]
+    }
