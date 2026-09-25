@@ -518,5 +518,31 @@
     "is_read": false,
     "created_at": "2026-09-24T09:36:58.906544+00:00",
     "read_at": null
+  },
+  {
+    "id": "NOTIF-A303CEFBD5C240BAB5F40F2ED655959A",
+    "user_id": "USR-E61314C96CE44EE98A52406F98D48D7E",
+    "workflow_id": "WF-9487258719814C20944ABEAEBED06368",
+    "claim_id": "CLM-253BD131CC79514F9DD38BC1E0EFA80C",
+    "type": "more_information_required",
+    "notification_type": "more_information_required",
+    "title": "Additional Information Required",
+    "message": "A claims officer has requested more information: provide the repair estimate document",
+    "is_read": true,
+    "created_at": "2026-09-25T04:28:16.093199+00:00",
+    "read_at": "2026-09-25T04:29:59.601219+00:00"
+  },
+  {
+    "id": "NOTIF-21C96E2ECBDD4C098600F533932EC17C",
+    "user_id": "USR-E61314C96CE44EE98A52406F98D48D7E",
+    "workflow_id": "WF-D7B730593B8D494E83C136F7520928BB",
+    "claim_id": "CLM-AC216AF0BA3E56EA89E25F08ED119AAD",
+    "type": "more_information_required",
+    "notification_type": "more_information_required",
+    "title": "Additional Information Required",
+    "message": "A claims officer has requested more information: You havent provided the police report",
+    "is_read": true,
+    "created_at": "2026-09-25T05:04:42.439043+00:00",
+    "read_at": "2026-09-25T05:05:28.674111+00:00"
   }
 ]

@@ -268,7 +268,7 @@ async def get_claim_detail(
         return ClaimDetailCustomerResponse(
             claim_id=claim.claim_id or claim_id,
             claim_reference=claim.claim_reference,
-            workflow_id=claim.workflow_id,
+            workflow_id=claim.workflow_id or (wf.workflow_id if wf else None),
             policy_id=claim.policy_id,
             policy_number=claim.policy_number,
             incident_type=claim.incident_type.value if claim.incident_type else None,

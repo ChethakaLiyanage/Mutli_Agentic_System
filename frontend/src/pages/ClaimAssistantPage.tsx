@@ -81,6 +81,9 @@ const resultMessage = (response: WorkflowResponse): string => {
 };
 
 export const ClaimAssistantPage = () => {
+  const searchParams = new URLSearchParams(window.location.search);
+  const requestedWorkflowId = searchParams.get("workflowId");
+  const requestedAction = searchParams.get("action");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
@@ -140,7 +143,7 @@ export const ClaimAssistantPage = () => {
   }, []);
 
   useEffect(() => {
-    const storedWorkflowId = sessionStorage.getItem(ACTIVE_WORKFLOW_KEY);
+    const storedWorkflowId = requestedWorkflowId || sessionStorage.getItem(ACTIVE_WORKFLOW_KEY);
     if (!storedWorkflowId) return;
 
     let active = true;
@@ -151,6 +154,13 @@ export const ClaimAssistantPage = () => {
         if (!active) return;
         applyWorkflow(response);
         setMessages([createMessage("system", resultMessage(response))]);
+        if (
+          requestedAction === "upload-documents" &&
+          isOrchestratorResponse(response) &&
+          response.status === "awaiting_documents"
+        ) {
+          setUploadModalOpen(true);
+        }
       } catch (requestError) {
         if (!active) return;
         sessionStorage.removeItem(ACTIVE_WORKFLOW_KEY);
@@ -166,7 +176,7 @@ export const ClaimAssistantPage = () => {
     return () => {
       active = false;
     };
-  }, [applyWorkflow]);
+  }, [applyWorkflow, requestedAction, requestedWorkflowId]);
 
   useEffect(() => {
     if (canSend && messages.length > 0) {
@@ -286,6 +296,9 @@ export const ClaimAssistantPage = () => {
         `Thank you. We have received your uploaded document(s): ${fileNames}. They are attached to your claim draft. You can now press "Submit Claim" below to finalize your submission.`,
       ),
     ]);
+    if (activeOrchWf) {
+      void refreshWorkflow(activeOrchWf);
+    }
   };
 
   const handleSubmitClaim = async () => {
