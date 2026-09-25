@@ -85,6 +85,41 @@ def flag_repeated_claims(
     )
 
 
+def flag_same_day_claims(
+    claim: ClaimData,
+    historical_claims: list[dict],
+) -> RiskIndicator | None:
+    same_day_claims = [
+        old_claim
+        for old_claim in historical_claims
+        if old_claim.get("incident_date")
+        and date.fromisoformat(old_claim["incident_date"])
+        == claim.incident_date
+    ]
+
+    if not same_day_claims:
+        return None
+
+    return RiskIndicator(
+        rule_id="SAME_DAY_CLAIMS",
+        severity="high",
+        weight=35,
+        title="Multiple claims on the same incident date",
+        explanation=(
+            "One or more previous claims under this policy have the "
+            "same incident date and require manual verification."
+        ),
+        evidence={
+            "same_day_claim_count": len(same_day_claims),
+            "incident_date": str(claim.incident_date),
+            "matching_claim_references": [
+                old_claim.get("claim_reference")
+                for old_claim in same_day_claims
+            ],
+        },
+    )
+
+
 def flag_duplicate_police_report(
     claim: ClaimData,
     matching_claims: list[dict],

@@ -6,6 +6,7 @@ from backend.app.fraud.document_checks import (
     flag_date_conflicts,
     get_missing_documents,
 )
+from backend.app.fraud.history_checks import flag_same_day_claims
 from backend.app.fraud.rules import flag_policy_inactive
 from backend.app.fraud.schemas import (
     ClaimData,
@@ -95,3 +96,37 @@ def test_missing_documents_are_detected():
     )
 
     assert missing == ["repair_estimate"]
+
+
+def test_same_day_claims_are_flagged():
+    claim = build_claim()
+
+    result = flag_same_day_claims(
+        claim,
+        [
+            {
+                "claim_reference": "REF-OLD",
+                "incident_date": "2026-09-15",
+            }
+        ],
+    )
+
+    assert result is not None
+    assert result.rule_id == "SAME_DAY_CLAIMS"
+    assert result.evidence["same_day_claim_count"] == 1
+
+
+def test_claims_on_other_dates_are_not_flagged_as_same_day():
+    claim = build_claim()
+
+    result = flag_same_day_claims(
+        claim,
+        [
+            {
+                "claim_reference": "REF-OLD",
+                "incident_date": "2026-09-14",
+            }
+        ],
+    )
+
+    assert result is None
