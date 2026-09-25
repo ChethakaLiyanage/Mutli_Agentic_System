@@ -260,3 +260,37 @@ async def submit_claim(
             "Claim submission failed",
         ) from error
 
+
+@router.post(
+    "/workflows/{workflow_id}/recheck-documents",
+    response_model=OrchestratorResponse,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_200_OK,
+    summary="Recheck uploaded claim documents",
+)
+async def recheck_documents(
+    workflow_id: str,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_customer)],
+    service: OrchestratorService = Depends(get_orchestrator_service),
+) -> OrchestratorResponse:
+    try:
+        return await service.recheck_documents(
+            workflow_id,
+            authenticated_user_id=current_user.user_id,
+        )
+    except WorkflowNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Workflow not found") from error
+    except WorkflowAccessDeniedError as error:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You are not authorized to access this workflow",
+        ) from error
+    except InvalidWorkflowTransition as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
+    except Exception as error:
+        logger.exception("Document recheck failed for workflow %s", workflow_id)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Document recheck failed",
+        ) from error
+
