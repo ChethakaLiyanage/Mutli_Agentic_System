@@ -103,8 +103,7 @@ class FraudRepository:
             .execute()
         )
 
-        # The caller receives the stable canonical payload rather than a
-        # provider-specific response row (which may contain extra columns).
+        
         return payload
 
     def save_canonical_assessment(
