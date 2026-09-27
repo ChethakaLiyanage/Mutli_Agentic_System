@@ -170,3 +170,12 @@ export const replacePolicyDocument = async (
   );
   return response.data;
 };
+
+export const deletePolicyDocument = async (
+  documentId: string,
+): Promise<PolicyDocumentOperationResponse> => {
+  const response = await apiClient.delete<PolicyDocumentOperationResponse>(
+    `/admin/policy-documents/${documentId}`,
+  );
+  return response.data;
+};

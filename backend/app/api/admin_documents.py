@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from hashlib import sha256
 import logging
 from pathlib import Path
@@ -103,6 +104,8 @@ async def list_policy_documents(
         audience=audience,
         root_only=root_only,
     )
+    if status is None:
+        documents = [doc for doc in documents if doc.status != "archived"]
     items = [PolicyDocumentItem.model_validate(d.model_dump()) for d in documents]
     return PolicyDocumentListResponse(documents=items, total=len(items))
 
@@ -351,6 +354,124 @@ async def upload_new_document(
         success=True,
         message=f"Document '{title}' successfully ingested and activated with {chunks_count} chunks.",
         document=PolicyDocumentItem.model_validate(updated.model_dump()),
+        chunks_indexed=refreshed_count,
+    )
+
+
+@router.delete(
+    "/{document_id}",
+    response_model=PolicyDocumentOperationResponse,
+    summary="Archive a policy or knowledge document",
+)
+async def archive_policy_document(
+    document_id: str,
+    admin: Annotated[AuthenticatedUser, Depends(get_current_admin)],
+    doc_repo: Annotated[PolicyDocumentRepository, Depends(get_policy_document_repository)],
+) -> PolicyDocumentOperationResponse:
+    """Soft-delete the current document while preserving source and history."""
+
+    selected = doc_repo.get_document_by_id(document_id)
+    if selected is None:
+        selected = doc_repo.get_active_by_root_id(document_id)
+    if selected is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Policy document not found",
+        )
+
+    active = doc_repo.get_active_by_root_id(selected.root_document_id)
+    target = active or selected
+    chunk_repo = _get_chunk_repository()
+
+    if target.status == "archived":
+        retriever = get_shared_knowledge_retriever(repository=chunk_repo)
+        refreshed_count = retriever.refresh()
+        return PolicyDocumentOperationResponse(
+            success=True,
+            message=f"Policy document '{target.title}' is already archived.",
+            document=PolicyDocumentItem.model_validate(target.model_dump()),
+            chunks_indexed=refreshed_count,
+        )
+
+    try:
+        chunk_repo.mark_chunks_status_for_source(target.id, "archived")
+    except Exception as error:
+        logger.exception("Could not archive chunks for policy document %s", target.id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Policy document could not be archived safely",
+        ) from error
+
+    archived_at = datetime.now(timezone.utc).isoformat()
+    metadata = dict(target.metadata)
+    lifecycle_events = list(metadata.get("lifecycle_events") or [])
+    lifecycle_events.append(
+        {
+            "event": "archived",
+            "at": archived_at,
+            "by_user_id": admin.user_id,
+            "by_email": admin.email,
+        }
+    )
+    metadata.update(
+        {
+            "archived_at": archived_at,
+            "archived_by": admin.user_id,
+            "archived_by_email": admin.email,
+            "lifecycle_events": lifecycle_events,
+        }
+    )
+
+    try:
+        doc_repo.update_document(
+            target.id,
+            {"status": "archived", "metadata": metadata},
+        )
+        persisted = doc_repo.get_document_by_id(target.id)
+        if persisted is None or persisted.status != "archived":
+            raise RuntimeError("Archived status was not persisted")
+        archived = persisted
+        retriever = get_shared_knowledge_retriever(repository=chunk_repo)
+        refreshed_count = retriever.refresh()
+    except Exception as error:
+        logger.exception("Policy document archive failed for %s", target.id)
+        document_restored = False
+        try:
+            current = doc_repo.get_document_by_id(target.id)
+            if current is not None and current.status == "archived":
+                doc_repo.update_document(
+                    target.id,
+                    {"status": target.status, "metadata": target.metadata},
+                )
+            restored = doc_repo.get_document_by_id(target.id)
+            document_restored = (
+                restored is not None and restored.status == target.status
+            )
+        except Exception:
+            logger.exception("Policy document status rollback failed for %s", target.id)
+        try:
+            if document_restored:
+                chunk_repo.mark_chunks_status_for_source(target.id, target.status)
+            # If the document could not be restored, leave its chunks archived so
+            # a partial persistence failure cannot expose deleted content.
+            get_shared_knowledge_retriever(repository=chunk_repo).refresh()
+        except Exception:
+            logger.exception("Policy document chunk rollback failed for %s", target.id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Policy document could not be archived safely",
+        ) from error
+
+    logger.info(
+        "Policy document %s archived by admin %s; TF-IDF index refreshed with %d chunks",
+        target.id,
+        admin.user_id,
+        refreshed_count,
+    )
+    return PolicyDocumentOperationResponse(
+        success=True,
+        message=f"Policy document '{archived.title}' deleted successfully.",
+        document=PolicyDocumentItem.model_validate(archived.model_dump()),
         chunks_indexed=refreshed_count,
     )
 

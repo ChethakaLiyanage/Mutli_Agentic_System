@@ -18,6 +18,7 @@ from backend.app.retrieval.knowledge_retriever import (
     get_shared_knowledge_retriever,
     set_shared_knowledge_retriever,
 )
+from backend.app.retrieval.preprocessing import preprocess_for_retrieval
 from backend.app.retrieval.schemas import KnowledgeChunk
 from backend.app.security.dependencies import (
     get_current_admin,
@@ -321,6 +322,152 @@ def test_failed_replacement_leaves_active_version_intact(isolated_document_env):
     assert "Valid active claim filing guidelines" in evidence[0].content
 
 
+def test_admin_soft_deletes_document_and_removes_it_from_live_retrieval(
+    isolated_document_env,
+):
+    client = isolated_document_env["client"]
+    doc_repo = isolated_document_env["doc_repo"]
+    chunk_repo = isolated_document_env["chunk_repo"]
+    retriever = isolated_document_env["retriever"]
+    unique_content = (
+        "ORBITAL_COVERAGE_MARKER: Meteorite paint damage has a unique "
+        "policy evidence clause for this retrieval test."
+    )
+    document = PolicyDocument(
+        id="doc-delete-policy",
+        root_document_id="doc-delete-policy",
+        title="Deletion Retrieval Test Policy",
+        document_type="policy_document",
+        policy_type="full_comprehensive",
+        audience="customer",
+        version="1.0",
+        original_filename="deletion_retrieval_test.txt",
+        status="active",
+        chunks_count=1,
+    )
+    doc_repo.create_document(document)
+    chunk_repo.chunks.append(
+        KnowledgeChunk(
+            chunk_id="chunk-delete-policy-1",
+            source_document_id=document.id,
+            source_title=document.title,
+            document_type="policy_document",
+            content=unique_content,
+            normalized_content=preprocess_for_retrieval(unique_content),
+            metadata={
+                "status": "active",
+                "audience": "customer",
+                "policy_type": "full_comprehensive",
+            },
+        )
+    )
+    retriever.refresh()
+
+    before_delete = retriever.retrieve(
+        "meteorite paint damage unique policy evidence",
+        policy_type="full_comprehensive",
+        min_relevance_score=0.01,
+    )
+    assert any("ORBITAL_COVERAGE_MARKER" in item.content for item in before_delete)
+
+    response = client.delete(f"/admin/policy-documents/{document.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["document"]["status"] == "archived"
+    assert payload["document"]["metadata"]["archived_by"] == "USR-ADMIN-100"
+    assert payload["document"]["metadata"]["archived_at"]
+    assert chunk_repo.chunks[0].metadata["status"] == "archived"
+
+    after_delete = retriever.retrieve(
+        "meteorite paint damage unique policy evidence",
+        policy_type="full_comprehensive",
+        min_relevance_score=0.01,
+    )
+    assert after_delete == []
+
+    active_list = client.get("/admin/policy-documents")
+    assert active_list.status_code == 200
+    assert all(item["id"] != document.id for item in active_list.json()["documents"])
+
+    archived_list = client.get("/admin/policy-documents?status=archived")
+    assert archived_list.status_code == 200
+    assert [item["id"] for item in archived_list.json()["documents"]] == [document.id]
+
+    history = client.get(f"/admin/policy-documents/{document.id}/versions")
+    assert history.status_code == 200
+    assert len(history.json()["versions"]) == 1
+    assert history.json()["versions"][0]["status"] == "archived"
+    assert doc_repo.get_document_by_id(document.id).original_filename == document.original_filename
+
+    repeated = client.delete(f"/admin/policy-documents/{document.id}")
+    assert repeated.status_code == 200
+    assert "already archived" in repeated.json()["message"].lower()
+
+
+def test_delete_policy_document_not_found(isolated_document_env):
+    response = isolated_document_env["client"].delete(
+        "/admin/policy-documents/doc-does-not-exist"
+    )
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Policy document not found"
+
+
+def test_delete_failure_restores_active_retrieval(isolated_document_env, monkeypatch):
+    client = isolated_document_env["client"]
+    doc_repo = isolated_document_env["doc_repo"]
+    chunk_repo = isolated_document_env["chunk_repo"]
+    retriever = isolated_document_env["retriever"]
+    document = PolicyDocument(
+        id="doc-delete-rollback",
+        root_document_id="doc-delete-rollback",
+        title="Delete Rollback Policy",
+        document_type="policy_document",
+        policy_type="third_party",
+        audience="customer",
+        version="1.0",
+        original_filename="delete_rollback.txt",
+        status="active",
+        chunks_count=1,
+    )
+    doc_repo.create_document(document)
+    chunk_repo.chunks.append(
+        KnowledgeChunk(
+            chunk_id="chunk-delete-rollback",
+            source_document_id=document.id,
+            source_title=document.title,
+            document_type="policy_document",
+            content="ROLLBACK_MARKER protects the third-party retrieval corpus.",
+            normalized_content=preprocess_for_retrieval(
+                "ROLLBACK_MARKER protects the third-party retrieval corpus."
+            ),
+            metadata={
+                "status": "active",
+                "audience": "customer",
+                "policy_type": "third_party",
+            },
+        )
+    )
+    retriever.refresh()
+
+    def fail_update(*_args, **_kwargs):
+        raise RuntimeError("simulated persistence failure")
+
+    monkeypatch.setattr(doc_repo, "update_document", fail_update)
+    response = client.delete(f"/admin/policy-documents/{document.id}")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Policy document could not be archived safely"
+    assert doc_repo.get_document_by_id(document.id).status == "active"
+    assert chunk_repo.chunks[0].metadata["status"] == "active"
+    assert retriever.retrieve(
+        "rollback marker retrieval corpus",
+        policy_type="third_party",
+        min_relevance_score=0.01,
+    )
+
+
 def test_security_authorization_checks(mock_customer_user):
     app.dependency_overrides.clear()
     client = TestClient(app)
@@ -335,11 +482,13 @@ def test_security_authorization_checks(mock_customer_user):
         files={"file": ("test.txt", BytesIO(b"hello"), "text/plain")},
     )
     assert res_post.status_code == 401
+    assert client.delete("/admin/policy-documents/doc-1").status_code == 401
 
     # 2. Customer authenticated user accessing admin endpoint -> 403 Forbidden
     app.dependency_overrides[get_current_user] = lambda: mock_customer_user
     res_customer = client.get("/admin/policy-documents")
     assert res_customer.status_code == 403
+    assert client.delete("/admin/policy-documents/doc-1").status_code == 403
 
     app.dependency_overrides.clear()
 

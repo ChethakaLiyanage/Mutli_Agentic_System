@@ -9,6 +9,8 @@ import {
   processRequest,
   submitClaim,
 } from "../api/orchestrator";
+import { useAuth, type AuthContextValue } from "../context/auth-context";
+import type { User } from "../types/auth";
 import type {
   ClarificationResponse,
   IntakeResult,
@@ -16,6 +18,11 @@ import type {
   WorkflowStatus,
 } from "../types/orchestrator";
 import { ACTIVE_WORKFLOW_KEY, ClaimAssistantPage } from "./ClaimAssistantPage";
+import { chatHistoryStorageKey } from "../utils/chatHistoryStorage";
+
+vi.mock("../context/auth-context", () => ({
+  useAuth: vi.fn(),
+}));
 
 vi.mock("../api/orchestrator", () => ({
   processRequest: vi.fn(),
@@ -28,6 +35,23 @@ vi.mock("../api/orchestrator", () => ({
     () => "The workflow service is temporarily unavailable. Please try again.",
   ),
 }));
+
+const customerUser = (userId: string): User => ({
+  user_id: userId,
+  email: `${userId.toLowerCase()}@example.com`,
+  role: "customer",
+  created_at: "2026-09-17T10:00:00Z",
+});
+
+const authValue = (userId: string): AuthContextValue => ({
+  user: customerUser(userId),
+  token: "test-token",
+  loading: false,
+  login: vi.fn(),
+  register: vi.fn(),
+  logout: vi.fn(),
+  refreshCurrentUser: vi.fn(),
+});
 
 const intakeResult: IntakeResult = {
   request_id: "REQ-1",
@@ -185,7 +209,9 @@ const sendMessage = async (text: string) => {
 describe("ClaimAssistantPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useAuth).mockReturnValue(authValue("CUSTOMER-A"));
     vi.mocked(isWorkflowNotFoundError).mockReturnValue(false);
+    localStorage.clear();
     sessionStorage.clear();
     window.history.replaceState({}, "", "/claim-assistant");
   });
@@ -536,6 +562,151 @@ describe("ClaimAssistantPage", () => {
 
     expect(sessionStorage.getItem(ACTIVE_WORKFLOW_KEY)).toBeNull();
     expect(screen.getByText("How can we help?")).toBeInTheDocument();
+  });
+
+  it("restores the same visible messages after remount without replaying them", async () => {
+    vi.mocked(processRequest).mockResolvedValue(completedInformationResponse);
+    const view = render(<ClaimAssistantPage />);
+
+    await sendMessage("What is my coverage?");
+    await screen.findByText(
+      "The available policy evidence describes how flood claims are assessed.",
+    );
+    await waitFor(() => {
+      const stored = localStorage.getItem(chatHistoryStorageKey("CUSTOMER-A"));
+      expect(stored).toContain("What is my coverage?");
+    });
+    expect(processRequest).toHaveBeenCalledOnce();
+
+    view.unmount();
+    render(<ClaimAssistantPage />);
+
+    expect(screen.getByText("What is my coverage?")).toBeInTheDocument();
+    expect(screen.getByText(
+      "The available policy evidence describes how flood claims are assessed.",
+    )).toBeInTheDocument();
+    expect(processRequest).toHaveBeenCalledOnce();
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("does not replace preserved history during independent workflow restoration", async () => {
+    localStorage.setItem(chatHistoryStorageKey("CUSTOMER-A"), JSON.stringify([
+      {
+        id: "MSG-PRESERVED",
+        sender: "user",
+        text: "My preserved question",
+        timestamp: "2026-09-27T08:00:00.000Z",
+      },
+      {
+        id: "MSG-PRESERVED-REPLY",
+        sender: "system",
+        text: "My preserved answer",
+        timestamp: "2026-09-27T08:00:01.000Z",
+      },
+    ]));
+    sessionStorage.setItem(ACTIVE_WORKFLOW_KEY, "WF-CLAIM");
+    vi.mocked(getWorkflow).mockResolvedValue(workflowResponse());
+
+    render(<ClaimAssistantPage />);
+
+    expect(screen.getByText("My preserved question")).toBeInTheDocument();
+    expect(screen.getByText("My preserved answer")).toBeInTheDocument();
+    await waitFor(() => expect(getWorkflow).toHaveBeenCalledWith("WF-CLAIM"));
+    expect(screen.queryByText(
+      "Your claim is awaiting review by a claims officer.",
+    )).not.toBeInTheDocument();
+  });
+
+  it("appends new messages after restoring a preserved conversation", async () => {
+    const storageKey = chatHistoryStorageKey("CUSTOMER-A");
+    localStorage.setItem(storageKey, JSON.stringify([
+      {
+        id: "MSG-OLD-USER",
+        sender: "user",
+        text: "Hello",
+        timestamp: "2026-09-27T08:00:00.000Z",
+      },
+      {
+        id: "MSG-OLD-SYSTEM",
+        sender: "system",
+        text: "Hello. How can I help?",
+        timestamp: "2026-09-27T08:00:01.000Z",
+      },
+    ]));
+    vi.mocked(processRequest).mockResolvedValue(completedInformationResponse);
+    render(<ClaimAssistantPage />);
+
+    expect(screen.getByText("Hello")).toBeInTheDocument();
+    await sendMessage("What is my coverage?");
+    await screen.findByText(
+      "The available policy evidence describes how flood claims are assessed.",
+    );
+
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      expect(stored.map((message: { text: string }) => message.text)).toEqual([
+        "Hello",
+        "Hello. How can I help?",
+        "What is my coverage?",
+        "The available policy evidence describes how flood claims are assessed.",
+      ]);
+    });
+  });
+
+  it("New Chat removes only the current customer's preserved history", async () => {
+    const storageKey = chatHistoryStorageKey("CUSTOMER-A");
+    vi.mocked(processRequest).mockResolvedValue(completedInformationResponse);
+    const view = render(<ClaimAssistantPage />);
+    const user = await sendMessage("What is my coverage?");
+    await waitFor(() => expect(localStorage.getItem(storageKey)).not.toBeNull());
+
+    await user.click(screen.getByRole("button", { name: "New Chat" }));
+
+    expect(localStorage.getItem(storageKey)).toBeNull();
+    expect(screen.getByText("How can we help?")).toBeInTheDocument();
+    view.unmount();
+    render(<ClaimAssistantPage />);
+    expect(screen.queryByText("What is my coverage?")).not.toBeInTheDocument();
+  });
+
+  it("isolates preserved chat history by authenticated customer", async () => {
+    vi.mocked(processRequest).mockResolvedValue(completedInformationResponse);
+    const customerAView = render(<ClaimAssistantPage />);
+    await sendMessage("Customer A question");
+    await screen.findByText(
+      "The available policy evidence describes how flood claims are assessed.",
+    );
+    await waitFor(() => {
+      expect(localStorage.getItem(chatHistoryStorageKey("CUSTOMER-A"))).not.toBeNull();
+    });
+    customerAView.unmount();
+
+    vi.mocked(useAuth).mockReturnValue(authValue("CUSTOMER-B"));
+    const customerBView = render(<ClaimAssistantPage />);
+    expect(screen.queryByText("Customer A question")).not.toBeInTheDocument();
+    expect(screen.getByText("How can we help?")).toBeInTheDocument();
+    await sendMessage("Customer B question");
+    await waitFor(() => {
+      expect(localStorage.getItem(chatHistoryStorageKey("CUSTOMER-B"))).toContain(
+        "Customer B question",
+      );
+    });
+    customerBView.unmount();
+
+    vi.mocked(useAuth).mockReturnValue(authValue("CUSTOMER-A"));
+    render(<ClaimAssistantPage />);
+    expect(screen.getByText("Customer A question")).toBeInTheDocument();
+    expect(screen.queryByText("Customer B question")).not.toBeInTheDocument();
+  });
+
+  it("ignores malformed stored chat history without crashing", () => {
+    localStorage.setItem(chatHistoryStorageKey("CUSTOMER-A"), "not-json");
+
+    render(<ClaimAssistantPage />);
+
+    expect(screen.getByText("How can we help?")).toBeInTheDocument();
+    expect(processRequest).not.toHaveBeenCalled();
+    expect(getWorkflow).not.toHaveBeenCalled();
   });
 
   it("never renders fraud or reviewer internals from a malformed response", async () => {

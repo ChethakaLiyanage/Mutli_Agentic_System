@@ -336,6 +336,11 @@ class SupabasePolicyDocumentRepository:
     def update_document(
         self, document_id: str, updates: dict[str, Any]
     ) -> PolicyDocument:
+        if self._fallback_repo.get_document_by_id(document_id) is None:
+            current = self.get_document_by_id(document_id)
+            if current is None:
+                raise KeyError(f"Document {document_id} not found")
+            self._fallback_repo.create_document(current)
         updated = self._fallback_repo.update_document(document_id, updates)
         self._persist_fallback_to_disk()
         if self._check_table():

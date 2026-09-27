@@ -3,10 +3,10 @@ import {
   fetchPolicyDocuments,
   fetchPolicyDocumentDetail,
   fetchPolicyDocumentVersions,
+  deletePolicyDocument,
   uploadPolicyDocument,
   replacePolicyDocument,
   type PolicyDocumentItem,
-  type PolicyCategory,
   type DocumentStatus,
   type DocumentAudience,
 } from "../api/admin";
@@ -69,8 +69,11 @@ export const PolicyKnowledgeManagement: React.FC = () => {
 
   const [selectedDocForReplace, setSelectedDocForReplace] = useState<PolicyDocumentItem | null>(null);
   const [selectedDocForHistory, setSelectedDocForHistory] = useState<PolicyDocumentItem | null>(null);
+  const [selectedDocForDelete, setSelectedDocForDelete] = useState<PolicyDocumentItem | null>(null);
   const [historyVersions, setHistoryVersions] = useState<PolicyDocumentItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [deletingDocument, setDeletingDocument] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Add form state
   const [addTitle, setAddTitle] = useState("");
@@ -90,11 +93,14 @@ export const PolicyKnowledgeManagement: React.FC = () => {
   const [submittingReplace, setSubmittingReplace] = useState(false);
   const [replaceError, setReplaceError] = useState<string | null>(null);
 
-  const loadDocuments = async () => {
+  const loadDocuments = async (requestedStatus = "all") => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchPolicyDocuments({ root_only: true });
+      const data = await fetchPolicyDocuments({
+        root_only: true,
+        ...(requestedStatus !== "all" ? { status: requestedStatus } : {}),
+      });
       setDocuments(data.documents);
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to load policy documents."));
@@ -232,6 +238,32 @@ export const PolicyKnowledgeManagement: React.FC = () => {
     }
   };
 
+  const openDeleteModal = (doc: PolicyDocumentItem) => {
+    setSelectedDocForDelete(doc);
+    setDeleteError(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedDocForDelete || deletingDocument) return;
+    setDeletingDocument(true);
+    setDeleteError(null);
+    try {
+      await deletePolicyDocument(selectedDocForDelete.id);
+      setDocuments((current) =>
+        current.filter(
+          (document) =>
+            document.root_document_id !== selectedDocForDelete.root_document_id,
+        ),
+      );
+      setSelectedDocForDelete(null);
+      setSuccessBanner("Policy deleted successfully.");
+    } catch (err) {
+      setDeleteError(getApiErrorMessage(err, "Failed to delete policy."));
+    } finally {
+      setDeletingDocument(false);
+    }
+  };
+
   // Filtered documents
   const filtered = documents.filter((doc) => {
     const matchesSearch =
@@ -328,7 +360,11 @@ export const PolicyKnowledgeManagement: React.FC = () => {
 
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            const nextStatus = e.target.value;
+            setStatusFilter(nextStatus);
+            void loadDocuments(nextStatus);
+          }}
           className="rounded-lg border border-[#cfdede] bg-[#fbfdfd] px-3 py-2 text-xs text-[#142b3a] outline-none transition focus:border-[#123c42]"
         >
           <option value="all">All Statuses</option>
@@ -336,11 +372,12 @@ export const PolicyKnowledgeManagement: React.FC = () => {
           <option value="processing">Processing</option>
           <option value="superseded">Superseded</option>
           <option value="failed">Failed</option>
+          <option value="archived">Archived</option>
         </select>
 
         <button
           type="button"
-          onClick={() => void loadDocuments()}
+          onClick={() => void loadDocuments(statusFilter)}
           className="rounded-lg border border-[#cfdede] bg-white px-3 py-2 text-xs font-medium text-[#527278] hover:bg-slate-50"
         >
           ↻ Refresh
@@ -441,13 +478,15 @@ export const PolicyKnowledgeManagement: React.FC = () => {
                           >
                             View
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => openReplaceModal(doc)}
-                            className="rounded border border-[#123c42] bg-[#123c42] px-2 py-1 text-[11px] font-semibold text-white hover:bg-[#1a555e]"
-                          >
-                            Update
-                          </button>
+                          {doc.status !== "archived" && (
+                            <button
+                              type="button"
+                              onClick={() => openReplaceModal(doc)}
+                              className="rounded border border-[#123c42] bg-[#123c42] px-2 py-1 text-[11px] font-semibold text-white hover:bg-[#1a555e]"
+                            >
+                              Update
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => void openHistoryModal(doc)}
@@ -455,6 +494,15 @@ export const PolicyKnowledgeManagement: React.FC = () => {
                           >
                             History
                           </button>
+                          {doc.status !== "archived" && (
+                            <button
+                              type="button"
+                              onClick={() => openDeleteModal(doc)}
+                              className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -840,6 +888,13 @@ export const PolicyKnowledgeManagement: React.FC = () => {
                         <div className="mt-1 text-[10px] text-slate-400">
                           Uploaded by {v.uploaded_by} on {new Date(v.created_at).toLocaleDateString()}
                         </div>
+                        {v.status === "archived" &&
+                          typeof v.metadata?.archived_at === "string" && (
+                            <div className="mt-1 text-[10px] font-medium text-zinc-600">
+                              Archived by {String(v.metadata.archived_by_email || v.metadata.archived_by || "admin")} on{" "}
+                              {new Date(v.metadata.archived_at).toLocaleDateString()}
+                            </div>
+                          )}
                       </div>
                       <div className="text-right text-[11px] text-slate-500">
                         {v.chunks_count} chunks
@@ -857,6 +912,58 @@ export const PolicyKnowledgeManagement: React.FC = () => {
                 className="rounded-lg bg-[#123c42] px-4 py-2 text-xs font-bold text-white hover:bg-[#1a555e]"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* 5. ARCHIVE / DELETE CONFIRMATION MODAL */}
+      {/* ========================================================= */}
+      {selectedDocForDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-policy-title"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="mb-4 border-b border-[#dfe7e7] pb-3">
+              <h3 id="delete-policy-title" className="text-lg font-black text-[#142b3a]">
+                Delete Policy?
+              </h3>
+            </div>
+
+            <p className="text-xs font-bold text-[#142b3a]">Policy:</p>
+            <p className="mt-1 text-sm text-[#123c42]">{selectedDocForDelete.title}</p>
+            <p className="mt-4 text-xs leading-5 text-[#527278]">
+              This policy will no longer be available for active retrieval.
+              Its historical records will be preserved.
+            </p>
+
+            {deleteError && (
+              <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2 border-t border-[#dfe7e7] pt-4">
+              <button
+                type="button"
+                disabled={deletingDocument}
+                onClick={() => setSelectedDocForDelete(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingDocument}
+                onClick={() => void handleDeleteConfirm()}
+                className="rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white hover:bg-red-800 disabled:opacity-50"
+              >
+                {deletingDocument ? "Deleting..." : "Delete Policy"}
               </button>
             </div>
           </div>
