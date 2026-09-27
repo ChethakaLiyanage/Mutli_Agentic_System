@@ -18,6 +18,7 @@ import {
 } from "../api/orchestrator";
 import { DocumentUploadModal } from "../components/DocumentUploadModal";
 import { WorkflowStatusBadge } from "../components/WorkflowStatusBadge";
+import { useAuth } from "../context/auth-context";
 import type { ChatMessage } from "../types/chat";
 import {
   isOrchestratorResponse,
@@ -25,6 +26,12 @@ import {
   type WorkflowStatus,
   type WorkflowResponse,
 } from "../types/orchestrator";
+import {
+  chatHistoryStorageKey,
+  clearChatHistory,
+  loadChatHistory,
+  saveChatHistory,
+} from "../utils/chatHistoryStorage";
 import "../claim-assistant.css";
 
 const MAX_MESSAGE_LENGTH = 3000;
@@ -108,11 +115,17 @@ const submittedClaimMessage = (response: OrchestratorResponse): string => {
 };
 
 export const ClaimAssistantPage = () => {
+  const { user } = useAuth();
+  const historyStorageKey = user
+    ? chatHistoryStorageKey(user.user_id)
+    : null;
   const searchParams = new URLSearchParams(window.location.search);
   const requestedWorkflowId = searchParams.get("workflowId");
   const requestedAction = searchParams.get("action");
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    loadChatHistory(historyStorageKey),
+  );
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
   const [trackedWorkflow, setTrackedWorkflow] = useState<WorkflowResponse | null>(null);
   const [sending, setSending] = useState(false);
@@ -123,6 +136,7 @@ export const ClaimAssistantPage = () => {
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const workflowRestoreGeneration = useRef(0);
 
   const activeClaimWf =
     workflow && needsWorkflowTracking(workflow)
@@ -172,14 +186,22 @@ export const ClaimAssistantPage = () => {
     const storedWorkflowId = requestedWorkflowId || sessionStorage.getItem(ACTIVE_WORKFLOW_KEY);
     if (!storedWorkflowId) return;
 
+    const restoreGeneration = ++workflowRestoreGeneration.current;
     let active = true;
     const restoreWorkflow = async () => {
       setRestoring(true);
       try {
         const response = await getWorkflow(storedWorkflowId);
-        if (!active) return;
+        if (
+          !active ||
+          workflowRestoreGeneration.current !== restoreGeneration
+        ) return;
         applyWorkflow(response);
-        setMessages([createMessage("system", resultMessage(response))]);
+        setMessages((current) =>
+          current.length > 0
+            ? current
+            : [createMessage("system", resultMessage(response))],
+        );
         if (
           requestedAction === "upload-documents" &&
           isOrchestratorResponse(response) &&
@@ -203,6 +225,10 @@ export const ClaimAssistantPage = () => {
       active = false;
     };
   }, [applyWorkflow, requestedAction, requestedWorkflowId]);
+
+  useEffect(() => {
+    saveChatHistory(historyStorageKey, messages);
+  }, [historyStorageKey, messages]);
 
   useEffect(() => {
     if (canSend && messages.length > 0) {
@@ -312,6 +338,27 @@ export const ClaimAssistantPage = () => {
     }
   };
 
+  const refreshWorkflow = async (target: OrchestratorResponse) => {
+    setError(null);
+    try {
+      const response = await getWorkflow(target.workflow_id);
+      applyWorkflow(response);
+      setMessages((current) => [
+        ...current,
+        createMessage("system", resultMessage(response)),
+      ]);
+    } catch (requestError) {
+      if (isWorkflowNotFoundError(requestError)) {
+        sessionStorage.removeItem(ACTIVE_WORKFLOW_KEY);
+        setTrackedWorkflow(null);
+        setWorkflow((current) =>
+          current?.workflow_id === target.workflow_id ? null : current,
+        );
+      }
+      setError(getOrchestratorErrorMessage(requestError));
+    }
+  };
+
   const handleSubmitClaim = async () => {
     if (!workflow || !isOrchestratorResponse(workflow) || submittingClaim) return;
     setSubmittingClaim(true);
@@ -338,6 +385,8 @@ export const ClaimAssistantPage = () => {
   };
 
   const resetConversation = () => {
+    workflowRestoreGeneration.current += 1;
+    clearChatHistory(historyStorageKey);
     setInput("");
     setMessages([]);
     setWorkflow(null);
