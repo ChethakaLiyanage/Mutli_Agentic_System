@@ -1,4 +1,5 @@
-"""Replaceable client contracts for specialized agents."""
+
+"""Client contracts for specialized agents."""
 
 from __future__ import annotations
 

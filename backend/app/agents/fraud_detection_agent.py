@@ -1,29 +1,6 @@
-from datetime import date
-
-from backend.app.fraud.schemas import (
-    ClaimData,
-    DocumentFacts,
-    FraudAssessment,
-    PolicyData,
-)
-from backend.app.fraud.rules import (
-    flag_policy_inactive,
-    flag_late_reporting,
-    flag_date_conflict,
-    flag_amount_conflict,
-)
-from backend.app.fraud.history_checks import (
-    flag_duplicate_claim,
-    flag_duplicate_police_report,
-    flag_same_day_claims,
-)
-from backend.app.fraud.scoring import (
-    calculate_rule_score,
-    get_recommended_action,
-    get_risk_level,
-)
-from backend.app.fraud.document_checks import get_missing_documents
+from backend.app.fraud.engine import FraudDetectionEngine
 from backend.app.fraud.repository import FraudRepository
+from backend.app.fraud.schemas import ClaimData
 from backend.app.services.supabase_service import get_supabase_client
 
 
@@ -58,15 +35,8 @@ def fraud_detection_agent(state: dict) -> dict:
             "police_report_number": state.get("police_report_number"),
         }
 
-    docs_list = state.get("document_facts") or result_data.get("document_facts", [])
-
     claim = ClaimData(**claim_raw)
-    policy = PolicyData(**policy_raw)
-
-    documents = [
-        DocumentFacts(**document)
-        for document in docs_list
-    ]
+    docs_list = state.get("document_facts") or result_data.get("document_facts", [])
 
     repository = FraudRepository(get_supabase_client())
 
@@ -84,74 +54,12 @@ def fraud_detection_agent(state: dict) -> dict:
         else []
     )
 
-    indicators = []
-
-    checks = [
-        flag_policy_inactive(
-            claim=claim,
-            policy=policy
-        ),
-        flag_late_reporting(
-            claim=claim,
-            submitted_date=date.today()
-        ),
-        flag_duplicate_claim(
-            claim=claim,
-            historical_claims=historical_claims
-        ),
-        flag_same_day_claims(
-            claim=claim,
-            historical_claims=historical_claims
-        ),
-        flag_duplicate_police_report(
-            claim=claim,
-            matching_claims=duplicate_report_claims
-        ),
-    ]
-
-    indicators.extend(
-        item for item in checks
-        if item is not None
-    )
-
-    indicators.extend(
-        flag_date_conflict(
-            claim=claim,
-            documents=documents
-        )
-    )
-
-    indicators.extend(
-        flag_amount_conflict(
-            claim=claim,
-            documents=documents
-        )
-    )
-
-    missing_documents = get_missing_documents(
-        claim_type=claim.claim_type,
-        documents=documents
-    )
-
-    rule_score = calculate_rule_score(indicators)
-    risk_level = get_risk_level(rule_score)
-
-    action = get_recommended_action(
-        risk_level=risk_level,
-        missing_documents=missing_documents
-    )
-
-    assessment = FraudAssessment(
-        risk_level=risk_level,
-        risk_score=rule_score,
-        rule_score=rule_score,
-        ml_anomaly_score=None,
-        risk_indicators=indicators,
-        missing_documents=missing_documents,
-        recommended_action=action,
-        automated_decision=False,
-        rules_version="1.0.0",
-        model_version=None
+    assessment = FraudDetectionEngine().evaluate(
+        claim_data=claim_raw,
+        policy_data=policy_raw,
+        document_facts=docs_list,
+        historical_claims=historical_claims,
+        duplicate_police_report_claims=duplicate_report_claims,
     )
 
     try:
