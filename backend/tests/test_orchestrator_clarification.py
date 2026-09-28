@@ -99,7 +99,7 @@ def test_one_clarification_completes_the_same_workflow() -> None:
             initial.workflow_id,
             ClarificationRequest(
                 request_id="REQ002",
-                text="A bus hit it yesterday in Kandy.",
+                text="A bus hit it yesterday in Kandy and I claim LKR 100,000.",
             ),
             authenticated_user_id=OWNER_ID,
             authenticated_user_role=OWNER_ROLE,
@@ -114,7 +114,7 @@ def test_one_clarification_completes_the_same_workflow() -> None:
         assert resumed.missing_fields == []
         assert client.requests[1].text == (
             "My car was damaged and I want to claim. "
-            "A bus hit it yesterday in Kandy."
+                "A bus hit it yesterday in Kandy and I claim LKR 100,000."
         )
 
         saved = await repository.get(initial.workflow_id)
@@ -299,7 +299,7 @@ def test_real_agent_one_completes_after_clarification() -> None:
             initial.workflow_id,
             ClarificationRequest(
                 request_id="REAL002",
-                text="A bus hit my car yesterday near Kandy.",
+                text="A bus hit my car yesterday near Kandy and I claim LKR 100,000.",
             ),
             authenticated_user_id=OWNER_ID,
             authenticated_user_role=OWNER_ROLE,
@@ -333,6 +333,7 @@ def test_merge_preserves_previous_incident_type_and_recalculates_missing() -> No
                 date_text="yesterday",
                 normalized_date="2026-09-17",
                 location="Kandy",
+                claimed_amount=100000,
             ),
             missing_fields=["incident_type"],
             requires_clarification=True,
@@ -361,13 +362,17 @@ def test_real_claim_clarification_merges_date_and_location_and_continues() -> No
             authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(initial, ClarificationResponse)
-        assert initial.missing_fields == ["incident_date", "location"]
+        assert initial.missing_fields == [
+            "incident_date",
+            "location",
+            "claimed_amount",
+        ]
 
         resumed = await service.resume_clarification(
             initial.workflow_id,
             ClarificationRequest(
                 request_id="LOC002",
-                text="yesterday at Kandy",
+                text="yesterday at Kandy, claiming LKR 100,000",
             ),
             authenticated_user_id=OWNER_ID,
             authenticated_user_role=OWNER_ROLE,
@@ -404,11 +409,14 @@ def test_location_only_clarification_preserves_existing_claim_facts() -> None:
             authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(initial, ClarificationResponse)
-        assert initial.missing_fields == ["location"]
+        assert initial.missing_fields == ["location", "claimed_amount"]
 
         resumed = await service.resume_clarification(
             initial.workflow_id,
-            ClarificationRequest(request_id="LOC004", text="Kandy"),
+            ClarificationRequest(
+                request_id="LOC004",
+                text="Kandy, claiming LKR 100,000",
+            ),
             authenticated_user_id=OWNER_ID,
             authenticated_user_role=OWNER_ROLE,
         )
@@ -440,14 +448,17 @@ def test_misspelled_gazetteer_location_completes_existing_claim_context() -> Non
             authenticated_user_role=OWNER_ROLE,
         )
         assert isinstance(initial, ClarificationResponse)
-        assert initial.missing_fields == ["location"]
+        assert initial.missing_fields == ["location", "claimed_amount"]
         assert initial.message is not None
-        assert "yesterday" in initial.message
+        assert "Where did it happen?" == initial.message
         assert initial.questions == [initial.message]
 
         resumed = await service.resume_clarification(
             initial.workflow_id,
-            ClarificationRequest(request_id="LOC-NUG-2", text="nuggeoda"),
+            ClarificationRequest(
+                request_id="LOC-NUG-2",
+                text="nuggeoda, claiming LKR 100,000",
+            ),
             authenticated_user_id=OWNER_ID,
             authenticated_user_role=OWNER_ROLE,
         )
@@ -483,7 +494,7 @@ def test_location_only_reply_leaves_only_the_still_missing_date() -> None:
         )
 
         assert isinstance(resumed, ClarificationResponse)
-        assert resumed.missing_fields == ["incident_date"]
+        assert resumed.missing_fields == ["incident_date", "claimed_amount"]
         assert resumed.questions == ["When did the incident happen?"]
         assert resumed.intake_result.data.incident.type == "vehicle_collision"
         assert resumed.intake_result.data.incident.location == "Kandy"
@@ -513,7 +524,7 @@ def test_pending_field_is_exposed_and_maintained_across_claim_followups() -> Non
             first.workflow_id,
             ClarificationRequest(
                 request_id="PEND-002",
-                text="23rd of septe,ber 2026",
+                text="23rd of septe,ber 2026, claiming LKR 100,000",
             ),
             authenticated_user_id=OWNER_ID,
             authenticated_user_role=OWNER_ROLE,
