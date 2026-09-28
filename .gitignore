@@ -30,3 +30,5 @@ frontend/.env
 
 # Optional test/build caches
 frontend/coverage/
+
+.codex-run

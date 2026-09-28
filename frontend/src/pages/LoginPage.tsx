@@ -35,8 +35,14 @@ export const LoginPage = () => {
     <main className="auth-page">
       <section className="auth-intro" aria-labelledby="login-heading">
         <div className="auth-brand">
-          <span className="brand-mark brand-mark-large" aria-hidden="true">MI</span>
-          <span>Motor Insurance Support</span>
+          <div className="auth-brand-copy">
+            <span className="auth-brand-wordmark" aria-label="ClaimFlow">
+              claim<span>flow</span>
+            </span>
+            <p className="auth-brand-tagline">
+              Secure motor claims &amp; policy support
+            </p>
+          </div>
         </div>
         <div>
           <p className="eyebrow">Customer portal</p>

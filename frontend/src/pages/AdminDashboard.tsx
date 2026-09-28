@@ -103,8 +103,8 @@ export const AdminDashboard = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f5f7f7] font-[Inter,ui-sans-serif,system-ui,sans-serif] text-[#142b3a]">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[244px] border-r border-[#dbe5e5] bg-[#123c42] px-4 py-5 text-[#d7e8e5] lg:block">
+    <div className="admin-dashboard min-h-screen bg-[#f5f7f7] font-[Inter,ui-sans-serif,system-ui,sans-serif] text-[#142b3a]">
+      <aside className="admin-sidebar fixed inset-y-0 left-0 z-20 hidden w-[244px] border-r border-[#dbe5e5] bg-[#123c42] px-4 py-5 text-[#d7e8e5] lg:block">
         <div className="mb-10 px-2">
           <p className="text-sm font-black tracking-wide text-white">
             claim<span className="text-[#f18a62]">flow</span>
@@ -435,7 +435,7 @@ function Claims({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  const handleOpenDocument = async (docId: string, filename?: string) => {
+  const handleOpenDocument = async (docId: string) => {
     try {
       const res = await apiClient.get(`/documents/${encodeURIComponent(docId)}/download`, {
         responseType: "blob",
@@ -770,7 +770,7 @@ function Claims({
                   ) : (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {reviewDetail.documents.map((doc) => {
-                        const displayName = doc.original_filename || (doc as any).file_name || "Document";
+                        const displayName = doc.original_filename || "Document";
                         return (
                           <div key={doc.document_id} className="flex flex-col justify-between rounded-lg bg-[#f5f8f8] p-3 text-xs gap-2 border border-[#e5eeef]">
                             <div className="min-w-0">
@@ -782,7 +782,7 @@ function Claims({
                             <div className="flex items-center gap-2 pt-1 border-t border-[#edf1f1]">
                               <button
                                 type="button"
-                                onClick={() => handleOpenDocument(doc.document_id, displayName)}
+                                onClick={() => handleOpenDocument(doc.document_id)}
                                 className="cursor-pointer rounded bg-[#123c42] hover:bg-[#1b525a] px-2.5 py-1 text-[11px] font-bold text-white transition-colors"
                                 title="Open document in new tab"
                               >
