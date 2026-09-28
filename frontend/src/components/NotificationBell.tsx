@@ -83,38 +83,28 @@ export const NotificationBell = () => {
       <button
         type="button"
         aria-label="Notifications"
+        title="Notifications"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
-        style={{
-          position: "relative",
-          background: "transparent",
-          border: "1px solid #dbe5e5",
-          borderRadius: "8px",
-          padding: "6px 10px",
-          cursor: "pointer",
-          fontSize: "16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+        className="notification-trigger"
       >
-        <span>🔔</span>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+          <path d="M10 21h4" />
+        </svg>
         {unreadCount > 0 && (
-          <span
-            style={{
-              position: "absolute",
-              top: "-4px",
-              right: "-4px",
-              background: "#bd3e2b",
-              color: "white",
-              fontSize: "10px",
-              fontWeight: "bold",
-              borderRadius: "10px",
-              padding: "1px 5px",
-              lineHeight: 1,
-            }}
-          >
-            {unreadCount}
+          <span className="notification-count">
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>

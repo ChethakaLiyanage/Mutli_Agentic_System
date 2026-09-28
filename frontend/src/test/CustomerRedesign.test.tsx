@@ -28,7 +28,7 @@ describe("Customer Redesign — Layout and Components", () => {
   });
 
   describe("AppLayout Navbar", () => {
-    it("renders 'Motor Insurance Assistant' brand title and profile link for customers", () => {
+    it("renders the ClaimFlow brand, customer navigation, and profile link", () => {
       render(
         <MemoryRouter initialEntries={["/claim-assistant"]}>
           <TestAuthProvider value={createAuthValue({ user: customer })}>
@@ -37,7 +37,10 @@ describe("Customer Redesign — Layout and Components", () => {
         </MemoryRouter>,
       );
 
-      expect(screen.getByText("Motor Insurance Assistant")).toBeInTheDocument();
+      expect(screen.getByText("Customer claims portal")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Claim assistant" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "My claims" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Notifications" }).querySelector("svg")).toBeTruthy();
       expect(screen.getByRole("link", { name: "Your profile" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();

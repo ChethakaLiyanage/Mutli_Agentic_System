@@ -11,22 +11,40 @@ export const AppLayout = () => {
 
   return (
     <div className={isChat ? "app-shell app-shell-chat" : "app-shell"}>
-      <header className="app-header">
+      <header className={`app-header${isCustomer ? " customer-header" : ""}`}>
         <NavLink
           to={isCustomer ? "/claim-assistant" : "/admin-dashboard"}
           className="brand-lockup"
           style={{ textDecoration: "none" }}
         >
-          <span className="brand-mark" aria-hidden="true">MI</span>
+          {!isCustomer && (
+            <span className="brand-mark" aria-hidden="true">MI</span>
+          )}
           <div>
-            <p className="brand-name">
-              {isCustomer ? "Motor Insurance Assistant" : "Motor Insurance"}
-            </p>
-            <p className="brand-subtitle">Claims &amp; policy support</p>
+            {isCustomer ? (
+              <>
+                <p className="brand-name brand-wordmark">
+                  claim<span>flow</span>
+                </p>
+                <p className="brand-subtitle">Customer claims portal</p>
+              </>
+            ) : (
+              <>
+                <p className="brand-name">Motor Insurance</p>
+                <p className="brand-subtitle">Claims &amp; policy support</p>
+              </>
+            )}
           </div>
         </NavLink>
 
-        <div className="user-menu" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {isCustomer && (
+          <nav className="customer-nav" aria-label="Customer navigation">
+            <NavLink to="/claim-assistant">Claim assistant</NavLink>
+            <NavLink to="/dashboard/claims">My claims</NavLink>
+          </nav>
+        )}
+
+        <div className="user-menu">
           {isCustomer && <NotificationBell />}
           {isCustomer && (
             <NavLink

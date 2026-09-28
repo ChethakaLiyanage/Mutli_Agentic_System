@@ -17,6 +17,13 @@ const renderPage = (login = vi.fn()) => {
 };
 
 describe("LoginPage", () => {
+  it("shows the ClaimFlow identity in the login sidebar", () => {
+    renderPage();
+
+    expect(screen.getByLabelText("ClaimFlow")).toHaveTextContent("claimflow");
+    expect(screen.getByText("Secure motor claims & policy support")).toBeInTheDocument();
+  });
+
   it("submits valid credentials through the auth context", async () => {
     const login = renderPage();
     const user = userEvent.setup();
