@@ -102,6 +102,15 @@ def test_status_read_replaces_stale_document_guidance(
     assert expected_text in response.message.lower()
     assert "upload the required documents" not in response.message.lower()
     assert response.fraud_result is None
+    if decision is not None:
+        assert response.guidance_result["event_id"] == "human-decision:DEC-1"
+        repeated = asyncio.run(
+            service.get_customer_workflow_result(
+                state.workflow_id,
+                authenticated_user_id="USR-1",
+            )
+        )
+        assert repeated.guidance_result["event_id"] == "human-decision:DEC-1"
     saved = asyncio.run(repo.get(state.workflow_id))
     assert saved.guidance_result["_workflow_status"] == status.value
 

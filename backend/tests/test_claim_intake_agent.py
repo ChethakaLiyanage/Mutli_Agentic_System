@@ -2,6 +2,7 @@
 
 import logging
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
@@ -22,17 +23,85 @@ def analyze(agent: ClaimIntakeAgent, text: str, request_id: str = "REQ001"):
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("I am claiming LKR 500,000.", 500000),
-        ("The claimed amount is Rs. 250,000.", 250000),
-        ("I want to claim 300000 rupees.", 300000),
+        ("LKR 20000", Decimal("20000")),
+        ("LKR 20,000", Decimal("20000")),
+        ("LKR20000", Decimal("20000")),
+        ("lkr 20000", Decimal("20000")),
+        ("lkr20,000", Decimal("20000")),
+        ("20000 LKR", Decimal("20000")),
+        ("20,000 LKR", Decimal("20000")),
+        ("20000LKR", Decimal("20000")),
+        ("20,000lkr", Decimal("20000")),
+        ("Rs 20000", Decimal("20000")),
+        ("Rs. 20,000", Decimal("20000")),
+        ("Rs.20,000", Decimal("20000")),
+        ("20000 Rs", Decimal("20000")),
+        ("20000 Rs.", Decimal("20000")),
+        ("20000 rupees", Decimal("20000")),
+        ("20,000 rupees", Decimal("20000")),
+        ("USD 20", Decimal("20")),
+        ("USD20", Decimal("20")),
+        ("usd 20", Decimal("20")),
+        ("usd20", Decimal("20")),
+        ("20 USD", Decimal("20")),
+        ("20USD", Decimal("20")),
+        ("20 usd", Decimal("20")),
+        ("20usd", Decimal("20")),
+        ("$20", Decimal("20")),
+        ("$ 20", Decimal("20")),
+        ("20$", Decimal("20")),
+        ("20 $", Decimal("20")),
+        ("Lkr 20000.50", Decimal("20000.50")),
+        ("20000.50 lKr", Decimal("20000.50")),
+        ("Usd 20.50", Decimal("20.50")),
+        ("20.50 uSd", Decimal("20.50")),
+        ("$20.50", Decimal("20.50")),
+        ("I am claiming LKR 500,000.", Decimal("500000")),
+        ("The claimed amount is Rs. 250,000.", Decimal("250000")),
+        ("I want to claim 300000 rupees.", Decimal("300000")),
     ],
 )
-def test_extracts_claimed_amount_from_message(text: str, expected: int) -> None:
+def test_extracts_claimed_amount_from_message(
+    text: str,
+    expected: Decimal,
+) -> None:
     assert extract_claimed_amount(text) == expected
 
 
 def test_amount_extractor_ignores_dates() -> None:
     assert extract_claimed_amount("The accident happened on 2026-09-15.") is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "my policy number is 123456",
+        "the accident happened at 20:30",
+        "there were 2 vehicles",
+        "my vehicle number contains 2026",
+    ],
+)
+def test_amount_extractor_ignores_unlabelled_numbers(text: str) -> None:
+    assert extract_claimed_amount(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_amount"),
+    [
+        ("kandy, 20usd", Decimal("20")),
+        ("kandy, LKR 20000", Decimal("20000")),
+        ("kandy, 20000 LKR", Decimal("20000")),
+    ],
+)
+def test_extracts_location_and_currency_amount_in_either_order(
+    agent: ClaimIntakeAgent,
+    text: str,
+    expected_amount: Decimal,
+) -> None:
+    response = analyze(agent, text)
+
+    assert response.data.incident.location == "Kandy"
+    assert response.data.incident.claimed_amount == expected_amount
 
 
 def test_complete_collision_claim(agent: ClaimIntakeAgent) -> None:

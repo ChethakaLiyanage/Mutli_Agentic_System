@@ -11,6 +11,7 @@ const isStoredChatMessage = (value: unknown): value is ChatMessage => {
   return (
     typeof message.id === "string" &&
     message.id.length > 0 &&
+    (message.eventId === undefined || typeof message.eventId === "string") &&
     (message.sender === "user" || message.sender === "system") &&
     typeof message.text === "string" &&
     typeof message.timestamp === "string" &&

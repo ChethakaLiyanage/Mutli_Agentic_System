@@ -6,20 +6,31 @@ import re
 from decimal import Decimal, InvalidOperation
 
 
-_CURRENCY_AMOUNT_PATTERN = re.compile(
+_AMOUNT_PATTERN = (
+    r"\d{1,3}(?:[, ]\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?"
+)
+_PREFIX_CURRENCY_AMOUNT_PATTERN = re.compile(
     r"(?ix)"
     r"(?<![\w.])"
     r"(?:lkr|rs\.?|inr|usd|\$|€|£)\s*"
-    r"(?P<amount>\d{1,3}(?:[, ]\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
+    rf"(?P<amount>{_AMOUNT_PATTERN})"
     r"\s*"
     r"(?:dollars?|rupees?)?"
     r"(?![\w,])"
+)
+_SUFFIX_CURRENCY_AMOUNT_PATTERN = re.compile(
+    r"(?ix)"
+    r"(?<![\w.])"
+    rf"(?P<amount>{_AMOUNT_PATTERN})"
+    r"\s*"
+    r"(?:lkr|rs\.?|inr|usd|dollars?|rupees?|\$|€|£)"
+    r"(?!\w)"
 )
 _LABELLED_AMOUNT_PATTERN = re.compile(
     r"(?ix)"
     r"\b(?:claim(?:ed)?|amount|value|valued|worth)\b"
     r"\s*(?:is|of|for|:)?\s*"
-    r"(?P<amount>\d{1,3}(?:[, ]\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
+    rf"(?P<amount>{_AMOUNT_PATTERN})"
     r"(?![\w,])"
 )
 
@@ -31,7 +42,8 @@ def extract_claimed_amount(text: str) -> Decimal | None:
         raise TypeError("text must be a string")
 
     matches = [
-        *_CURRENCY_AMOUNT_PATTERN.finditer(text),
+        *_PREFIX_CURRENCY_AMOUNT_PATTERN.finditer(text),
+        *_SUFFIX_CURRENCY_AMOUNT_PATTERN.finditer(text),
         *_LABELLED_AMOUNT_PATTERN.finditer(text),
     ]
     for match in sorted(matches, key=lambda item: item.start()):

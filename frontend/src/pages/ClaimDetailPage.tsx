@@ -178,7 +178,7 @@ export const ClaimDetailPage = () => {
                 Claim Approved
               </h2>
               <p style={{ color: "#17734c", fontSize: "13px", margin: "4px 0 0 0" }}>
-                Your claim has been officially approved by a human claims officer. Settlement processing is underway.
+                Your claim has been approved by a human claims officer.
               </p>
             </div>
           </div>

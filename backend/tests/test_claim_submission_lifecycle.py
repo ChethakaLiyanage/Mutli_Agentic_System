@@ -9,10 +9,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.api import orchestrator as orchestrator_api
+from backend.app.api import notifications as notifications_api
 from backend.app.api import reviewer as reviewer_api
 from backend.app.graph.state import WorkflowState
+from backend.app.guidance.fallbacks import build_deterministic_guidance_response
 from backend.app.main import app
-from backend.app.orchestrator.agent_clients import LocalGuidanceClient
 from backend.app.orchestrator.claim_repository import (
     InMemoryClaimRepository,
     get_claim_repository,
@@ -89,11 +90,17 @@ class DummyFraudClient:
         from backend.app.schemas.domain import FraudAssessmentContext, RecommendedAction, RiskLevel
         return FraudAssessmentContext(
             risk_score=0.15,
+            rule_score=0.0,
             risk_level=RiskLevel.LOW,
             indicators=[],
             recommended_action=RecommendedAction.CONTINUE_PROCESSING,
             automated_decision=False,
         )
+
+
+class DeterministicGuidanceClient:
+    async def generate(self, request):
+        return build_deterministic_guidance_response(request)
 
 
 def build_test_claim_state(
@@ -105,6 +112,7 @@ def build_test_claim_state(
     claim = ClaimContext(
         claim_id=claim_id,
         claim_reference=f"REF-{claim_id}",
+        workflow_id=workflow_id,
         customer_id=owner_id,
         policy_id="POL-123",
         policy_number="POL-12345",
@@ -162,11 +170,14 @@ def lifecycle_env():
         workflow_repository=workflows_repo,
         claim_repository=claims_repo,
         fraud_client=DummyFraudClient(),
-        guidance_client=LocalGuidanceClient(),
+        guidance_client=DeterministicGuidanceClient(),
     )
 
     app.dependency_overrides[get_document_repository] = lambda: docs_repo
     app.dependency_overrides[get_notification_repository] = lambda: notifs_repo
+    app.dependency_overrides[notifications_api.get_notification_service] = (
+        lambda: notif_service
+    )
     app.dependency_overrides[get_claim_repository] = lambda: claims_repo
     app.dependency_overrides[orchestrator_api.get_orchestrator_service] = lambda: orch_service
     app.dependency_overrides[reviewer_api.get_review_service] = lambda: review_service
@@ -399,7 +410,7 @@ def test_full_claim_submission_and_review_lifecycle(lifecycle_env):
         f"/review/workflows/{workflow_id}/decision",
         json={"decision": "reject", "reason": "   "},
     )
-    assert empty_reason_res.status_code == 409
+    assert empty_reason_res.status_code == 422
 
     # 8. Assigned officer submits valid authoritative rejection
     rejection_reason = "Damage pattern is inconsistent with collision description."
@@ -409,8 +420,8 @@ def test_full_claim_submission_and_review_lifecycle(lifecycle_env):
     )
     assert decision_res.status_code == 200
     dec_data = decision_res.json()
-    assert dec_data["decision"] == "reject"
-    assert dec_data["claim_status"] == "rejected"
+    assert dec_data["decision"]["decision"] == "reject"
+    assert dec_data["status"] == "rejected"
 
     # 9. Verification: Customer notification is created
     app.dependency_overrides[get_current_user] = lambda: CUSTOMER_USER
@@ -445,3 +456,26 @@ def test_full_claim_submission_and_review_lifecycle(lifecycle_env):
     my_claims_res = client.get("/claims/my-claims")
     assert my_claims_res.status_code == 200
     assert my_claims_res.json()["total"] >= 1
+
+    # 12. Claim Assistant receives one stable, customer-safe Agent 4 event.
+    workflow_res = client.get(f"/orchestrator/workflows/{workflow_id}")
+    assert workflow_res.status_code == 200
+    workflow_body = workflow_res.json()
+    assert workflow_body["status"] == "rejected"
+    assert rejection_reason in workflow_body["message"]
+    assert workflow_body["guidance_result"]["event_id"].startswith(
+        "human-decision:DEC-"
+    )
+    serialized = workflow_res.text.lower()
+    assert "investigated by officer 1" not in serialized
+    assert "risk_score" not in serialized
+    assert "anomaly_score" not in serialized
+
+    repeated_workflow_res = client.get(
+        f"/orchestrator/workflows/{workflow_id}"
+    )
+    assert repeated_workflow_res.status_code == 200
+    assert (
+        repeated_workflow_res.json()["guidance_result"]["event_id"]
+        == workflow_body["guidance_result"]["event_id"]
+    )

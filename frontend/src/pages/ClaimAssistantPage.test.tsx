@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import {
@@ -492,6 +492,7 @@ describe("ClaimAssistantPage", () => {
         status,
         message: `Customer-safe ${status} explanation.`,
         guidance_result: {
+          event_id: `human-decision:DEC-${status}`,
           status: "success",
           response_type: "final_decision_explanation",
           agent: "guidance_agent",
@@ -505,6 +506,111 @@ describe("ClaimAssistantPage", () => {
       expect(await screen.findByText(`Customer-safe ${status} explanation.`)).toBeInTheDocument();
     },
   );
+
+  it("appends a new decision to preserved history and keeps one copy after remount", async () => {
+    const storageKey = chatHistoryStorageKey("CUSTOMER-A");
+    localStorage.setItem(storageKey, JSON.stringify([
+      {
+        id: "MSG-EXISTING",
+        sender: "system",
+        text: "Your claim is awaiting review by a claims officer.",
+        timestamp: "2026-09-27T08:00:00.000Z",
+      },
+    ]));
+    sessionStorage.setItem(ACTIVE_WORKFLOW_KEY, "WF-CLAIM");
+    const decisionResponse = workflowResponse({
+      status: "rejected",
+      message: "Your claim was rejected. Reason: Required evidence did not match.",
+      guidance_result: {
+        event_id: "human-decision:DEC-REJECT-1",
+        status: "success",
+        response_type: "final_decision_explanation",
+        agent: "guidance_agent",
+        data: {
+          message: "Your claim was rejected. Reason: Required evidence did not match.",
+        },
+      },
+    });
+    vi.mocked(getWorkflow).mockResolvedValue(decisionResponse);
+
+    const view = render(<ClaimAssistantPage />);
+
+    expect(await screen.findByText(decisionResponse.message!)).toBeInTheDocument();
+    expect(screen.getAllByText(decisionResponse.message!)).toHaveLength(1);
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      expect(stored.at(-1).eventId).toBe("human-decision:DEC-REJECT-1");
+    });
+
+    view.unmount();
+    render(<ClaimAssistantPage />);
+    expect(screen.getAllByText(decisionResponse.message!)).toHaveLength(1);
+    expect(getWorkflow).toHaveBeenCalledOnce();
+  });
+
+  it("deduplicates repeated status responses for the same human decision", async () => {
+    const decisionResponse = workflowResponse({
+      status: "approved",
+      message: "Your claim has been approved by a claims officer.",
+      guidance_result: {
+        event_id: "human-decision:DEC-APPROVE-1",
+        status: "success",
+        response_type: "final_decision_explanation",
+        agent: "guidance_agent",
+        data: { message: "Your claim has been approved by a claims officer." },
+      },
+    });
+    vi.mocked(processRequest).mockResolvedValue(decisionResponse);
+    render(<ClaimAssistantPage />);
+
+    await sendMessage("What is my claim status?");
+    await screen.findByText(decisionResponse.message!);
+    await sendMessage("What is my claim status now?");
+
+    expect(screen.getAllByText(decisionResponse.message!)).toHaveLength(1);
+    expect(processRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it("polls an active review and appends the resulting decision only once", async () => {
+    vi.useFakeTimers();
+    try {
+      sessionStorage.setItem(ACTIVE_WORKFLOW_KEY, "WF-CLAIM");
+      const awaitingReview = workflowResponse();
+      const decisionResponse = workflowResponse({
+        status: "more_information_required",
+        message: "Additional information is required: provide a clearer photograph.",
+        guidance_result: {
+          event_id: "human-decision:DEC-INFO-1",
+          status: "success",
+          response_type: "final_decision_explanation",
+          agent: "guidance_agent",
+          data: {
+            message: "Additional information is required: provide a clearer photograph.",
+          },
+        },
+      });
+      vi.mocked(getWorkflow)
+        .mockResolvedValueOnce(awaitingReview)
+        .mockResolvedValue(decisionResponse);
+      render(<ClaimAssistantPage />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(getWorkflow).toHaveBeenCalledOnce();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+      });
+
+      expect(screen.getAllByText(decisionResponse.message!)).toHaveLength(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(45_000);
+      });
+      expect(screen.getAllByText(decisionResponse.message!)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it("restores a workflow that still needs status tracking", async () => {
     sessionStorage.setItem(ACTIVE_WORKFLOW_KEY, "WF-CLAIM");
