@@ -362,7 +362,10 @@ class OrchestratorService:
             else self._public_fraud_result(state.fraud_result)
         )
         message = self._public_message(state, retrieval_status)
-        public_guidance = self._public_guidance_result(state.guidance_result)
+        public_guidance = self._public_guidance_result(
+            state.guidance_result,
+            event_id=self._customer_guidance_event_id(state),
+        )
 
         claim_id = state.claim_context.claim_id if state.claim_context else None
         return OrchestratorResponse(
@@ -564,13 +567,34 @@ class OrchestratorService:
         state.guidance_result = response.model_dump(mode="json")
 
     @staticmethod
-    def _public_guidance_result(guidance_result: dict | None) -> dict | None:
+    def _public_guidance_result(
+        guidance_result: dict | None,
+        *,
+        event_id: str | None = None,
+    ) -> dict | None:
         if guidance_result is None:
             return None
-        return {
+        public = {
             key: value for key, value in guidance_result.items()
             if key in {"status", "response_type", "agent", "data", "warnings", "created_at"}
         }
+        if event_id is not None:
+            public["event_id"] = event_id
+        return public
+
+    @staticmethod
+    def _customer_guidance_event_id(state: WorkflowState) -> str | None:
+        """Return a stable public identity for one authoritative decision message."""
+
+        if not state.human_review_result or not state.guidance_result:
+            return None
+        if state.guidance_result.get("response_type") not in {
+            "final_decision_explanation",
+            "human_decision",
+        }:
+            return None
+        decision_id = state.human_review_result.get("decision_id")
+        return f"human-decision:{decision_id}" if decision_id else None
 
     def determine_workflow_type(self, state: WorkflowState) -> WorkflowType:
         """Map Agent 1's intent to one controlled Orchestrator workflow type."""
@@ -2272,7 +2296,8 @@ class OrchestratorService:
                     not isinstance(response, GuidanceResponse)
                     or response.status != "success"
                     or not self._guidance_matches_decision(
-                        response.data.message, decision.decision
+                        response.data.message,
+                        decision,
                     )
                 )
             except Exception:
@@ -2303,38 +2328,60 @@ class OrchestratorService:
         await self.workflow_repository.save(state)
 
     @staticmethod
-    def _guidance_matches_decision(message: str, decision: HumanDecision) -> bool:
+    def _guidance_matches_decision(
+        message: str,
+        decision: HumanDecisionContext,
+    ) -> bool:
         text = message.lower()
         approval = "approv" in text
         rejection = "reject" in text or "cannot be approved" in text
-        if decision is HumanDecision.APPROVE:
-            return approval and not rejection
-        if decision is HumanDecision.REJECT:
-            return rejection and not "has been approved" in text
-        if decision is HumanDecision.REQUEST_MORE_INFORMATION:
-            return "information" in text and not approval and not rejection
-        return ("escalat" in text or "specialist" in text) and not approval and not rejection
+        reason = (decision.reason or "").strip().casefold()
+        reason_is_grounded = not reason or reason in message.casefold()
+        if decision.decision is HumanDecision.APPROVE:
+            matches = approval and not rejection
+        elif decision.decision is HumanDecision.REJECT:
+            matches = rejection and "has been approved" not in text
+        elif decision.decision is HumanDecision.REQUEST_MORE_INFORMATION:
+            matches = "information" in text and not approval and not rejection
+        else:
+            matches = (
+                ("escalat" in text or "specialist" in text)
+                and not approval
+                and not rejection
+            )
+        return matches and reason_is_grounded
 
     @staticmethod
     def _decision_fallback(decision: HumanDecisionContext) -> dict:
         reason = decision.reason
         messages = {
             HumanDecision.APPROVE: (
-                "Your claim has been approved by a claims officer. "
-                "Detailed guidance is temporarily unavailable."
+                "Your claim has been reviewed and approved by a claims officer."
+                + (f" The recorded reason is: {reason}" if reason else "")
             ),
             HumanDecision.REJECT: (
-                "A claims officer has completed review and rejected the claim."
+                "Your claim has been reviewed and rejected by a claims officer."
                 + (f" The recorded reason is: {reason}" if reason else "")
             ),
             HumanDecision.REQUEST_MORE_INFORMATION: (
-                "A claims officer requested additional information."
+                "A claims officer reviewed your claim and requested additional information."
                 + (f" The request is: {reason}" if reason else "")
             ),
             HumanDecision.ESCALATE: (
-                "Your claim requires additional specialist review. "
-                "No approval or rejection has been recorded."
+                "Your claim has been escalated for further review."
+                + (f" The recorded reason is: {reason}" if reason else "")
+                + " No approval or rejection has been recorded."
             ),
+        }
+        next_steps = {
+            HumanDecision.APPROVE: [],
+            HumanDecision.REJECT: [],
+            HumanDecision.REQUEST_MORE_INFORMATION: [
+                "Provide the requested information through your claim workflow."
+            ],
+            HumanDecision.ESCALATE: [
+                "You will be informed when the review status changes."
+            ],
         }
         return {
             "status": "success",
@@ -2342,7 +2389,7 @@ class OrchestratorService:
             "agent": "guidance_agent",
             "data": {
                 "message": messages[decision.decision],
-                "next_steps": [],
+                "next_steps": next_steps[decision.decision],
                 "evidence_used": [],
                 "requires_human_review": (
                     decision.decision is HumanDecision.ESCALATE

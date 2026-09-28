@@ -398,6 +398,12 @@ def test_all_four_post_decision_outcomes_preserve_authoritative_decision(
     # Customer-safe explanation generated
     assert response.guidance_result is not None
     assert response.guidance_result["status"] == "success"
+    assert response.guidance_result["event_id"] == (
+        f"human-decision:{stored.decision_id}"
+        if (stored := asyncio.run(reviews.repository.get_decision(state.workflow_id)))
+        else None
+    )
+    assert reason in response.message
     # Internal notes not leaked to customer
     assert internal_notes not in response.message
     assert internal_notes not in response.model_dump_json()

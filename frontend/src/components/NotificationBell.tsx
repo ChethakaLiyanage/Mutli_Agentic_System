@@ -64,8 +64,18 @@ export const NotificationBell = () => {
         /missing|required document|additional information/i.test(
           `${item.title} ${item.message}`,
         ));
+    const isDecisionUpdate = [
+      "claim_approved",
+      "claim_rejected",
+      "more_information_required",
+      "claim_escalated",
+    ].includes(item.notification_type);
 
-    if (needsDocuments && item.workflow_id && item.claim_id) {
+    if (isDecisionUpdate && item.workflow_id) {
+      navigate(
+        `/claim-assistant?workflowId=${encodeURIComponent(item.workflow_id)}`,
+      );
+    } else if (needsDocuments && item.workflow_id && item.claim_id) {
       navigate(
         `/dashboard/claims/${encodeURIComponent(item.claim_id)}?workflowId=${encodeURIComponent(item.workflow_id)}&action=upload-documents`,
       );

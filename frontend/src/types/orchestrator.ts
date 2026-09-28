@@ -149,6 +149,7 @@ export interface CustomerGuidanceData {
 }
 
 export interface CustomerGuidanceResult {
+  event_id?: string;
   status: GuidanceStatus;
   response_type: GuidanceResponseType;
   agent: "guidance_agent";

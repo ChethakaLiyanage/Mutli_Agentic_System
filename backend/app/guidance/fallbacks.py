@@ -7,6 +7,7 @@ from backend.app.guidance.schemas import (
     GuidanceRequest,
     GuidanceResponse,
     GuidanceResponseData,
+    ReviewerSummarySection,
 )
 
 
@@ -189,7 +190,7 @@ def _reviewer_summary_message(request: GuidanceRequest) -> str:
     risk_level = (fraud.risk_level if hasattr(fraud, "risk_level") else "Unknown") if fraud else "Unknown"
     if hasattr(risk_level, "value"):
         risk_level = risk_level.value
-    indicators = [ind.title for ind in (fraud.indicators if fraud else [])]
+    indicators = [ind.title for ind in (fraud.risk_indicators if fraud else [])]
     ind_str = ", ".join(indicators) if indicators else "None"
 
     return (
@@ -420,7 +421,7 @@ def build_deterministic_guidance_response(
         incident = claim.get("incident_type") or "Not specified"
         date_val = claim.get("incident_date") or "Not specified"
         fraud = request.fraud_assessment
-        obs = [ind.title for ind in (fraud.indicators if fraud else [])]
+        obs = [ind.title for ind in (fraud.risk_indicators if fraud else [])]
         summary_sec = ReviewerSummarySection(
             claim_overview=f"Reported {incident} on {date_val}",
             policy_findings=[],

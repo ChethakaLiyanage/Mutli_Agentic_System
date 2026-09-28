@@ -65,6 +65,18 @@ const SUBMITTED_CLAIM_STATUSES = new Set<WorkflowStatus>([
   "completed",
 ]);
 
+const POLLED_CLAIM_STATUSES = new Set<WorkflowStatus>([
+  "documents_submitted",
+  "fraud_triage",
+  "fraud_triage_complete",
+  "review_summary_generation",
+  "awaiting_assignment",
+  "under_human_review",
+  "awaiting_human_review",
+]);
+
+const WORKFLOW_POLL_INTERVAL_MS = 15_000;
+
 const isPureGreetingResponse = (response: WorkflowResponse): boolean =>
   isOrchestratorResponse(response) &&
   response.status === "completed" &&
@@ -89,8 +101,10 @@ const makeId = (prefix: string): string => {
 const createMessage = (
   sender: ChatMessage["sender"],
   text: string,
+  eventId?: string,
 ): ChatMessage => ({
   id: makeId("MSG"),
+  ...(eventId ? { eventId } : {}),
   sender,
   text,
   timestamp: new Date().toISOString(),
@@ -137,6 +151,25 @@ export const ClaimAssistantPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const workflowRestoreGeneration = useRef(0);
+
+  const appendWorkflowMessage = useCallback((
+    response: WorkflowResponse,
+    options?: { onlyWhenEmpty?: boolean },
+  ) => {
+    const eventId = response.guidance_result?.event_id;
+    setMessages((current) => {
+      if (eventId && current.some((message) => message.eventId === eventId)) {
+        return current;
+      }
+      if (options?.onlyWhenEmpty && current.length > 0 && !eventId) {
+        return current;
+      }
+      return [
+        ...current,
+        createMessage("system", resultMessage(response), eventId),
+      ];
+    });
+  }, []);
 
   const activeClaimWf =
     workflow && needsWorkflowTracking(workflow)
@@ -197,11 +230,7 @@ export const ClaimAssistantPage = () => {
           workflowRestoreGeneration.current !== restoreGeneration
         ) return;
         applyWorkflow(response);
-        setMessages((current) =>
-          current.length > 0
-            ? current
-            : [createMessage("system", resultMessage(response))],
-        );
+        appendWorkflowMessage(response, { onlyWhenEmpty: true });
         if (
           requestedAction === "upload-documents" &&
           isOrchestratorResponse(response) &&
@@ -224,7 +253,37 @@ export const ClaimAssistantPage = () => {
     return () => {
       active = false;
     };
-  }, [applyWorkflow, requestedAction, requestedWorkflowId]);
+  }, [appendWorkflowMessage, applyWorkflow, requestedAction, requestedWorkflowId]);
+
+  useEffect(() => {
+    const target = activeClaimWf;
+    if (
+      !target ||
+      !isOrchestratorResponse(target) ||
+      !POLLED_CLAIM_STATUSES.has(target.status)
+    ) {
+      return;
+    }
+
+    let active = true;
+    const poll = async () => {
+      try {
+        const response = await getWorkflow(target.workflow_id);
+        if (!active) return;
+        applyWorkflow(response);
+        if (response.guidance_result?.event_id) {
+          appendWorkflowMessage(response);
+        }
+      } catch {
+        // Background status polling must not interrupt the chat experience.
+      }
+    };
+    const interval = window.setInterval(() => void poll(), WORKFLOW_POLL_INTERVAL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [activeClaimWf, appendWorkflowMessage, applyWorkflow]);
 
   useEffect(() => {
     saveChatHistory(historyStorageKey, messages);
@@ -283,10 +342,7 @@ export const ClaimAssistantPage = () => {
         : await processRequest(request);
 
       applyWorkflow(response);
-      setMessages((current) => [
-        ...current,
-        createMessage("system", resultMessage(response)),
-      ]);
+      appendWorkflowMessage(response);
     } catch (requestError) {
       setError(getOrchestratorErrorMessage(requestError));
     } finally {
@@ -343,10 +399,7 @@ export const ClaimAssistantPage = () => {
     try {
       const response = await getWorkflow(target.workflow_id);
       applyWorkflow(response);
-      setMessages((current) => [
-        ...current,
-        createMessage("system", resultMessage(response)),
-      ]);
+      appendWorkflowMessage(response);
     } catch (requestError) {
       if (isWorkflowNotFoundError(requestError)) {
         sessionStorage.removeItem(ACTIVE_WORKFLOW_KEY);

@@ -432,6 +432,57 @@ def test_location_only_clarification_preserves_existing_claim_facts() -> None:
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize(
+    ("clarification", "expected_amount"),
+    [
+        ("kandy, 20usd", 20),
+        ("kandy, LKR 20000", 20000),
+    ],
+)
+def test_windscreen_clarification_accepts_currency_before_or_after_amount(
+    clarification: str,
+    expected_amount: int,
+) -> None:
+    async def scenario() -> None:
+        repository = InMemoryWorkflowRepository()
+        agent = ClaimIntakeAgent(
+            reference_date_provider=lambda: date(2026, 9, 28)
+        )
+        service = OrchestratorService(LocalClaimIntakeClient(agent), repository)
+        initial = await service.process_request(
+            OrchestratorRequest(
+                request_id="AMOUNT-001",
+                text="my car was damaged yesterday and damaged the windscreen",
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+        assert isinstance(initial, ClarificationResponse)
+        assert initial.missing_fields == ["location", "claimed_amount"]
+
+        resumed = await service.resume_clarification(
+            initial.workflow_id,
+            ClarificationRequest(
+                request_id="AMOUNT-002",
+                text=clarification,
+            ),
+            authenticated_user_id=OWNER_ID,
+            authenticated_user_role=OWNER_ROLE,
+        )
+
+        assert isinstance(resumed, OrchestratorResponse)
+        assert resumed.requires_clarification is False
+        assert resumed.missing_fields == []
+        assert resumed.intake_result is not None
+        incident = resumed.intake_result.data.incident
+        assert incident.type == "windscreen_damage"
+        assert incident.normalized_date == "2026-09-27"
+        assert incident.location == "Kandy"
+        assert incident.claimed_amount == expected_amount
+
+    asyncio.run(scenario())
+
+
 def test_misspelled_gazetteer_location_completes_existing_claim_context() -> None:
     async def scenario() -> None:
         repository = InMemoryWorkflowRepository()
