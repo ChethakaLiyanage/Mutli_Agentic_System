@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -85,6 +86,7 @@ class IncidentInformation(_IntakeContract):
     date_text: str | None = None
     normalized_date: str | None = None
     location: str | None = None
+    claimed_amount: Decimal | None = None
 
 
 class DamageInformation(_IntakeContract):

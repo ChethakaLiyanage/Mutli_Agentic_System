@@ -42,7 +42,12 @@ from backend.app.schemas.domain import (
 from backend.app.schemas.intake import IntakeResponse
 
 
-_CLAIM_REQUIRED_FIELDS = ("incident_type", "incident_date", "location")
+_CLAIM_REQUIRED_FIELDS = (
+    "incident_type",
+    "incident_date",
+    "location",
+    "claimed_amount",
+)
 
 
 def merge_claim_intake_results(
@@ -80,6 +85,9 @@ def merge_claim_intake_results(
         new_incident.date_text = old_incident.date_text
         new_incident.normalized_date = old_incident.normalized_date
     new_incident.location = new_incident.location or old_incident.location
+    new_incident.claimed_amount = (
+        new_incident.claimed_amount or old_incident.claimed_amount
+    )
 
     merged.data.damage.areas = list(
         dict.fromkeys(previous.data.damage.areas + merged.data.damage.areas)
@@ -103,6 +111,7 @@ def merge_claim_intake_results(
             new_incident.date_text or new_incident.normalized_date
         ),
         "location": bool(new_incident.location),
+        "claimed_amount": new_incident.claimed_amount is not None,
     }
     has_grounded_claim_fact = any(available.values())
     if has_grounded_claim_fact:
@@ -135,6 +144,7 @@ def intake_to_claim_context(
         incident_type=normalize_incident_type(incident.type),
         incident_date=incident.normalized_date,
         incident_location=incident.location,
+        claimed_amount=incident.claimed_amount,
         incident_description=damage.description,
         damage_areas=list(damage.areas),
     )

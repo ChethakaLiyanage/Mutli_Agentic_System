@@ -5,6 +5,8 @@ from backend.app.services.supabase_service import get_supabase_client
 
 
 def fraud_detection_agent(state: dict) -> dict:
+
+    #Pulling inputs from shared state
     retrieval_res = state.get("retrieval_response") or {}
     result_data = retrieval_res.get("result") or {}
 
@@ -38,6 +40,7 @@ def fraud_detection_agent(state: dict) -> dict:
     claim = ClaimData(**claim_raw)
     docs_list = state.get("document_facts") or result_data.get("document_facts", [])
 
+    # Fetching historical data
     repository = FraudRepository(get_supabase_client())
 
     historical_claims = repository.get_policy_claim_history(

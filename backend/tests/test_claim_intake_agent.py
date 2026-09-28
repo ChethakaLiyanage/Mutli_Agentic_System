@@ -6,6 +6,7 @@ from datetime import date
 import pytest
 
 from backend.app.agents.claim_intake_agent import ClaimIntakeAgent
+from backend.app.nlp.amount_extraction import extract_claimed_amount
 from backend.app.schemas.intake import IntakeRequest
 
 
@@ -18,8 +19,27 @@ def analyze(agent: ClaimIntakeAgent, text: str, request_id: str = "REQ001"):
     return agent.analyze(IntakeRequest(request_id=request_id, text=text))
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("I am claiming LKR 500,000.", 500000),
+        ("The claimed amount is Rs. 250,000.", 250000),
+        ("I want to claim 300000 rupees.", 300000),
+    ],
+)
+def test_extracts_claimed_amount_from_message(text: str, expected: int) -> None:
+    assert extract_claimed_amount(text) == expected
+
+
+def test_amount_extractor_ignores_dates() -> None:
+    assert extract_claimed_amount("The accident happened on 2026-09-15.") is None
+
+
 def test_complete_collision_claim(agent: ClaimIntakeAgent) -> None:
-    original_text = "A bus hit my car yesterday near Kandy and damaged the left door."
+    original_text = (
+        "A bus hit my car yesterday near Kandy and damaged the left door. "
+        "I am claiming LKR 500,000."
+    )
     request = IntakeRequest(request_id="REQ001", text=original_text)
 
     response = agent.analyze(request)
@@ -32,6 +52,7 @@ def test_complete_collision_claim(agent: ClaimIntakeAgent) -> None:
     assert response.data.incident.date_text == "yesterday"
     assert response.data.incident.normalized_date == "2026-09-15"
     assert response.data.incident.location == "Kandy"
+    assert response.data.incident.claimed_amount == 500000
     assert response.data.damage.areas == ["left door"]
     assert response.data.missing_fields == []
     assert response.data.requires_clarification is False
@@ -76,6 +97,7 @@ def test_incomplete_claim_reports_only_genuinely_missing_fields(
         "incident_type",
         "incident_date",
         "location",
+        "claimed_amount",
     ]
     assert response.data.requires_clarification is True
 
@@ -112,7 +134,7 @@ def test_complete_flood_claim(agent: ClaimIntakeAgent) -> None:
     response = analyze(
         agent,
         "Flood water entered my car yesterday near Galle and damaged the engine. "
-        "I want to claim.",
+        "I want to claim LKR 750,000.",
     )
 
     assert response.data.intent.label == "claim_submission"
@@ -126,7 +148,8 @@ def test_complete_flood_claim(agent: ClaimIntakeAgent) -> None:
 def test_complete_theft_or_break_in_claim(agent: ClaimIntakeAgent) -> None:
     response = analyze(
         agent,
-        "Someone broke into my car yesterday near Colombo and I need to make a claim.",
+        "Someone broke into my car yesterday near Colombo and I need to make a claim "
+        "for Rs. 250,000.",
     )
 
     assert response.data.intent.label == "claim_submission"
@@ -140,7 +163,7 @@ def test_multiple_damage_areas_are_preserved(agent: ClaimIntakeAgent) -> None:
     response = analyze(
         agent,
         "The crash damaged my left door and rear bumper yesterday near Kandy. "
-        "I want to claim.",
+        "I want to claim 300000 rupees.",
     )
 
     assert response.data.incident.type == "vehicle_collision"

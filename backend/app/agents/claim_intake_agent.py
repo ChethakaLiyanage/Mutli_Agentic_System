@@ -9,7 +9,9 @@ from backend.app.security.input_sanitization import (
 import logging
 from collections.abc import Callable
 from datetime import date
+from decimal import Decimal
 
+from backend.app.nlp.amount_extraction import extract_claimed_amount
 from backend.app.nlp.damage_extraction import extract_damage_areas
 from backend.app.nlp.date_extraction import extract_date
 from backend.app.nlp.entity_extraction import extract_entities, normalize_location
@@ -30,7 +32,12 @@ from backend.app.schemas.intake import (
 logger = logging.getLogger(__name__)
 
 INTENT_CONFIDENCE_THRESHOLD = 0.50
-_CLAIM_REQUIRED_FIELDS = ("incident_type", "incident_date", "location")
+_CLAIM_REQUIRED_FIELDS = (
+    "incident_type",
+    "incident_date",
+    "location",
+    "claimed_amount",
+)
 _SOCIAL_INTENTS = {"greeting", "thanks", "goodbye", "acknowledgement"}
 
 
@@ -50,11 +57,13 @@ def _find_missing_claim_fields(
     incident_type: str | None,
     date_text: str | None,
     location: str | None,
+    claimed_amount: Decimal | None,
 ) -> list[str]:
     available = {
         "incident_type": bool(incident_type),
         "incident_date": bool(date_text),
         "location": bool(location),
+        "claimed_amount": claimed_amount is not None,
     }
     return [field for field in _CLAIM_REQUIRED_FIELDS if not available[field]]
 
@@ -99,6 +108,7 @@ class ClaimIntakeAgent:
             entities = extract_entities(original_text)
             incident_type = extract_incident_type(original_text)
             damage_areas = extract_damage_areas(original_text)
+            claimed_amount = extract_claimed_amount(original_text)
             date_text, normalized_date = extract_date(
                 original_text,
                 reference_date=self._reference_date_provider(),
@@ -106,7 +116,12 @@ class ClaimIntakeAgent:
             location = _select_location(entities)
 
             missing_fields = (
-                _find_missing_claim_fields(incident_type, date_text, location)
+                _find_missing_claim_fields(
+                    incident_type,
+                    date_text,
+                    location,
+                    claimed_amount,
+                )
                 if intent_label == "claim_submission"
                 else []
             )
@@ -131,6 +146,7 @@ class ClaimIntakeAgent:
                         date_text=date_text,
                         normalized_date=normalized_date,
                         location=location,
+                        claimed_amount=claimed_amount,
                     ),
                     damage=DamageInformation(areas=damage_areas),
                     entities=entities,
